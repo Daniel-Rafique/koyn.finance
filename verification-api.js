@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const https = require('https');
 
 // Create Express app
 const app = express();
@@ -1211,11 +1212,96 @@ function writeSubscriptions(subscriptions) {
   }
 }
 
+// SSL Certificate configuration
+function loadSSLCertificates() {
+  // First, try environment variables (consistent with main API)
+  const SSL_KEY_PATH = process.env.SSL_KEY_PATH;
+  const SSL_CERT_PATH = process.env.SSL_CERT_PATH;
+  
+  if (SSL_KEY_PATH && SSL_CERT_PATH) {
+    try {
+      if (fs.existsSync(SSL_KEY_PATH) && fs.existsSync(SSL_CERT_PATH)) {
+        const key = fs.readFileSync(SSL_KEY_PATH, 'utf8');
+        const cert = fs.readFileSync(SSL_CERT_PATH, 'utf8');
+        console.log(`✅ SSL certificates loaded from environment variables:`);
+        console.log(`   Key: ${SSL_KEY_PATH}`);
+        console.log(`   Cert: ${SSL_CERT_PATH}`);
+        return { key, cert };
+      } else {
+        console.warn(`⚠️  SSL certificate files not found at specified environment paths:`);
+        console.warn(`   SSL_KEY_PATH: ${SSL_KEY_PATH} (exists: ${fs.existsSync(SSL_KEY_PATH)})`);
+        console.warn(`   SSL_CERT_PATH: ${SSL_CERT_PATH} (exists: ${fs.existsSync(SSL_CERT_PATH)})`);
+      }
+    } catch (error) {
+      console.error(`Failed to load SSL certificates from environment variables:`, error.message);
+    }
+  }
+
+  // Fallback to common certificate paths
+  const certPaths = [
+    // Common certificate paths on different systems  
+    { key: '/etc/letsencrypt/live/koyn.finance/privkey.pem', cert: '/etc/letsencrypt/live/koyn.finance/fullchain.pem' },
+    { key: '/etc/ssl/certs/koyn.finance.key', cert: '/etc/ssl/certs/koyn.finance.crt' },
+    { key: '/usr/local/etc/ssl/koyn.finance.key', cert: '/usr/local/etc/ssl/koyn.finance.crt' },
+    { key: './ssl/koyn.finance.key', cert: './ssl/koyn.finance.crt' },
+    { key: './certs/koyn.finance.key', cert: './certs/koyn.finance.crt' }
+  ];
+
+  // Try each fallback certificate path
+  for (const certPath of certPaths) {
+    try {
+      if (fs.existsSync(certPath.key) && fs.existsSync(certPath.cert)) {
+        const key = fs.readFileSync(certPath.key, 'utf8');
+        const cert = fs.readFileSync(certPath.cert, 'utf8');
+        console.log(`✅ SSL certificates loaded from fallback path: ${certPath.key}`);
+        return { key, cert };
+      }
+    } catch (error) {
+      console.warn(`Failed to load SSL certificates from ${certPath.key}:`, error.message);
+    }
+  }
+
+  // No certificates found
+  console.warn('⚠️  No SSL certificates found. For production, please install proper SSL certificates.');
+  console.log('💡 Set SSL certificate paths using environment variables:');
+  console.log('   export SSL_KEY_PATH=/path/to/your/private.key');
+  console.log('   export SSL_CERT_PATH=/path/to/your/certificate.crt');
+  console.log('💡 Or for development, create self-signed certificates:');
+  console.log('   mkdir ssl && openssl req -x509 -newkey rsa:4096 -keyout ssl/koyn.finance.key -out ssl/koyn.finance.crt -days 365 -nodes');
+  
+  return null;
+}
+
 // Start the server if this is the main module
 if (require.main === module) {
-  app.listen(port, () => {
-    console.log(`Verification API server listening on port ${port}`);
-  });
+  const sslOptions = loadSSLCertificates();
+  
+  if (sslOptions) {
+    // Start HTTPS server with SSL certificates
+    const server = https.createServer(sslOptions, app);
+    
+    server.listen(port, () => {
+      console.log(`🔒 Verification API server (HTTPS) listening on port ${port}`);
+      console.log(`🌐 Access via: https://koyn.finance:${port}`);
+    });
+
+    // Handle HTTPS server errors
+    server.on('error', (error) => {
+      console.error('HTTPS server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${port} is already in use. Please stop the existing service or use a different port.`);
+      }
+    });
+  } else {
+    // Fallback to HTTP for development/testing (but warn about it)
+    console.warn('🚨 SECURITY WARNING: Starting HTTP server instead of HTTPS');
+    console.warn('🚨 This should only be used for development/testing purposes');
+    
+    app.listen(port, () => {
+      console.log(`⚠️  Verification API server (HTTP) listening on port ${port}`);
+      console.log(`⚠️  WARNING: Using insecure HTTP connection`);
+    });
+  }
 }
 
 // Export for use in other files
