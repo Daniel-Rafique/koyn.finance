@@ -294,8 +294,8 @@ async function sendVerificationEmail(email, code) {
         const msg = {
           to: email,
           from: 'hi@koyn.finance', // Use your verified sender
-          subject: 'Your koyn.ai Verification Code',
-          text: `Your verification code is: ${code}\n\nThis code will expire in 10 minutes.\n\nThank you,\nThe Koyn.ai Team`,
+          subject: 'Your koyn.finance Verification Code',
+          text: `Your verification code is: ${code}\n\nThis code will expire in 10 minutes.\n\nThank you,\nThe koyn.finance Team`,
           html: `
             <div style="font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #ffffff; background-color: #000000;">
               <div style="text-align: center; margin-bottom: 30px;">
@@ -321,7 +321,7 @@ async function sendVerificationEmail(email, code) {
               </div>
               
               <div style="border-top: 1px solid #ffffff; margin-top: 30px; padding-top: 20px; font-size: 13px; color: #ffffff; text-align: center;">
-                <p style="margin-bottom: 10px;">© ${new Date().getFullYear()} Koyn.ai. All rights reserved.</p>
+                <p style="margin-bottom: 10px;">© ${new Date().getFullYear()} koyn.finance. All rights reserved.</p>
                 <div style="display: flex; justify-content: center; margin-top: 15px;">
                   <a href="https://koyn.finance/terms" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Terms</a>
                   <a href="https://koyn.finance/privacy" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Privacy</a>
@@ -867,18 +867,18 @@ async function sendSubscriptionEmail(email, type, subscriptionData = {}) {
     
     switch (type) {
       case 'started':
-        subject = `Welcome to koyn.ai ${planDisplayName}!`;
+        subject = `Welcome to koyn.finance ${planDisplayName}!`;
         heading = 'Your Subscription is Active';
         message = `
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
-            Thank you for subscribing to koyn.ai ${planDisplayName}! Your subscription is now active.
+            Thank you for subscribing to koyn.finance ${planDisplayName}! Your subscription is now active.
           </p>
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
             You now have full access to all premium features and content.
           </p>
         `;
         ctaText = 'Get Started';
-        ctaLink = 'https://koyn.ai';
+        ctaLink = 'https://koyn.finance';
         additionalInfo = `
           <div style="background: rgba(99, 102, 241, 0.1); border-radius: 0.5rem; padding: 20px; margin: 20px 0; border: 1px solid rgba(99, 102, 241, 0.3);">
             <h3 style="color: #818cf8; font-size: 16px; margin-top: 0; margin-bottom: 15px;">Subscription Details</h3>
@@ -890,18 +890,18 @@ async function sendSubscriptionEmail(email, type, subscriptionData = {}) {
         break;
         
       case 'renewed':
-        subject = 'Your koyn.ai Subscription Has Been Renewed';
+        subject = 'Your koyn.finance Subscription Has Been Renewed';
         heading = 'Subscription Renewed';
         message = `
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
-            Your koyn.ai ${planDisplayName} subscription has been successfully renewed.
+            Your koyn.finance ${planDisplayName} subscription has been successfully renewed.
           </p>
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
             You'll continue to enjoy uninterrupted access to all premium features.
           </p>
         `;
         ctaText = 'View Dashboard';
-        ctaLink = 'https://koyn.ai';
+        ctaLink = 'https://koyn.finance';
         additionalInfo = `
           <div style="background: rgba(99, 102, 241, 0.1); border-radius: 0.5rem; padding: 20px; margin: 20px 0; border: 1px solid rgba(99, 102, 241, 0.3);">
             <h3 style="color: #818cf8; font-size: 16px; margin-top: 0; margin-bottom: 15px;">Renewal Details</h3>
@@ -913,18 +913,18 @@ async function sendSubscriptionEmail(email, type, subscriptionData = {}) {
         break;
         
       case 'ended':
-        subject = 'Your koyn.ai Subscription Has Ended';
+        subject = 'Your koyn.finance Subscription Has Ended';
         heading = 'Subscription Ended';
         message = `
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
-            Your koyn.ai ${planDisplayName} subscription has ended.
+            Your koyn.finance ${planDisplayName} subscription has ended.
           </p>
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
             We're sorry to see you go. You can resubscribe at any time to regain access to premium features.
           </p>
         `;
         ctaText = 'Resubscribe Now';
-        ctaLink = 'https://koyn.ai';
+        ctaLink = 'https://koyn.finance';
         additionalInfo = `
           <div style="background: rgba(99, 102, 241, 0.1); border-radius: 0.5rem; padding: 20px; margin: 20px 0; border: 1px solid rgba(99, 102, 241, 0.3);">
             <h3 style="color: #818cf8; font-size: 16px; margin-top: 0; margin-bottom: 15px;">Subscription Details</h3>
@@ -945,13 +945,13 @@ async function sendSubscriptionEmail(email, type, subscriptionData = {}) {
       
       const msg = {
         to: email,
-        from: 'hi@koyn.ai',
+        from: 'hi@koyn.finance',
         subject: subject,
-        text: `${heading}\n\n${subject}\n\nVisit our website at https://koyn.ai\n\nThank you,\nThe Koyn.ai Team`,
+        text: `${heading}\n\n${subject}\n\nVisit our website at https://koyn.finance\n\nThank you,\nThe koyn.finance Team`,
         html: `
           <div style="font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #ffffff; background-color: #000000;">
             <div style="text-align: center; margin-bottom: 30px;">
-              <img src="https://koyn.ai/logo.png" alt="Koyn.ai Logo" style="max-width: 120px;">
+              <img src="https://koyn.finance/logo.png" alt="koyn.finance Logo" style="max-width: 120px;">
             </div>
             
             <div style="background-color: #000000; border-radius: 0.75rem; padding: 30px; box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1); border: 1px solid #ffffff;">
@@ -967,11 +967,11 @@ async function sendSubscriptionEmail(email, type, subscriptionData = {}) {
             </div>
             
             <div style="border-top: 1px solid #ffffff; margin-top: 30px; padding-top: 20px; font-size: 13px; color: #ffffff; text-align: center;">
-              <p style="margin-bottom: 10px;">© ${new Date().getFullYear()} Koyn.ai. All rights reserved.</p>
+              <p style="margin-bottom: 10px;">© ${new Date().getFullYear()} koyn.finance. All rights reserved.</p>
               <div style="display: flex; justify-content: center; margin-top: 15px;">
-                <a href="https://koyn.ai/terms" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Terms</a>
-                <a href="https://koyn.ai/privacy" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Privacy</a>
-                <a href="https://koyn.ai/contact" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Contact</a>
+                <a href="https://koyn.finance/terms" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Terms</a>
+                <a href="https://koyn.finance/privacy" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Privacy</a>
+                <a href="https://koyn.finance/contact" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Contact</a>
               </div>
             </div>
           </div>
