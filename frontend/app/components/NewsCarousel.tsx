@@ -98,6 +98,7 @@ interface Tweet {
   link: string;
   profileImage?: string;
   profileName?: string;
+  accountId?: string;
 }
 
 interface ProfileData {
@@ -119,16 +120,16 @@ const FALLBACK_TWEETS = [
   {
     guid: 'fallback-1',
     creator: 'koynlabs',
-    profileName: 'Koyn Labs',
-    description: 'Welcome to Koyn.finance! Get the latest insights on stocks, crypto, and market trends.',
+    profileName: 'Koynlabs',
+    description: 'Check out the latest updates on crypto markets and trends!',
     pubDate: new Date().toISOString(),
     link: 'https://koyn.finance/koynlabs',
     profileImage: '/logo.jpg'
   },
   {
     guid: 'fallback-2',
-    creator: 'business',
-    profileName: 'Business',
+    creator: 'crypto',
+    profileName: 'Crypto',
     description: 'Markets are showing positive signs as tech stocks rally.',
     pubDate: new Date().toISOString(),
     link: 'https://koyn.finance/crypto',
@@ -136,9 +137,9 @@ const FALLBACK_TWEETS = [
   },
   {
     guid: 'fallback-3',
-    creator: 'BitcoinMagazine',
-    profileName: 'Bitcoin Magazine',
-    description: 'Bitcoin continues to demonstrate strong fundamentals despite market volatility.',
+    creator: 'markets',
+    profileName: 'Markets',
+    description: 'Markets are showing positive signs as tech stocks rally.',
     pubDate: new Date().toISOString(),
     link: 'https://koyn.finance/markets',
     profileImage: '/logo.jpg'
@@ -264,18 +265,29 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
           
           console.log(`Fetching fresh data for ${account}`);
           
-          // Get authentication token (JWT preferred, fallback to legacy subscription)
-          let authHeaders: any = {
+          // Prepare authentication headers
+          const authHeaders: Record<string, string> = {
             'Content-Type': 'application/json'
           };
           
-          // Try JWT token first
-          const accessToken = localStorage.getItem('koyn_access_token');
-          if (accessToken) {
-            authHeaders['Authorization'] = `Bearer ${accessToken}`;
-            console.log('Using JWT token authentication for profile request');
-          } else {
-            // Fallback to legacy subscription ID
+          // Get JWT token from localStorage (new authentication method)
+          let jwtToken = null;
+          try {
+            const subscriptionData = localStorage.getItem('koyn_subscription');
+            if (subscriptionData) {
+              const parsed = JSON.parse(subscriptionData);
+              jwtToken = parsed.token || null;
+              if (jwtToken) {
+                authHeaders['Authorization'] = `Bearer ${jwtToken}`;
+                console.log('Using JWT token authentication for profile request');
+              }
+            }
+          } catch (error) {
+            console.warn('Error reading JWT token from localStorage:', error);
+          }
+          
+          // Fallback to legacy subscription ID if no JWT token
+          if (!jwtToken) {
             let subscriptionId = null;
             try {
               const subscriptionData = localStorage.getItem('koyn_subscription');
@@ -297,12 +309,8 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
           // API endpoint URL - use same domain for live server, localhost:3001 for development
           const apiUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
             ? `${window.location.protocol}//${window.location.hostname}:3001/api/profiles`
-            : `${window.location.protocol}//${window.location.hostname}:3001/api/profiles`;
+            : `${window.location.protocol}//${window.location.hostname}/api/profiles`;
             
-          console.log(`Attempting to fetch from API URL: ${apiUrl}`);
-          console.log(`Current hostname: ${window.location.hostname}`);
-          console.log(`Auth headers:`, authHeaders);
-          
           const response = await fetch(apiUrl, {
             method: 'POST',
             headers: authHeaders,
@@ -515,40 +523,41 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
   
   // Fix potentially broken image URLs
   const fixImageUrl = (url: string | undefined) => {
-    if (!url) return '/logo.jpg'
+    if (!url) return '/logo.jpg'; // Default image if none provided
     
     // If the URL is already absolute and not a koyn.finance URL, use it directly
     if (url.startsWith('http') && !url.includes('koyn.finance/pic/')) {
-      return url
+      return url;
     }
     
     // Extract the actual URL from koyn.finance/pic/ format
     if (url.includes('koyn.finance/pic/')) {
       try {
-        const encodedUrl = url.split('koyn.finance/pic/')[1]
-        const decodedUrl = decodeURIComponent(encodedUrl)
+        // Extract the encoded URL part
+        const encodedUrl = url.split('koyn.finance/pic/')[1];
+        // Some URLs might be double encoded
+        const decodedUrl = decodeURIComponent(encodedUrl);
         
         // If it looks like another koyn.finance URL, return default
         if (decodedUrl.includes('koyn.finance')) {
-          return '/logo.jpg'
+          return '/logo.jpg';
         }
         
-        // If it's a Twitter image URL, ensure it's properly formatted
+        // If it's a Twitter URL, try to format it correctly
         if (decodedUrl.includes('pbs.twimg.com')) {
-          return `https://${decodedUrl.replace(/https?:\/\//, '')}`
+          return `https://${decodedUrl.replace(/https?:\/\//, '')}`;
         }
         
-        // For other URLs, ensure they have https
-        return `https://${decodedUrl}`
-      } catch (error) {
-        return '/logo.jpg'
+        return `https://${decodedUrl}`;
+      } catch (e) {
+        return '/logo.jpg';
       }
     }
     
-    return url
-  }
+    return url;
+  };
 
-  // Convert koyn.ai tweet links to x.com format and ensure proper SEO
+  // Convert koyn.finance tweet links to x.com format and ensure proper SEO
   const convertToXLink = (link: string): string => {
     // Server already handles conversion via Nitter config
     return link;
@@ -619,28 +628,132 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
             activeTweets.map((tweet, index) => (
               <div 
                 key={tweet.guid} 
-                className={`absolute inset-0 transition-transform duration-500 ease-in-out cursor-pointer ${
-                  index === currentTweetIndex ? 'translate-x-0' : 
-                  index < currentTweetIndex ? '-translate-x-full' : 'translate-x-full'
+                className={`absolute top-0 left-0 w-full carousel-item ${
+                  index === currentTweetIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'
                 }`}
-                onClick={() => window.open(convertToXLink(tweet.link), '_blank', 'noopener,noreferrer')}
-                onMouseEnter={() => setHoveredTweet(tweet)}
-                onMouseLeave={() => setHoveredTweet(null)}
+                data-tweet-id={tweet.guid}
+                data-aggregated-content="true"
+                data-original-source={tweet.creator}
               >
-                <div className="flex items-center h-full">
-                  <div className="text-white text-sm truncate">
-                    <span className="font-medium text-white/90">@{tweet.creator}</span>
-                    <span className="mx-2 text-white/60">•</span>
-                    <span className="text-white/80">{formatDescription(tweet.description)}</span>
+                <div 
+                  className="flex items-center cursor-pointer hover:text-white group"
+                  onMouseEnter={() => {
+                    if (index === currentTweetIndex) {
+                      setHoveredTweet(tweet);
+                    }
+                  }}
+                  onClick={() => {
+                    if (index === currentTweetIndex) {
+                      setHoveredTweet(tweet);
+                    }
+                  }}
+                >
+                  <div className="flex-shrink-0">
+                    <img 
+                      src={fixImageUrl(tweet.profileImage)} 
+                      alt={tweet.creator} 
+                      className="w-5 h-5 rounded-full mr-2"
+                      onError={(e) => {
+                        e.currentTarget.src = '/logo.jpg';
+                      }}
+                    />
                   </div>
+                  <span className="text-white text-opacity-90 text-xs mr-2 group-hover:text-opacity-100 flex-shrink-0">
+                    @{tweet.creator.replace('@', '')}
+                  </span>
+                  <span className="text-white text-opacity-80 text-xs group-hover:text-opacity-100 news-content">
+                    {formatDescription(tweet.description)}
+                  </span>
                 </div>
               </div>
             ))
+          ) : loading ? (
+            <div className="text-white text-opacity-60 text-xs">Loading tweets...</div>
           ) : (
-            <div className="text-white/60 text-sm">Loading news...</div>
+            <div className="text-white text-opacity-60 text-xs">No tweets available</div>
           )}
         </div>
+        
+        {/* Carousel indicators */}
+        <div className="ml-4 flex space-x-2 flex-shrink-0">
+          {activeTweets.slice(0, 5).map((_, index) => (
+            <div 
+              key={index} 
+              className={`carousel-dot ${
+                index === currentTweetIndex % 5 ? 'active' : 'inactive'
+              }`}
+              onClick={() => setCurrentTweetIndex(index + (Math.floor(currentTweetIndex / 5) * 5))}
+              style={{ cursor: 'pointer' }}
+            />
+          ))}
+        </div>
       </div>
+      
+      {/* Tweet Popover - Uses hoveredTweet directly */}
+      {hoveredTweet && isBrowser.current && (
+        <div
+          ref={popoverRef}
+          className="tweet-popover"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => {
+            setIsPaused(false);
+            setHoveredTweet(null);
+          }}
+          style={{
+            top: `${popoverPosition.top}px`,
+            left: `${popoverPosition.left}px`
+          }}
+          data-aggregated-content="true"
+          data-indexable="false"
+        >
+          <div className="popover-arrow"></div>
+          
+          <div className="flex items-start mb-3">
+            <img 
+              src={fixImageUrl(hoveredTweet.profileImage)} 
+              alt={hoveredTweet.creator} 
+              className="w-10 h-10 rounded-full mr-3 flex-shrink-0 object-cover"
+              onError={(e) => {
+                e.currentTarget.src = '/logo.jpg';
+              }}
+            />
+            <div>
+              <div className="text-white font-medium">{hoveredTweet.profileName || hoveredTweet.creator}</div>
+              <div className="text-white text-opacity-60 text-xs">@{hoveredTweet.creator.replace('@', '')}</div>
+            </div>
+            <button 
+              className="ml-auto text-white text-opacity-50 hover:text-opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                setHoveredTweet(null);
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div 
+            className="text-white text-sm mb-3 popover-content overflow-auto"
+            style={{ maxHeight: '40vh', wordBreak: 'break-word' }}
+            dangerouslySetInnerHTML={{ __html: formatDescription(hoveredTweet.description, true) }} 
+          />
+          
+          <div className="flex justify-between items-center text-xs text-white text-opacity-60">
+            <div>{formatDate(hoveredTweet.pubDate)}</div>
+            <a 
+              href={convertToXLink(hoveredTweet.link)} 
+              target="_blank" 
+              rel={getLinkRel()}
+              className="text-[#b050a0] hover:underline transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Read More
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
