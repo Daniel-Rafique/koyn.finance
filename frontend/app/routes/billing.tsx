@@ -65,6 +65,15 @@ export default function Billing() {
   // Client-side rendering state - starts as false to match server
   const [isClientSide, setIsClientSide] = useState(false)
 
+  console.log("Billing page render - state:", {
+    contextLoading,
+    isSubscribed,
+    userEmail,
+    user: user?.email,
+    isClientSide,
+    isLoading
+  })
+
   // Safe way to detect client-side rendering
   useEffect(() => {
     setIsClientSide(true)
@@ -112,12 +121,13 @@ export default function Billing() {
         }
       } else if (userEmail && !isSubscribed) {
         console.log("User email found but not subscribed:", userEmail)
+        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
         setSubscriptionDetails({
           id: "inactive-user",
           email: userEmail,
           status: "inactive",
-          startedAt: new Date().toISOString(),
-          renewalDate: new Date().toISOString(),
+          startedAt: fallbackDate,
+          renewalDate: fallbackDate,
           transactionId: "none",
           plan: "none",
           paymentMethod: "none",
@@ -175,7 +185,7 @@ export default function Billing() {
         headers["Authorization"] = `Bearer ${accessToken}`
       }
 
-      const response = await fetch(`/api/subscription/${encodeURIComponent(email)}?t=${Date.now()}`, {
+      const response = await fetch(`/api/subscription/${encodeURIComponent(email)}`, {
         method: "GET",
         headers,
       })
@@ -721,14 +731,17 @@ export default function Billing() {
           <p className="text-[#ffffff] mt-2">Manage your subscription and payment details</p>
         </div>
 
-        {isLoading ? (
+        {isLoading || contextLoading ? (
           <div className="flex justify-center items-center h-64">
             <Loader />
+            {contextLoading && (
+              <div className="text-white text-sm mt-4">Loading subscription status...</div>
+            )}
           </div>
         ) : (
           <>
-            {/* Only render subscription content after client-side hydration */}
-            {isClientSide && (
+            {/* Only render subscription content after client-side hydration AND context loading */}
+            {isClientSide && !contextLoading && (
               <>
                 {subscriptionDetails?.status !== "active" || error ? (
                   renderExpiredSubscription()
@@ -884,7 +897,7 @@ export default function Billing() {
                                 {formatDate(
                                   subscriptionDetails.transactionDetails?.createdAt ||
                                     subscriptionDetails.startedAt ||
-                                    new Date().toISOString(),
+                                    "2024-01-01T00:00:00.000Z",
                                 )}
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap text-sm text-white font-mono">
