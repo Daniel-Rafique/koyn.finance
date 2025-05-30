@@ -95,8 +95,11 @@ export default function Billing() {
     const initializeBilling = async () => {
       // CRITICAL: Wait for SubscriptionContext to finish its verification process
       if (contextLoading) {
+        console.log("SubscriptionContext still loading, waiting...")
         return
       }
+
+      console.log("SubscriptionContext loaded - subscription status:", isSubscribed, "userEmail:", userEmail)
 
       // At this point, SubscriptionContext has finished verification
       // Now we can trust the isSubscribed and userEmail values
@@ -108,6 +111,7 @@ export default function Billing() {
           console.error("Error fetching billing details:", error)
         }
       } else if (userEmail && !isSubscribed) {
+        console.log("User email found but not subscribed:", userEmail)
         setSubscriptionDetails({
           id: "inactive-user",
           email: userEmail,
@@ -121,6 +125,7 @@ export default function Billing() {
         setError("No active subscription found")
         setIsLoading(false)
       } else {
+        console.log("No verified email found, subscription status:", isSubscribed)
         setIsLoading(false)
         setError("Please log in to access your billing information")
       }

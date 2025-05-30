@@ -105,6 +105,7 @@ export default function Analysis() {
     isSubscribed,
     userEmail,
     user,
+    isLoading: contextLoading,
   } = useSubscription()
 
   const [isLoading, setIsLoading] = useState(true)
@@ -127,6 +128,13 @@ export default function Analysis() {
   const [historyVersion, setHistoryVersion] = useState(0)
 
   const query = searchParams.get("q")
+
+  console.log("Analysis page - Current subscription status:", {
+    isSubscribed,
+    userEmail,
+    user: user?.email,
+    contextLoading
+  })
 
   // Effect to handle client-side mounting
   useEffect(() => {
@@ -658,7 +666,16 @@ export default function Analysis() {
   }, [navigate, resultsArray, currentIndex]);
 
   useEffect(() => {
-    if (!user && !isSubscribed) return // Still loading
+    // Don't make protection decisions while context is still loading
+    if (contextLoading) {
+      console.log("Context loading, not setting protection state yet")
+      return
+    }
+
+    console.log("Context loaded, setting protection state based on subscription:", {
+      isSubscribed,
+      user: user?.email
+    })
 
     if (isSubscribed) {
       setIsProtected(false)
@@ -672,10 +689,14 @@ export default function Analysis() {
       const hasBillingParams = urlParams.has("billing") || urlParams.has("account")
 
       if (!isBillingPage && !hasBillingParams) {
+        console.log("User not subscribed and not on billing page, setting protected")
         setIsProtected(true)
+      } else {
+        console.log("User not subscribed but on billing page, allowing access")
+        setIsProtected(false)
       }
     }
-  }, [user, isSubscribed])
+  }, [user, isSubscribed, contextLoading])
 
   // Effect to handle browser back/forward buttons
   useEffect(() => {
@@ -727,9 +748,15 @@ export default function Analysis() {
 
   // This effect handles initial loading of query from URL
   useEffect(() => {
-    if (!query || !hasInitializedFromStorage.current || isProtected) return
+    if (!query || !hasInitializedFromStorage.current || !isClientMounted || contextLoading) {
+      if (!query) console.log("No query parameter")
+      if (!hasInitializedFromStorage.current) console.log("Storage not initialized yet")
+      if (!isClientMounted) console.log("Client not mounted yet") 
+      if (contextLoading) console.log("Context still loading")
+      return
+    }
 
-    console.log("Initial URL query:", query)
+    console.log("All conditions met, processing initial URL query:", query)
 
     // Update previous query reference
     previousQueryRef.current = query
@@ -747,7 +774,7 @@ export default function Analysis() {
       console.log(`No cached results found for "${query}" - fetching from API`)
       fetchAnalysis(query, undefined, false)
     }
-  }, [query, isProtected, fetchAnalysis]) // Removed resultsArray from dependencies to prevent race condition
+  }, [query, isClientMounted, contextLoading, hasInitializedFromStorage.current]) // Removed resultsArray from dependencies to prevent race condition
 
   // Add effect for dropdown animation
   useEffect(() => {

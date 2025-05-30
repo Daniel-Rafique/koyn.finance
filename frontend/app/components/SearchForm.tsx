@@ -36,10 +36,17 @@ export default function SearchForm({
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Use secure subscription context
-  const { isSubscribed: contextIsSubscribed, user, userEmail } = useSubscription()
+  const { isSubscribed: contextIsSubscribed, user, userEmail, isLoading: contextLoading } = useSubscription()
 
   // Use context subscription status if available, otherwise fall back to prop
   const isSubscribed = contextIsSubscribed ?? propIsSubscribed ?? false
+
+  console.log("SearchForm - Current subscription status:", {
+    isSubscribed: contextIsSubscribed,
+    userEmail,
+    user: user?.email,
+    contextLoading
+  })
 
   // Sync loading state with parent component
   useEffect(() => {
@@ -84,11 +91,18 @@ export default function SearchForm({
 
   // Check subscription status when input is focused
   const handleInputFocus = () => {
-    console.log("Current subscription status:", {
+    console.log("Input focused - subscription check:", {
+      contextLoading,
       isSubscribed,
       userEmail,
       user: user?.email
     })
+
+    // Don't make subscription decisions while context is still loading
+    if (contextLoading) {
+      console.log("Context still loading, not checking subscription yet")
+      return
+    }
 
     // If the user is not subscribed, show subscription modal
     if (!isSubscribed && onSubscribeClick) {
@@ -114,6 +128,19 @@ export default function SearchForm({
 
   // Handle the search action directly
   const handleSearch = async () => {
+    console.log("Search initiated - subscription check:", {
+      contextLoading,
+      isSubscribed,
+      userEmail,
+      user: user?.email
+    })
+
+    // Don't make subscription decisions while context is still loading
+    if (contextLoading) {
+      console.log("Context still loading, cannot proceed with search yet")
+      return
+    }
+
     // Check subscription status using secure context
     if (!isSubscribed && onSubscribeClick) {
       console.log("User not subscribed, showing modal on search button click")
