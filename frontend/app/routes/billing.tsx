@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router";
-import { useSubscription } from "../context/SubscriptionContext";
+import { useSubscription, SubscriptionProvider } from "../context/SubscriptionContext";
 import { Routes } from "../utils/routes";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
@@ -45,51 +45,142 @@ interface Subscription {
   };
 }
 
-export default function Billing() {
+// Create a wrapper component that includes the provider
+function BillingWithProvider() {
+  return (
+    <SubscriptionProvider>
+      <Billing />
+    </SubscriptionProvider>
+  );
+}
+
+function Billing() {
   const navigate = useNavigate();
   const { isSubscribed, userEmail, user, isLoading: contextLoading } = useSubscription();
   const [subscriptionDetails, setSubscriptionDetails] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Track if we have a verified email even if no subscription
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  // Flag to prevent subscription modal from opening on this page
+  const hasInitialized = useRef(false);
+  // Flag to indicate if we're on the client (to safely use localStorage/sessionStorage)
   const [isClient, setIsClient] = useState(false);
+  // State to track if user is cancelling their subscription
+  const [isCancelling, setIsCancelling] = useState(false);
+  // Track cancel error state
+  const [cancelError, setCancelError] = useState<string | null>(null);
   
-  // Set isClient flag after component mounts
+  // Set isClient flag after component mounts (which only happens in the browser)
   useEffect(() => {
     setIsClient(true);
   }, []);
   
-  // Initialize billing page data
+  // Cancel any subscription modal that might appear
   useEffect(() => {
-    const initializeBilling = async () => {
-      console.log('Billing page loaded - subscription status:', isSubscribed);
-      console.log('User email from context:', userEmail);
-      console.log('User object from context:', user);
-      
-      if (contextLoading) {
-        console.log('Context still loading, waiting...');
-        return;
+    // Mark this as a billing page to prevent modals from opening automatically
+    if (isClient) {
+      // Set a session storage flag that other components can check
+      try {
+        sessionStorage.setItem('on_billing_page', 'true');
+        console.log('Set billing page flag in session storage');
+      } catch (err) {
+        console.error('Error setting session storage:', err);
       }
-      
-      if (user && userEmail) {
-        // User is authenticated via JWT, fetch their subscription details
-        await fetchSubscriptionDetails(userEmail);
-      } else {
-        // No JWT authentication, show expired subscription UI
-        console.log('No authenticated user found');
-        setIsLoading(false);
-        setError("Please log in to access your billing information");
+    }
+    
+    console.log('Billing page loaded - subscription status:', isSubscribed);
+    
+    // Only run once on mount
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      console.log('Initializing billing page, preventing redirects');
+    }
+    
+    // Clean up when navigating away
+    return () => {
+      if (isClient) {
+        try {
+          // Ensure the flag is removed when leaving the billing page
+          sessionStorage.removeItem('on_billing_page');
+          console.log('Removed billing page flag from session storage during cleanup');
+        } catch (err) {
+          console.error('Error removing session storage:', err);
+        }
       }
     };
+  }, [isSubscribed, isClient]);
+  
+  // Additional cleanup on component unmount
+  useEffect(() => {
+    // This additional effect ensures cleanup happens
+    return () => {
+      if (isClient && typeof sessionStorage !== 'undefined') {
+        try {
+          // Double-check removal of the flag
+          sessionStorage.removeItem('on_billing_page');
+          console.log('Removed billing page flag from session storage on unmount');
+        } catch (err) {
+          console.error('Error removing session storage in cleanup:', err);
+        }
+      }
+    };
+  }, [isClient]);
+
+  useEffect(() => {
+    // Check for any user identity - either from context or localStorage
+    let emailToUse = userEmail;
+    console.log('Checking for user email, current value:', emailToUse);
     
-    initializeBilling();
-  }, [isSubscribed, userEmail, user, contextLoading]);
+    // Skip this effect during server-side rendering
+    if (!isClient) {
+      console.log('Skipping localStorage check on server side');
+      return;
+    }
+    
+    if (!emailToUse) {
+      try {
+        // Try to find a verified email in localStorage
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const storedData = localStorage.getItem('koyn_subscription');
+          if (storedData) {
+            const parsedData = JSON.parse(storedData);
+            if (parsedData.email) {
+              emailToUse = parsedData.email;
+              setVerifiedEmail(parsedData.email);
+              console.log('Found verified email in localStorage:', emailToUse);
+              
+              // Check for special billing access flag
+              if (parsedData.allowBillingAccess) {
+                console.log('Found allowBillingAccess flag, ensuring billing page access');
+              }
+            }
+          }
+        } else {
+          console.log('localStorage not available (likely server-side rendering)');
+        }
+      } catch (err) {
+        console.error('Error reading from localStorage:', err);
+      }
+    }
+    
+    // If we have an email (from context or localStorage), fetch subscription details
+    if (emailToUse) {
+      console.log('Found email, fetching subscription details:', emailToUse);
+      fetchSubscriptionDetails(emailToUse);
+    } else {
+      // No email found anywhere, redirect to home - user must verify email first
+      console.log('No verified email found, redirecting to home');
+      navigate(Routes.HOME);
+    }
+  }, [userEmail, navigate, isClient]);
 
   const fetchSubscriptionDetails = async (email: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Use subscription details from context if available
+      // First check if we have details from context
       if (user) {
         console.log('Using subscription details from context');
         // Convert user context to subscription format
@@ -107,7 +198,7 @@ export default function Billing() {
         return;
       }
       
-      // Fetch subscription details from the API with JWT authentication
+      // Otherwise fetch subscription details from the API with JWT authentication
       console.log('Fetching subscription details for:', email);
       const accessToken = localStorage.getItem('koyn_access_token');
       
@@ -132,10 +223,12 @@ export default function Billing() {
       console.log('API subscription response:', data);
       
       if (data.active && data.subscription) {
+        // Found an active subscription
         setSubscriptionDetails(data.subscription);
       } else {
-        // No active subscription found
-        console.log('No active subscription found');
+        // No active subscription, but we'll still show the billing page
+        // with a basic inactive subscription representation
+        console.log('No active subscription found, creating inactive record');
         setSubscriptionDetails({
           id: 'inactive-user',
           email: email,
@@ -150,6 +243,7 @@ export default function Billing() {
       }
     } catch (err) {
       console.error("Error fetching subscription details:", err);
+      // Create a minimal record just so we can show something
       setSubscriptionDetails({
         id: 'error-fetching',
         email: email,
@@ -280,16 +374,16 @@ export default function Billing() {
   // Render expired subscription UI
   const renderExpiredSubscription = () => {
     // Determine which email to display
-    const displayEmail = subscriptionDetails?.email || userEmail;
+    const displayEmail = subscriptionDetails?.email || verifiedEmail || userEmail;
     
     // Default paylink ID
     const defaultPaylinkId = '68229ffa2c8760f1eb3d19d7';
     // Get paylink ID from subscription details if available
     const paylinkId = subscriptionDetails?.transactionDetails?.paylinkId || defaultPaylinkId;
     
-    // Helio config objects for different plans
+    // Helio config objects for different plans - using dynamic paylink IDs
     const monthlyPlanConfig: HelioEmbedConfig = {
-      paylinkId: "68229fd19009f0c6c3ff67f2", // Monthly plan ID
+      paylinkId: subscriptionDetails?.transactionDetails?.paylinkId || "68229fd19009f0c6c3ff67f2", // Fallback for monthly
       theme: { themeMode: "dark" as const },
       primaryColor: "#111827",
       neutralColor: "#ffffff",
@@ -302,7 +396,7 @@ export default function Billing() {
     };
     
     const quarterlyPlanConfig: HelioEmbedConfig = {
-      paylinkId: "68229fbd9483a433d5884b7c", // Quarterly plan ID
+      paylinkId: subscriptionDetails?.transactionDetails?.paylinkId || "68229fbd9483a433d5884b7c", // Fallback for quarterly
       theme: { themeMode: "dark" as const },
       primaryColor: "#111827",
       neutralColor: "#ffffff",
@@ -315,7 +409,7 @@ export default function Billing() {
     };
     
     const lifetimePlanConfig: HelioEmbedConfig = {
-      paylinkId: "68229ffa2c8760f1eb3d19d7", // Lifetime plan ID
+      paylinkId: subscriptionDetails?.transactionDetails?.paylinkId || "68229ffa2c8760f1eb3d19d7", // Fallback for lifetime
       theme: { themeMode: "dark" as const },
       primaryColor: "#111827",
       neutralColor: "#ffffff",
@@ -842,7 +936,7 @@ export default function Billing() {
             </div>
             
             <p className="mt-6 text-sm text-[#ffffff]">
-              Need help? Contact <a href="mailto:support@koyn.finance" className="text-[#ffffff] hover:underline">hi@koyn.finance</a>
+              Need help? Contact <a href="mailto:support@koyn.ai" className="text-[#ffffff] hover:underline">hi@koyn.ai</a>
             </p>
           </div>
         ) : (
@@ -869,9 +963,12 @@ export default function Billing() {
             <h4 className="font-semibold mb-2">Debug Info</h4>
             <div>
               <div><span className="font-mono">userEmail:</span> {userEmail || 'null'}</div>
+              <div><span className="font-mono">verifiedEmail:</span> {verifiedEmail || 'null'}</div>
               <div><span className="font-mono">isSubscribed:</span> {isSubscribed}</div>
               <div><span className="font-mono">isClient:</span> {isClient ? 'true' : 'false'}</div>
+              <div><span className="font-mono">localStorage:</span> {isClient ? (localStorage.getItem('koyn_subscription') ? 'has data' : 'empty') : 'not available (server)'}</div>
               <div><span className="font-mono">error:</span> {error || 'none'}</div>
+              <div><span className="font-mono">cancelError:</span> {cancelError || 'none'}</div>
             </div>
           </div>
         )}
@@ -881,3 +978,6 @@ export default function Billing() {
     </div>
   );
 }
+
+// Export the wrapper component as the default export
+export default BillingWithProvider;
