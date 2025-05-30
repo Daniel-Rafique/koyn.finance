@@ -113,13 +113,26 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       throw new Error('No access token available');
     }
 
+    // Construct the full URL based on endpoint type
+    let fullUrl: string;
+    if (url.startsWith('/api/auth/')) {
+      // Auth endpoints go to verification API server (port 3005)
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol;
+      const port = hostname === 'localhost' || hostname === '127.0.0.1' ? ':3005' : ':3005';
+      fullUrl = `${protocol}//${hostname}${port}${url}`;
+    } else {
+      // Other API endpoints use relative URLs (handled by nginx or direct API)
+      fullUrl = url;
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${accessToken}`,
       ...options.headers,
     };
 
-    const response = await fetch(url, {
+    const response = await fetch(fullUrl, {
       ...options,
       headers,
     });
@@ -130,7 +143,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       if (refreshed) {
         // Retry with new token
         const newAccessToken = getAccessToken();
-        return fetch(url, {
+        return fetch(fullUrl, {
           ...options,
           headers: {
             ...headers,
@@ -157,7 +170,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
       console.log('🔄 Refreshing access token...');
 
-      const response = await fetch('/api/auth/refresh', {
+      // Auth refresh endpoint goes to verification API server (port 3005)
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol;
+      const port = hostname === 'localhost' || hostname === '127.0.0.1' ? ':3005' : ':3005';
+      const refreshUrl = `${protocol}//${hostname}${port}/api/auth/refresh`;
+
+      const response = await fetch(refreshUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -261,7 +280,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       
       // Invalidate refresh token on server
       if (refreshToken) {
-        await fetch('/api/auth/logout', {
+        // Auth logout endpoint goes to verification API server (port 3005)
+        const hostname = window.location.hostname;
+        const protocol = window.location.protocol;
+        const port = hostname === 'localhost' || hostname === '127.0.0.1' ? ':3005' : ':3005';
+        const logoutUrl = `${protocol}//${hostname}${port}/api/auth/logout`;
+        
+        await fetch(logoutUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
