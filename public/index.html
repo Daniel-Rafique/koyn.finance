@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>koyn.ai - AI-Powered Financial Market Insights</title>
+    <meta name="description" content="koyn.ai provides AI-powered market analysis, real-time sentiment tracking, and financial insights for cryptocurrency and stock markets.">
+    
+    <!-- SEO Meta Tags -->
+    <meta name="robots" content="index, follow">
+    <meta name="keywords" content="financial analysis, market insights, cryptocurrency, AI financial tools, market sentiment">
+    <meta name="author" content="koyn.ai">
+    <meta property="og:title" content="koyn.ai - AI-Powered Financial Market Insights">
+    <meta property="og:description" content="Get real-time AI analysis of financial markets, cryptocurrency trends, and investment opportunities.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://koyn.ai/">
+    <meta property="og:image" content="https://koyn.ai/logo.jpg">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="koyn.ai - AI-Powered Financial Market Insights">
+    <meta name="twitter:description" content="Get real-time AI analysis of financial markets, cryptocurrency trends, and investment opportunities.">
+    <meta name="twitter:image" content="https://koyn.ai/logo.jpg">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://koyn.ai/">
+    
+    <!-- Include the same CSS files that the Nim template uses -->
+    <link rel="stylesheet" type="text/css" href="/css/style.css?v=19">
+    <link rel="stylesheet" type="text/css" href="/css/fontello.css?v=2">
+    <link rel="stylesheet" type="text/css" href="/css/koynlabs.css?v=1">
+    
+    <!-- Favicon links -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=2">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=2">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
+    <link rel="manifest" href="/site.webmanifest?v=2">
+    
+    <!-- External scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "koyn.ai",
+      "url": "https://koyn.ai",
+      "description": "AI-powered financial market analysis and sentiment tracking for cryptocurrency and stock markets.",
+      "applicationCategory": "FinanceApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.8",
+        "ratingCount": "120"
+      }
+    }
+    </script>
+</head>
+<body>
+    <!-- Navigation bar similar to the one in general.nim -->
+    <nav>
+        <div class="inner-nav">
+            <div class="nav-item">
+                <a href="/"><img class="site-logo" src="/logo.jpg" alt="Koynlabs Logo"></a>
+                <a class="site-name" href="/">koyn.ai</a>
+            </div>
+            <!-- <div class="nav-links">
+                <a href="/search?q=Bitcoin" class="nav-link">Bitcoin</a>
+                <a href="/search?q=Ethereum" class="nav-link">Ethereum</a>
+                <a href="/search?q=Solana" class="nav-link">Solana</a>
+                <a href="/search?q=DeFi" class="nav-link">DeFi</a>
+            </div> -->
+            <!-- <div class="nav-item right">
+                <a href="/search?ai=true" title="AI-Powered Search" class="nav-item">
+                    <div class="icon-search-ai">
+                        <i class="icon-search"></i>
+                        <span class="ai-indicator">AI</span>
+                    </div>
+                </a>
+                <a href="/about" title="About" class="nav-item"><i class="icon-info"></i></a>
+            </div> -->
+        </div>
+    </nav>
+
+    <div class="container">
+
+        <!-- Fixed search container at the bottom -->
+        <div class="enhanced-search-container" id="searchContainer">
+            <!-- <h1 class="search-heading">Discover Market Insights</h1>
+            <p class="search-subheading">Real-time data for Bitcoin, Ethereum, Solana, and DeFi</p> -->
+            
+            <form id="sentimentForm" method="post" autocomplete="off" class="enhanced-search-form">
+                <input type="text" name="question" autofocus placeholder="Search for insights..." dir="auto">
+                <input type="hidden" name="limit" value="50">
+                <button type="submit" class="search-button"><i class="icon-search"></i></button>
+            </form>
+
+
+            <!-- Results container moved to the top -->
+            <div id="resultsContainer" style="display: none;" class="ai-search-results">
+                <div class="ai-search-header">
+                    <h2 id="assetName"></h2>
+                    <div class="asset-price">Current Price: $<span id="assetPrice"></span></div>
+                    <div class="sentiment-container">
+                        <span class="sentiment-label">Sentiment:</span>
+                        <div id="sentimentBadge" class="sentiment-indicator"></div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="assetChart"></canvas>
+                </div>
+                
+                <div class="ai-search-summary">
+                    <h3>Analysis</h3>
+                    <div id="analysisText"></div>
+                </div>
+            </div>
+            
+            <!-- <div class="powered-by">
+                Search Powered by <a href="https://koyn.ai" target="_blank">Koyn.ai</a>
+            </div> -->
+            
+            <!-- <div class="openbb-badge">
+                Now compatible with 
+                <a href="https://openbb.co/" target="_blank">
+                    <img src="/logo.jpg" alt="OpenBB Logo" style="height: 20px; width: auto;">
+                    OpenBB Workspace
+                </a>
+            </div>
+            
+            <p class="openbb-info">
+                Add our custom copilot to OpenBB Workspace by using this URL: 
+                <code>https://koynlabs.com/copilots.json</code>
+            </p> -->
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sentimentForm = document.getElementById('sentimentForm');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const searchContainer = document.getElementById('searchContainer');
+        
+        sentimentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Show loading indicator
+            const loadingIndicator = document.createElement('div');
+            loadingIndicator.className = 'loading-indicator';
+            
+            const spinner = document.createElement('div');
+            spinner.className = 'loading-spinner';
+            loadingIndicator.appendChild(spinner);
+            
+            const loadingText = document.createElement('span');
+            loadingText.textContent = 'Analyzing...';
+            loadingIndicator.appendChild(loadingText);
+            
+            sentimentForm.appendChild(loadingIndicator);
+            
+            // Get the question
+            const questionInput = sentimentForm.querySelector('input[name="question"]');
+            const question = questionInput.value;
+            
+            // Make the API request
+            fetch('https://koyn.ai:3001/api/sentiment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ "question": question })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Remove loading indicator
+                sentimentForm.removeChild(loadingIndicator);
+                
+                // Display the results
+                displayResults(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                sentimentForm.removeChild(loadingIndicator);
+                alert('An error occurred while fetching results. Please try again.');
+            });
+        });
+        
+        function displayResults(data) {
+            // Make sure we have results
+            if (!data.results || data.results.length === 0) {
+                alert('No results found. Please try a different query.');
+                return;
+            }
+            
+            const result = data.results[0];
+            
+            // Update asset name and price
+            document.getElementById('assetName').textContent = result.asset.name;
+            document.getElementById('assetPrice').textContent = result.asset_price === 'N/A' ? 'Not Available' : result.asset_price.toLocaleString();
+            
+            // Update sentiment badge with Koynlabs styling
+            const sentimentBadge = document.getElementById('sentimentBadge');
+            sentimentBadge.textContent = result.social_sentiment;
+            
+            // Apply appropriate color based on sentiment
+            if (result.social_sentiment.toLowerCase() === 'positive') {
+                sentimentBadge.style.backgroundColor = 'var(--koyn-secondary)';
+            } else if (result.social_sentiment.toLowerCase() === 'negative') {
+                sentimentBadge.style.backgroundColor = '#e74c3c';
+            } else {
+                sentimentBadge.style.backgroundColor = 'var(--koyn-bg-card)';
+            }
+            
+            // Update price chart
+            document.getElementById('assetChart').getContext('2d').clearRect(0, 0, 800, 400);
+            renderChart(result.chart);
+            
+            // Store news data globally for tooltips
+            window.latestNewsData = data.news;
+            
+            // Process the analysis text
+            const analysisText = document.getElementById('analysisText');
+            let analysisContent = result.analysis;
+            
+            // Fix malformed source tags like "Bloomberg">Bloomberg" before any other processing
+            analysisContent = analysisContent.replace(/([a-zA-Z]+)">([a-zA-Z]+)/g, (match, p1, p2) => {
+                // Only fix if both parts are the same (like Bloomberg">Bloomberg)
+                if (p1.toLowerCase() === p2.toLowerCase()) {
+                    return p1;
+                }
+                return match; // Otherwise leave it alone
+            });
+            
+            // First, separate the main content from the sources section
+            let mainContent = analysisContent;
+            let sourcesSection = '';
+            
+            // Check if there's a Sources section (handle both plain and bold markdown)
+            const sourcesMatch = analysisContent.match(/(\*\*)?Sources:(\*\*)?[\s\S]*$/i);
+            if (sourcesMatch) {
+                mainContent = analysisContent.substring(0, sourcesMatch.index).trim();
+                sourcesSection = sourcesMatch[0];
+            }
+            
+            // Format the main content into paragraphs
+            const paragraphs = mainContent.split(/\n\n|\r\n\r\n/);
+            mainContent = paragraphs.map(p => `<p>${p.trim()}</p>`).join('');
+            
+            // Process source references in the main content
+            // This is the key part for tooltips - we need to identify news sources and add proper span tags
+            const newsSourceNames = data.news.map(item => item.source);
+            const newsSourceRegex = new RegExp(`\\b(${newsSourceNames.join('|')}|CoinDesk|CNBC|Bloomberg|Reuters|Financial Times|Wall Street Journal|Barron's|MarketWatch|Biztoc\\.com)\\b`, 'gi');
+            
+            mainContent = mainContent.replace(newsSourceRegex, (match) => {
+                // Find the matching news item
+                const newsItem = data.news.find(item => 
+                    item.source.toLowerCase() === match.toLowerCase() ||
+                    match.toLowerCase().includes(item.source.toLowerCase()) ||
+                    item.source.toLowerCase().includes(match.toLowerCase())
+                );
+                
+                if (newsItem) {
+                    return `<span class="news-source" 
+                        data-source="${escapeHtml(newsItem.source)}" 
+                        data-url="${escapeHtml(newsItem.url)}" 
+                        data-title="${escapeHtml(newsItem.title)}" 
+                        data-description="${escapeHtml(newsItem.description || '')}"
+                    >${newsItem.source}</span>`;
+                }
+                
+                // If no matching news item found, still make it a span but without data attributes
+                return `<span class="news-source" data-source="${escapeHtml(match)}">${match}</span>`;
+            });
+            
+            // Also handle any existing news-source spans that might be in the content
+            mainContent = mainContent.replace(/<span class="news-source" data-source="([^"]+)">\[?([^\]<]+)\]?<\/span>/g, 
+                (match, source, text) => {
+                    // Find the matching news item
+                    const newsItem = data.news.find(item => 
+                        item.source.toLowerCase() === source.toLowerCase() ||
+                        source.toLowerCase().includes(item.source.toLowerCase()) ||
+                        item.source.toLowerCase().includes(source.toLowerCase())
+                    );
+                    
+                    if (newsItem) {
+                        return `<span class="news-source" 
+                            data-source="${escapeHtml(newsItem.source)}" 
+                            data-url="${escapeHtml(newsItem.url)}" 
+                            data-title="${escapeHtml(newsItem.title)}" 
+                            data-description="${escapeHtml(newsItem.description || '')}"
+                        >${newsItem.source}</span>`;
+                    }
+                    
+                    // If no matching news item found, keep the original span
+                    return match;
+                }
+            );
+            
+            // Process the sources section to convert Markdown links to HTML
+            if (sourcesSection) {
+                // Remove markdown bold formatting (**) from the sources heading
+                sourcesSection = sourcesSection.replace(/\*\*Sources:\*\*/, 'Sources:');
+                
+                // Extract the sources list
+                const sourcesList = sourcesSection.replace(/Sources:/, '').trim();
+                
+                // Create a formatted sources section
+                let formattedSourcesSection = '<div class="sources-section"><h4>Sources:</h4><ul class="sources-list">';
+                
+                // Convert Markdown links to HTML links
+                // Handle both numbered lists and plain lists
+                const sourceItems = sourcesList.split(/\s*\d+\.\s*|\n/).filter(item => item.trim());
+                
+                sourceItems.forEach(item => {
+                    // Extract link information using regex
+                    const linkMatch = item.match(/\[([^\]]+)\]\(([^)]+)\)/);
+                    
+                    if (linkMatch) {
+                        const sourceName = linkMatch[1];
+                        const sourceUrl = linkMatch[2];
+                        
+                        // Find matching news item for additional data
+                        const matchingNews = data.news.find(news => 
+                            news.source.toLowerCase().includes(sourceName.toLowerCase()) ||
+                            sourceName.toLowerCase().includes(news.source.toLowerCase())
+                        );
+                        
+                        if (matchingNews) {
+                            formattedSourcesSection += `<li><a href="${matchingNews.url}" target="_blank">${matchingNews.source}</a></li>`;
+                        } else {
+                            formattedSourcesSection += `<li><a href="${sourceUrl}" target="_blank">${sourceName}</a></li>`;
+                        }
+                    } else if (item.trim()) {
+                        // For plain text sources, try to match with news data
+                        const matchingNews = data.news.find(news => 
+                            news.source.toLowerCase().includes(item.trim().toLowerCase()) ||
+                            item.trim().toLowerCase().includes(news.source.toLowerCase())
+                        );
+                        
+                        if (matchingNews) {
+                            formattedSourcesSection += `<li><a href="${matchingNews.url}" target="_blank">${matchingNews.source}</a></li>`;
+                        } else {
+                            formattedSourcesSection += `<li>${item.trim()}</li>`;
+                        }
+                    }
+                });
+                
+                formattedSourcesSection += '</ul></div>';
+                
+                // Replace the original sources section with the formatted one
+                sourcesSection = formattedSourcesSection;
+            } else {
+                // If there's no sources section, create one with the news data
+                sourcesSection = '<div class="sources-section"><h4>Sources:</h4><ul class="sources-list">';
+                
+                data.news.forEach((newsItem) => {
+                    sourcesSection += `<li><a href="${newsItem.url}" target="_blank">${newsItem.source}</a></li>`;
+                });
+                
+                sourcesSection += '</ul></div>';
+            }
+            
+            // Combine the formatted main content with the sources section
+            analysisContent = mainContent + sourcesSection;
+            
+            // Set the analysis text
+            analysisText.innerHTML = analysisContent;
+            
+            // Set up tooltips for news sources
+            setupNewsSourceHovers(data.news);
+            
+            // Show the results container
+            resultsContainer.style.display = 'block';
+            
+            // Scroll to results at the top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function setupNewsSourceHovers(newsData) {
+            // Find all news source spans
+            const newsSourceSpans = document.querySelectorAll('.news-source');
+            
+            newsSourceSpans.forEach(span => {
+                const source = span.getAttribute('data-source') || span.textContent.trim();
+                
+                // Find matching news item
+                const matchingNews = newsData.find(item => 
+                    item.source.toLowerCase().includes(source.toLowerCase()) ||
+                    source.toLowerCase().includes(item.source.toLowerCase())
+                );
+                
+                if (matchingNews) {
+                    // Create tooltip with Koynlabs styling
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'news-tooltip';
+                    
+                    tooltip.innerHTML = `
+                        <strong style="color: var(--koyn-primary-light);">${matchingNews.title}</strong>
+                        <p style="margin: 8px 0; color: var(--koyn-text-secondary);">${matchingNews.description || ''}</p>
+                        <small style="color: var(--koyn-text-secondary);">Source: ${matchingNews.source}</small>
+                        <div class="tooltip-footer">
+                            <a href="${matchingNews.url}" target="_blank" class="read-more">Read Full Article</a>
+                        </div>
+                    `;
+                    
+                    span.appendChild(tooltip);
+                    
+                    // Update span data attributes with the news item data
+                    span.dataset.title = matchingNews.title;
+                    span.dataset.description = matchingNews.description || '';
+                    span.dataset.url = matchingNews.url;
+                    
+                    // Show/hide tooltip on hover
+                    span.addEventListener('mouseenter', function() {
+                        const rect = this.getBoundingClientRect();
+                        const tooltipHeight = tooltip.offsetHeight || 200;
+                        
+                        // Position tooltip based on available space
+                        if (rect.top < tooltipHeight + 20) {
+                            tooltip.classList.add('bottom');
+                            tooltip.classList.remove('top');
+                        } else {
+                            tooltip.classList.add('top');
+                            tooltip.classList.remove('bottom');
+                        }
+                        
+                        // Handle horizontal positioning
+                        const viewportWidth = window.innerWidth;
+                        if (rect.left < 150) {
+                            tooltip.classList.add('left');
+                            tooltip.classList.remove('right');
+                        } else if (viewportWidth - rect.right < 150) {
+                            tooltip.classList.add('right');
+                            tooltip.classList.remove('left');
+                        } else {
+                            tooltip.classList.remove('left');
+                            tooltip.classList.remove('right');
+                        }
+                        
+                        tooltip.style.display = 'block';
+                    });
+                    
+                    span.addEventListener('mouseleave', function() {
+                        tooltip.style.display = 'none';
+                    });
+                    
+                    // Make clickable to open the news article
+                    span.style.cursor = 'pointer';
+                    span.addEventListener('click', function() {
+                        window.open(matchingNews.url, '_blank');
+                    });
+                }
+            });
+        }
+        
+        // Helper function to escape HTML
+        function escapeHtml(unsafe) {
+            return unsafe
+                ? unsafe
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;")
+                : '';
+        }
+
+        function renderChart(chartData) {
+            const ctx = document.getElementById('assetChart').getContext('2d');
+            
+            // Destroy any existing chart
+            if (window.assetPriceChart) {
+                window.assetPriceChart.destroy();
+            }
+            
+            // Create new chart with progressive animation
+            window.assetPriceChart = new Chart(ctx, chartData);
+            
+            // Add hover effects for better user experience
+            const canvas = document.getElementById('assetChart');
+            canvas.style.cursor = 'pointer';
+            
+            // Add responsive behavior
+            window.addEventListener('resize', function() {
+                if (window.assetPriceChart) {
+                    window.assetPriceChart.resize();
+                }
+            });
+        }
+    });
+    </script>
+
+    <style>
+    /* Override styles for results container to match Koynlabs theme */
+    #resultsContainer {
+        background-color: var(--koyn-bg-panel);
+        color: var(--koyn-text);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        margin-bottom: var(--space-xl);
+        width: 100%;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+        padding: var(--space-lg);
+    }
+    
+    /* Fixed search container styling */
+    #searchContainer {
+        position: relative;
+        z-index: 10;
+        margin-top: 0;
+        padding-top: var(--space-lg);
+    }
+    
+    #resultsContainer h2, 
+    #resultsContainer h3,
+    #resultsContainer h4 {
+        color: var(--koyn-text);
+    }
+    
+    .asset-price {
+        color: var(--koyn-text-secondary);
+        margin-bottom: var(--space-sm);
+    }
+    
+    .sentiment-container {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-md);
+    }
+    
+    .sentiment-label {
+        color: var(--koyn-text-secondary);
+    }
+    
+    .sentiment-indicator {
+        padding: var(--space-xs) var(--space-sm);
+        border-radius: var(--radius-sm);
+        font-weight: 500;
+        display: inline-block;
+    }
+    
+    .chart-container {
+        background-color: var(--koyn-bg-card);
+        padding: var(--space-md);
+        border-radius: var(--radius-md);
+        margin: var(--space-lg) 0;
+        position: relative;
+        height: 0;
+        padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        width: 100%;
+        overflow: hidden;
+    }
+    
+    .chart-container canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100% !important;
+        height: 100% !important;
+        padding: var(--space-md);
+    }
+    
+    /* Add responsive breakpoints */
+    @media (max-width: 768px) {
+        .chart-container {
+            padding-bottom: 75%; /* Taller on mobile */
+        }
+    }
+    
+    .chart-container img {
+        max-width: 100%;
+        border-radius: var(--radius-sm);
+    }
+    
+    /* News source tooltip styling */
+    .news-source {
+        color: var(--koyn-primary-light);
+        font-weight: 500;
+        position: relative;
+        cursor: pointer;
+        text-decoration: underline;
+        display: inline-block;
+        margin: 0 2px;
+        z-index: 1;
+        padding: 0 2px;
+        border-radius: 3px;
+        transition: background-color 0.2s ease;
+    }
+    
+    .news-source:hover {
+        background-color: rgba(70, 167, 88, 0.1);
+    }
+    
+    .news-tooltip {
+        z-index: 1000;
+        width: 300px;
+        padding: var(--space-md);
+        border-radius: var(--radius-md);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        position: absolute;
+        display: none;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: var(--koyn-bg-panel);
+        color: var(--koyn-text);
+        border: 1px solid var(--koyn-border);
+        text-align: left;
+    }
+    
+    /* Make sure the tooltip content is clickable */
+    .news-tooltip * {
+        pointer-events: auto;
+    }
+    
+    /* Loading indicator */
+    .loading-indicator {
+        color: var(--koyn-text-secondary);
+    }
+    
+    .loading-spinner {
+        border: 2px solid rgba(99, 102, 241, 0.2);
+        border-top-color: var(--koyn-primary);
+    }
+    
+    /* Container layout adjustments */
+    .container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    /* Add styles for the sources section */
+    .sources-section {
+        margin-top: var(--space-xl);
+        padding-top: var(--space-md);
+        border-top: 1px solid var(--koyn-border);
+    }
+    
+    .sources-section h4 {
+        font-size: 1rem;
+        margin-bottom: var(--space-sm);
+        color: var(--koyn-text);
+    }
+    
+    .sources-list {
+        padding-left: var(--space-lg);
+    }
+    
+    .sources-list li {
+        margin-bottom: var(--space-xs);
+    }
+    
+    .sources-list a {
+        color: var(--koyn-primary-light);
+        text-decoration: none;
+        transition: color 0.2s ease;
+    }
+    
+    .sources-list a:hover {
+        color: var(--koyn-primary);
+        text-decoration: underline;
+    }
+    
+    /* Enhance tooltip styling */
+    .tooltip-footer {
+        margin-top: var(--space-sm);
+        padding-top: var(--space-xs);
+        border-top: 1px solid var(--koyn-border);
+        text-align: right;
+    }
+    
+    /* Improve the read more link visibility */
+    .read-more {
+        color: var(--koyn-primary-light);
+        font-size: 0.875rem;
+        text-decoration: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        background-color: rgba(70, 167, 88, 0.1);
+        transition: background-color 0.2s ease;
+        display: inline-block;
+    }
+    
+    .read-more:hover {
+        background-color: rgba(70, 167, 88, 0.2);
+        text-decoration: none;
+    }
+    
+    /* Improve paragraph styling in analysis */
+    #analysisText p {
+        margin-bottom: var(--space-md);
+        line-height: 1.6;
+    }
+    
+    #analysisText p:last-of-type {
+        margin-bottom: 0;
+    }
+    </style>
+    <!-- Start of HubSpot Embed Code -->
+  <script type="text/javascript" id="hs-script-loader" async defer src="//js-eu1.hs-scripts.com/146196679.js"></script>
+  <!-- End of HubSpot Embed Code -->
+</body>
+</html>

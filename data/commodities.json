@@ -1,0 +1,282 @@
+[
+  {
+    "symbol": "HEUSX",
+    "name": "Lean Hogs Futures",
+    "currency": "USX",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ZCUSX",
+    "name": "Corn Futures",
+    "currency": "USX",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ZQUSD",
+    "name": "30 Day Fed Fund Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ALIUSD",
+    "name": "Aluminum Futures",
+    "currency": "USD",
+    "stockExchange": "COMEX",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ZBUSD",
+    "name": "30 Year U.S. Treasury Bond Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ZOUSX",
+    "name": "Oat Futures",
+    "currency": "USX",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "PLUSD",
+    "name": "Platinum",
+    "currency": "USD",
+    "stockExchange": "NYMEX",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ESUSD",
+    "name": "E-Mini S&P 500",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ZMUSD",
+    "name": "Soybean Meal Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "GCUSD",
+    "name": "Gold Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ZLUSX",
+    "name": "Soybean Oil Futures",
+    "currency": "USX",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "KEUSX",
+    "name": "Wheat Futures",
+    "currency": "USX",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ZFUSD",
+    "name": "Five-Year US Treasury Note",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "SILUSD",
+    "name": "Micro Silver Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "HGUSD",
+    "name": "Copper",
+    "currency": "USD",
+    "stockExchange": "COMEX",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "MGCUSD",
+    "name": "Micro Gold Futures",
+    "currency": "USD",
+    "stockExchange": "COMEX",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "SBUSX",
+    "name": "Sugar",
+    "currency": "USX",
+    "stockExchange": "ICE",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "SIUSD",
+    "name": "Silver Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "CTUSX",
+    "name": "Cotton",
+    "currency": "USX",
+    "stockExchange": "ICE",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "DXUSD",
+    "name": "US Dollar",
+    "currency": "USD",
+    "stockExchange": "ICE",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ZSUSX",
+    "name": "Soybean Futures",
+    "currency": "USX",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "LBUSD",
+    "name": "Lumber Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "LEUSX",
+    "name": "Live Cattle Futures",
+    "currency": "USX",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "NGUSD",
+    "name": "Natural Gas",
+    "currency": "USD",
+    "stockExchange": "NYMEX",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "CLUSD",
+    "name": "Crude Oil",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "OJUSX",
+    "name": "Orange Juice",
+    "currency": "USX",
+    "stockExchange": "ICE",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "KCUSX",
+    "name": "Coffee",
+    "currency": "USX",
+    "stockExchange": "ICE",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "PAUSD",
+    "name": "Palladium",
+    "currency": "USD",
+    "stockExchange": "NYMEX",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "GFUSX",
+    "name": "Feeder Cattle Futures",
+    "currency": "USX",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ZTUSD",
+    "name": "2-Year T-Note Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ZRUSD",
+    "name": "Rough Rice Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "CCUSD",
+    "name": "Cocoa",
+    "currency": "USD",
+    "stockExchange": "ICE",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "NQUSD",
+    "name": "Nasdaq 100",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "ZNUSD",
+    "name": "10-Year T-Note Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "RTYUSD",
+    "name": "Micro E-mini Russell 2000 Index Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "BZUSD",
+    "name": "Brent Crude Oil",
+    "currency": "USD",
+    "stockExchange": "ICE",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "DCUSD",
+    "name": "Class III Milk Futures",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "YMUSD",
+    "name": "Mini Dow Jones Industrial Average Index",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "RBUSD",
+    "name": "Gasoline RBOB",
+    "currency": "USD",
+    "stockExchange": "ICE",
+    "exchangeShortName": "COMMODITY"
+  },
+  {
+    "symbol": "HOUSD",
+    "name": "Heating Oil",
+    "currency": "USD",
+    "stockExchange": "CME",
+    "exchangeShortName": "COMMODITY"
+  }
+]

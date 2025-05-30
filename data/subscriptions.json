@@ -1,0 +1,64 @@
+[
+  {
+    "id": "65e1df4d0ce08148bc333b62",
+    "email": "koynlabs@gmail.com",
+    "status": "active",
+    "startedAt": "2025-03-01T13:59:41.303Z",
+    "renewalDate": "2026-04-01T13:59:41.303Z",
+    "transactionId": "65e1df4d0ce08148bc333b62",
+    "plan": "monthly",
+    "paymentMethod": "helio",
+    "amount": 9.9,
+    "currency": "USDC",
+    "transactionDetails": {
+      "id": "65e1df4d0ce08148bc333b62",
+      "paylinkId": "68229ffa2c8760f1eb3d19d7",
+      "quantity": 1,
+      "createdAt": "2024-03-01T13:59:41.303Z",
+      "paymentType": "PAYLINK",
+      "meta": {
+        "id": "65e1df4d0ce08148bc333b60",
+        "amount": "9900000",
+        "senderPK": "Er3RwfYqCETBTf5RktezXaNDT3zYgwBMftxBYbX8Zk1G",
+        "recipientPK": "Er3RwfYqCETBTf5RktezXaNDT3zYgwBMftxBYbX8Zk1G",
+        "customerDetails": {
+          "country": "United States",
+          "deliveryAddress": "test-address",
+          "email": "koynlab@gmail.com",
+          "fullName": "test-full-name",
+          "phoneNumber": "+0123123123123",
+          "discordUsername": "a11111118100",
+          "discordUser": {
+            "id": "1234567890",
+            "username": "test-discord-username"
+          },
+          "twitterUsername": "test-x-username",
+          "state": "test-state",
+          "street": "test-street",
+          "streetNumber": "123",
+          "areaCode": "90210",
+          "city": "test-city"
+        },
+        "transactionSignature": "5AYzruixQiGX8rm279cPLo7bdqaUPYMD8Z3QnBNVz2omZHaUsUKFZRmaV8W7sAHPEyExeHkjquy8mg6LHcNktg5c",
+        "transactionStatus": "SUCCESS",
+        "splitRevenue": false,
+        "remainingAccounts": [],
+        "totalAmount": "9900000",
+        "affiliateAmount": "0",
+        "affiliateCode": "somecode",
+        "affiliatePublicKey": "Er3RwfYqCETBTf5RktezXaNDT3zYgwBMftxBYbX8Zk1G",
+        "tokenQuote": {
+          "from": "SOL",
+          "fromAmountDecimal": "0.01",
+          "to": "SOL",
+          "toAmountMinimal": "10000000"
+        },
+        "submitGeolocation": "FR",
+        "currency": {
+          "id": "63430c8348c610068bcdc474",
+          "blockchain": null
+        }
+      }
+    }
+  }
+]

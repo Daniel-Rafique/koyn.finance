@@ -1,0 +1,145 @@
+/* Page Transition Styles */
+.page-transition-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Loader overlay styles */
+.transition-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.transition-overlay.fade-in {
+  opacity: 1;
+  visibility: visible;
+}
+
+.transition-overlay.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.transition-content {
+  text-align: center;
+  position: relative;
+}
+
+/* Enhance the loader for analysis page */
+.analysis-loader {
+  transform: scale(1.2);
+}
+
+/* Loading message styles */
+.loading-message {
+  color: #a099d8;
+  font-size: 1.2rem;
+  margin-top: 20px;
+  animation: fadeInUp 0.5s ease;
+}
+
+.loading-text {
+  position: relative;
+  display: inline-block;
+}
+
+.loading-text::after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, #402fb5, #6e1b60, #a099d8, #cf30aa);
+  background-size: 300% 100%;
+  animation: gradient-animation 2s ease infinite;
+}
+
+@keyframes gradient-animation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Subtle highlight around loader during transitions */
+.transition-overlay .loader .external-shadow {
+  box-shadow: 0.5em 0.5em 3em rgba(99, 47, 181, 0.8),
+    -0.5em 0.5em 3em rgba(116, 0, 255, 0.8),
+    0.5em -0.5em 3em rgba(207, 48, 170, 0.8),
+    -0.5em -0.5em 3em rgba(127, 0, 255, 0.8);
+}
+
+/* Pulsing effect for the loading text */
+.loading-message p {
+  animation: pulse 2s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+/* Page content styles */
+.page-content {
+  transition: opacity 0.3s ease;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-content.fade-in {
+  opacity: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .loading-message {
+    font-size: 1rem;
+    min-width: 250px;
+  }
+  
+  .analysis-loader {
+    transform: scale(1);
+  }
+} 

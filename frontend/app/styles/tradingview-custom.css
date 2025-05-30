@@ -1,0 +1,74 @@
+/* Custom CSS for TradingView Charting Library */
+
+/* Force jet black background */
+.chart-page {
+  background-color: #000000 !important;
+}
+
+.chart-container {
+  background-color: #000000 !important;
+  border: none !important;
+}
+
+/* Remove borders and padding */
+.layout__area--top,
+.layout__area--left,
+.layout__area--right {
+  border: none !important;
+  background-color: #000000 !important;
+}
+
+/* Style the chart elements */
+.chart-markup-table {
+  border: none !important;
+}
+
+.pane-legend-line.apply-common-tooltip {
+  background-color: transparent !important;
+}
+
+/* Style the toolbar */
+.toolbar-2n2cwgp5 {
+  background-color: #000000 !important;
+  border: none !important;
+}
+
+/* Style buttons */
+.button-2ioYhFEY.isInteractive-20uLObIc {
+  background-color: transparent !important;
+}
+
+.button-2ioYhFEY.isInteractive-20uLObIc:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Style the legend */
+.legend-29zvAld0 {
+  background-color: #000000 !important;
+  border-top: none !important;
+}
+
+/* Style the bottom panel */
+.chart-controls-bar {
+  background-color: #000000 !important;
+  border-top: none !important;
+}
+
+/* Remove any remaining borders */
+[class*="container-"] {
+  border: none !important;
+}
+
+/* Make sure the chart is flush with container */
+.layout__area--center {
+  padding: 0 !important;
+}
+
+/* Style the loading screen */
+.loading-indicator {
+  background-color: #000000 !important;
+}
+
+.tv-spinner__loader {
+  stroke: #46a758 !important;
+}

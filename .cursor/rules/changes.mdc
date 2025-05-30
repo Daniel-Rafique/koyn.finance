@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+"Do not introduce breaking changes. Keep edits focused." "Do not change any code that was not explicity requested to be changed"

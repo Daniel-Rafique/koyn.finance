@@ -1,0 +1,30 @@
+{
+  "dependencies": {
+    "@hubspot/api-client": "^12.1.0",
+    "@huggingface/transformers": "^3.4.0",
+    "@sendgrid/mail": "^8.1.5",
+    "@types/dompurify": "^3.0.5",
+    "apache-arrow": "^19.0.1",
+    "axios": "^1.6.0",
+    "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "dompurify": "^3.2.4",
+    "dotenv": "^16.0.0",
+    "express": "^4.21.2",
+    "html2canvas": "^1.4.1",
+    "http-proxy-middleware": "^3.0.5",
+    "https": "^1.0.0",
+    "ioredis": "^5.6.1",
+    "jsonwebtoken": "^9.0.2",
+    "lightweight-charts": "^5.0.7",
+    "openai": "^4.0.0",
+    "parquet-wasm": "^0.6.1",
+    "react-gtm-module": "^2.0.11",
+    "xml2js": "^0.6.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "10.4.21",
+    "postcss": "8.5.3",
+    "tailwindcss": "4.0.14"
+  }
+}

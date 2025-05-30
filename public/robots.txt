@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /app/analysis
+Allow: /app/billing
+Disallow: /api/
+
+# Prevent indexing of tweet content from nitter
+Disallow: */pic/*
+
+# Link to sitemap
+Sitemap: https://koyn.ai/sitemap.xml

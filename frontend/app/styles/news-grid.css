@@ -1,0 +1,157 @@
+/* News Grid Styles */
+/* Basic styling for news items */
+.news-item {
+  transition: transform 0.2s, background-color 0.2s;
+  display: block;
+  position: relative;
+  z-index: 0;
+}
+
+.news-item:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+  background-color: rgba(32, 32, 32, 0.7) !important;
+}
+
+/* Override ::before elements causing the glow */
+.news-item::before,
+.news-item::after,
+.news-item *::before,
+.news-item *::after {
+  display: none !important;
+}
+
+/* Source tooltip styling - Generic tooltip class that works for both news items and article tags */
+.news-source, .article-tag {
+  position: relative;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.tooltip-content {
+  visibility: hidden;
+  position: absolute;
+  bottom: 30px;
+  left: 0;
+  min-width: 280px;
+  max-width: 90vw;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.2s, visibility 0.2s;
+  pointer-events: none;
+  text-align: left;
+  color: white;
+}
+
+.tooltip-content::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 15px;
+  border-width: 8px 8px 0;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.95) transparent transparent;
+}
+
+/* Make sure tooltips are visible on hover */
+.news-source:hover .tooltip-content,
+.article-tag:hover .tooltip-content {
+  visibility: visible;
+  opacity: 1;
+  display: block;
+}
+
+/* Styling for the news source tag */
+.news-source {
+  background-color: #1B4332; /* Dark green background */
+  color: #95D5B2; /* Light green text */
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+/* Styling for article tags */
+.article-tag {
+  background-color: #1B4332; /* Dark green background */
+  color: #95D5B2; /* Light green text */
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  margin: 0 2px;
+  display: inline-block;
+}
+
+/* Positioning classes for tooltip */
+.tooltip-content.right-0 {
+  right: 0;
+  left: auto;
+}
+
+.tooltip-content.right-0::after {
+  right: 15px;
+  left: auto;
+}
+
+.tooltip-content.left-0 {
+  left: 0;
+  right: auto;
+}
+
+.tooltip-content.left-0::after {
+  left: 15px;
+  right: auto;
+}
+
+/* Text truncation for descriptions */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Tooltip article links */
+.tooltip-content a {
+  display: inline-block;
+  margin-top: 6px;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.tooltip-content a:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Responsive tooltip positioning */
+@media (max-width: 640px) {
+  .tooltip-content {
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100vw - 40px);
+  }
+  
+  .tooltip-content::after {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+} 

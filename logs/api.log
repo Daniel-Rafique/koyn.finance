@@ -1,0 +1,25 @@
+VADER is installed but polarity_scores function is not available
+initWasm is not a function, using fallback implementation
+Loaded financial dataset with 100 rows
+OPENAI_API_KEY loaded successfully (length: 113)
+Pre-downloading general sentiment model...
+Downloading sentiment model files...
+node:internal/errors:540
+      throw error;
+      ^
+
+TypeError [ERR_INVALID_ARG_TYPE]: The "path" argument must be of type string or an instance of Buffer or URL. Received undefined
+    at Object.openSync (node:fs:562:5)
+    at Object.readFileSync (node:fs:445:35)
+    at Object.<anonymous> (/Users/danielrafique/Sites/koyn.ai/api.js:3541:11)
+    at Module._compile (node:internal/modules/cjs/loader:1546:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1691:10)
+    at Module.load (node:internal/modules/cjs/loader:1317:32)
+    at Module._load (node:internal/modules/cjs/loader:1127:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:315:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:166:5) {
+  code: 'ERR_INVALID_ARG_TYPE'
+}
+
+Node.js v22.9.0
