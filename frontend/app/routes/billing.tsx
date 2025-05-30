@@ -57,8 +57,6 @@ export default function Billing() {
   const [error, setError] = useState<string | null>(null)
   // Flag to prevent subscription modal from opening on this page
   const hasInitialized = useRef(false)
-  // Flag to indicate if we're on the client (to safely use localStorage/sessionStorage)
-  // const [isClient, setIsClient] = useState(false);
   // State to track if user is cancelling their subscription
   const [isCancelling, setIsCancelling] = useState(false)
   // Track cancel error state
@@ -72,25 +70,17 @@ export default function Billing() {
     setIsClientSide(true)
   }, [])
 
-  // Set isClient flag after component mounts (which only happens in the browser)
-  // useEffect(() => {
-  //   setIsClient(true);
-  // }, []);
-
   // Cancel any subscription modal that might appear
-  // Replace the session storage effect with this
   useEffect(() => {
     // Only run on client-side
     if (typeof window !== "undefined") {
       try {
         sessionStorage.setItem("on_billing_page", "true")
-        console.log("Set billing page flag in session storage")
 
         // Clean up when navigating away
         return () => {
           try {
             sessionStorage.removeItem("on_billing_page")
-            console.log("Removed billing page flag from session storage during cleanup")
           } catch (err) {
             console.error("Error removing session storage:", err)
           }
@@ -101,35 +91,10 @@ export default function Billing() {
     }
   }, [])
 
-  // Additional cleanup on component unmount
-  // useEffect(() => {
-  //   // This additional effect ensures cleanup happens
-  //   return () => {
-  //     if (isClient && typeof sessionStorage !== 'undefined') {
-  //       try {
-  //         // Double-check removal of the flag
-  //         sessionStorage.removeItem('on_billing_page');
-  //         console.log('Removed billing page flag from session storage on unmount');
-  //       } catch (err) {
-  //         console.error('Error removing session storage in cleanup:', err);
-  //       }
-  //     }
-  //   };
-  // }, [isClient]);
-
   useEffect(() => {
     const initializeBilling = async () => {
-      console.log("=== BILLING PAGE INITIALIZATION ===")
-      console.log("Subscription status (isSubscribed):", isSubscribed)
-      console.log("User email from context:", userEmail)
-      console.log("User object from context:", user)
-      console.log("User object type:", typeof user)
-      console.log("Context loading status:", contextLoading)
-      console.log("=====================================")
-
       // CRITICAL: Wait for SubscriptionContext to finish its verification process
       if (contextLoading) {
-        console.log("⏳ SubscriptionContext still verifying user tokens, waiting...")
         return
       }
 
@@ -137,10 +102,12 @@ export default function Billing() {
       // Now we can trust the isSubscribed and userEmail values
 
       if (isSubscribed && userEmail) {
-        console.log("✅ User verified with active subscription, loading billing details...")
-        await fetchSubscriptionDetails(userEmail)
+        try {
+          await fetchSubscriptionDetails(userEmail)
+        } catch (error) {
+          console.error("Error fetching billing details:", error)
+        }
       } else if (userEmail && !isSubscribed) {
-        console.log("⚠️ User authenticated but no active subscription")
         setSubscriptionDetails({
           id: "inactive-user",
           email: userEmail,
@@ -154,13 +121,18 @@ export default function Billing() {
         setError("No active subscription found")
         setIsLoading(false)
       } else {
-        console.log("❌ No verified user found after context verification")
         setIsLoading(false)
         setError("Please log in to access your billing information")
       }
     }
 
-    initializeBilling()
+    try {
+      initializeBilling()
+    } catch (error) {
+      console.error("Error in billing initialization:", error)
+      setError("Failed to initialize billing page")
+      setIsLoading(false)
+    }
   }, [isSubscribed, userEmail, user, contextLoading])
 
   const fetchSubscriptionDetails = async (email: string) => {

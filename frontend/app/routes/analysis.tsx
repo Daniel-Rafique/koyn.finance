@@ -646,6 +646,13 @@ export default function Analysis() {
     const handlePopState = (event: PopStateEvent) => {
       console.log("Browser navigation detected (back/forward button)")
 
+      // Only handle popstate events if we're currently on the analysis page
+      const currentPath = window.location.pathname;
+      if (!currentPath.includes('/app/analysis')) {
+        console.log("Not on analysis page, ignoring popstate event for:", currentPath);
+        return;
+      }
+
       // Get the current query from URL
       const urlParams = new URLSearchParams(window.location.search)
       const currentQuery = urlParams.get("q")
@@ -667,7 +674,8 @@ export default function Analysis() {
           fetchAnalysis(currentQuery, undefined, false)
         }
       } else {
-        // No query parameter found, probably navigated to home
+        // No query parameter found, and we're on analysis page, so navigate to home
+        console.log("No query parameter on analysis page, navigating to home")
         navigate(Routes.HOME)
       }
     }
