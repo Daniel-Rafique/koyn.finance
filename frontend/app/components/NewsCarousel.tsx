@@ -295,7 +295,7 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
           }
 
           // Remove the problematic Cache-Control headers that cause CORS issues
-          const response = await fetch('/api/profiles', {
+          const response = await fetch(`${window.location.protocol}//${window.location.hostname}:3001/api/profiles`, {
             method: 'POST',
             headers: authHeaders,
             body: JSON.stringify({ 
