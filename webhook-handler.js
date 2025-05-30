@@ -51,7 +51,7 @@ function writeSubscriptions(subscriptions) {
 async function notifyMainApi(action, subscription) {
   try {
     // API endpoint URL - use API_URL from env variables or default to localhost
-    const apiUrl = process.env.API_URL || 'https://koyn.ai:3001';
+    const apiUrl = process.env.API_URL || 'https://koyn.finance:3001';
     
     console.log(`Notifying main API about subscription ${action} for ${subscription.email}`);
     
@@ -109,8 +109,8 @@ const PAYLINK_ID = process.env.HELIO_PAYLINK_ID || '68229fd19009f0c6c3ff67f2';
 // The URL where Helio should send webhook notifications
 // In production, this should be your server's public URL
 const WEBHOOK_TARGET_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://koyn.ai:3001/api/webhook/subscription' 
-  : 'https://koyn.ai:3001/api/webhook/subscription';
+  ? 'https://koyn.finance:3001/api/webhook/subscription' 
+  : 'https://koyn.finance:3001/api/webhook/subscription';
 
 /**
  * Registers the subscription webhooks with Helio
