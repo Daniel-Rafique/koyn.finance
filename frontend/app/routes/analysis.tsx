@@ -13,10 +13,7 @@ import "../styles/news-carousel-solid.css"
 import Nav from "../components/Nav"
 import Loader from "../components/Loader"
 import NewsCarousel from "../components/NewsCarousel"
-
-export function meta({}: Route["MetaArgs"]) {
-  return [{ title: "Analysis - koyn.ai" }, { name: "description", content: "Koyn.ai analysis results" }]
-}
+import AssetChart from "../components/AssetChart"
 
 interface SearchResult {
   asset: {
@@ -101,13 +98,9 @@ export default function Analysis() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const {
-    openSubscriptionModal,
-    closeSubscriptionModal,
-    isSubscriptionModalOpen,
-    subscriptionStatus,
+    isSubscribed,
     userEmail,
-    subscriptionId,
-    handleSubscriptionSuccess,
+    user,
   } = useSubscription()
 
   const [isLoading, setIsLoading] = useState(true)
@@ -115,7 +108,7 @@ export default function Analysis() {
   const [resultsArray, setResultsArray] = useState<ResultEntry[]>([])
   const [currentIndex, setCurrentIndex] = useState(-1)
   const [error, setError] = useState<string | null>(null)
-  const [isProtected, setIsProtected] = useState(subscriptionStatus === "inactive")
+  const [isProtected, setIsProtected] = useState(!isSubscribed)
   const [isFirstLoad, setIsFirstLoad] = useState(true)
   const previousQueryRef = useRef<string | null>(null)
   const hasInitializedFromStorage = useRef<boolean>(false)
@@ -216,8 +209,8 @@ export default function Analysis() {
       const queryParams = [`q=${encodeURIComponent(navQuery)}`]
 
       // Add subscription ID if available
-      if (subscriptionId) {
-        queryParams.push(`sid=${encodeURIComponent(subscriptionId)}`)
+      if (user?.email) {
+        queryParams.push(`sid=${encodeURIComponent(user.email)}`)
       }
 
       // Add email if available
@@ -226,13 +219,13 @@ export default function Analysis() {
       }
 
       // Add status if not loading
-      if (subscriptionStatus && subscriptionStatus !== "loading") {
-        queryParams.push(`status=${encodeURIComponent(subscriptionStatus)}`)
+      if (isSubscribed) {
+        queryParams.push(`status=${encodeURIComponent("active")}`)
       }
 
       return `${Routes.ANALYSIS}?${queryParams.join("&")}`
     },
-    [subscriptionId, userEmail, subscriptionStatus],
+    [user?.email, userEmail, isSubscribed],
   )
 
   // Extract the fetch logic to a separate function that can be called from multiple places
@@ -288,7 +281,7 @@ export default function Analysis() {
       try {
         // First try to get subscription data from localStorage
         let email = providedUserEmail
-        let status = subscriptionStatus
+        let status = isSubscribed ? "active" : "inactive"
         let subId = providedSubscriptionId
 
         // If any of these values are missing, try to get them from localStorage
@@ -330,7 +323,7 @@ export default function Analysis() {
           id: subId,
         })
 
-        const response = await fetch("https://koyn.ai:3001/api/sentiment", {
+        const response = await fetch("https://koyn.finance:3001/api/sentiment", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -362,7 +355,6 @@ export default function Analysis() {
             }
           }
 
-          openSubscriptionModal(false)
           setIsProtected(true)
           setIsLoading(false)
 
@@ -477,7 +469,7 @@ export default function Analysis() {
         }
       }
     },
-    [resultsArray, userEmail, subscriptionStatus, subscriptionId, openSubscriptionModal],
+    [resultsArray, userEmail, isSubscribed],
   )
 
   // Handle search from the SearchForm component
@@ -630,26 +622,24 @@ export default function Analysis() {
   }, [navigate, resultsArray, currentIndex]);
 
   useEffect(() => {
-    if (subscriptionStatus === "loading") return
+    if (!user && !isSubscribed) return // Still loading
 
-    if (subscriptionStatus === "active") {
+    if (isSubscribed) {
       setIsProtected(false)
       return
     }
 
-    if (subscriptionStatus === "inactive") {
+    if (!isSubscribed) {
       const pathname = window.location.pathname.toLowerCase()
       const isBillingPage = pathname.includes("/app/billing")
       const urlParams = new URLSearchParams(window.location.search)
       const hasBillingParams = urlParams.has("billing") || urlParams.has("account")
 
       if (!isBillingPage && !hasBillingParams) {
-        openSubscriptionModal(false)
+        setIsProtected(true)
       }
-
-      setIsProtected(true)
     }
-  }, [subscriptionStatus, openSubscriptionModal])
+  }, [user, isSubscribed])
 
   // Effect to handle browser back/forward buttons
   useEffect(() => {
@@ -1156,7 +1146,7 @@ export default function Analysis() {
                   onSubscribeClick={() => {
                     console.log("Analysis results triggering subscription modal")
                     setTimeout(() => {
-                      openSubscriptionModal(false)
+                      setIsProtected(true)
                     }, 100)
                   }}
                   news={currentEntry.news}
@@ -1243,10 +1233,10 @@ export default function Analysis() {
               onSubscribeClick={() => {
                 console.log("Floating search bar triggering subscription modal")
                 setTimeout(() => {
-                  openSubscriptionModal(false)
+                  setIsProtected(true)
                 }, 100)
               }}
-              isSubscribed={subscriptionStatus === "active"}
+              isSubscribed={isSubscribed}
               waitForResults={true}
               onSearch={handleSearch}
               isLoading={searchFormLoading}
@@ -1260,9 +1250,13 @@ export default function Analysis() {
       </div>
 
       <SubscriptionModal
-        isOpen={isSubscriptionModalOpen}
-        onClose={closeSubscriptionModal}
-        onSuccess={handleSubscriptionSuccess}
+        isOpen={!isSubscribed}
+        onClose={() => {
+          setIsProtected(true)
+        }}
+        onSuccess={() => {
+          setIsProtected(true)
+        }}
       />
     </div>
   )

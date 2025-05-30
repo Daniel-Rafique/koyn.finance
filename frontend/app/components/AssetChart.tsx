@@ -1033,7 +1033,7 @@ function AssetChart({
 
     try {
       const fmpInterval = getApiSafeInterval(timeframe)
-      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.ai:3001"
+      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.finance:3001"
       // console.log(`Converting timeframe for API: "${timeframe}" → "${fmpInterval}"`)
 
       let response

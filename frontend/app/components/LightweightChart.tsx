@@ -34,16 +34,24 @@ interface LineData {
 
 type Timeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D"
 
-// Helper function to get subscription ID from localStorage
+// Secure helper function to get subscription ID from JWT tokens
 const getSubscriptionId = () => {
   try {
-    const subscriptionData = localStorage.getItem("koyn_subscription")
-    if (subscriptionData) {
-      const parsed = JSON.parse(subscriptionData)
-      return parsed.id || null
+    const accessToken = localStorage.getItem("koyn_access_token")
+    if (accessToken && accessToken.startsWith('mock.jwt.token.')) {
+      // Parse mock JWT payload for development
+      const payloadPart = accessToken.split('.')[3]
+      if (payloadPart) {
+        const payload = JSON.parse(atob(payloadPart))
+        if (payload.email && payload.plan) {
+          return `secure-user-${payload.email}-${payload.sessionId}`
+        }
+      }
     }
+    // For production JWT tokens, you would verify and decode them properly
+    // This is a simplified version for development
   } catch (error) {
-    // console.warn('Error reading subscription data from localStorage:', error)
+    console.warn('Error reading secure subscription data:', error)
   }
   return null
 }
@@ -224,9 +232,22 @@ function LightweightChart({
 
       console.log(`Fetching fresh data for ${symbol} ${tf}...`)
 
-      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.ai:3001"
-      const subscriptionId = getSubscriptionId()
-      const subscriptionParam = subscriptionId ? `&id=${subscriptionId}` : ""
+      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.finance:3001"
+      
+      // Get JWT token for authentication
+      const accessToken = localStorage.getItem("koyn_access_token")
+      const headers: any = {}
+      
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+        console.log('Using JWT token authentication')
+      } else {
+        // Fallback to legacy subscription ID for backward compatibility
+        const subscriptionId = getSubscriptionId()
+        if (subscriptionId) {
+          console.warn('⚠️  Using legacy subscription ID authentication')
+        }
+      }
 
       let response: Response
       const apiInterval = getApiSafeInterval(tf)
@@ -235,10 +256,33 @@ function LightweightChart({
 
       if (tf === "1D") {
         // Use EOD endpoint for daily data
-        response = await fetch(`${baseUrl}/api/chart/eod?symbol=${symbol}${subscriptionParam}`)
+        const url = new URL(`${baseUrl}/api/chart/eod`)
+        url.searchParams.append('symbol', symbol)
+        
+        // Only add legacy subscription ID if no JWT token
+        if (!accessToken) {
+          const subscriptionId = getSubscriptionId()
+          if (subscriptionId) {
+            url.searchParams.append('id', subscriptionId)
+          }
+        }
+        
+        response = await fetch(url.toString(), { headers })
       } else {
         // Use regular chart endpoint for intraday data
-        response = await fetch(`${baseUrl}/api/chart?symbol=${symbol}&interval=${apiInterval}${subscriptionParam}`)
+        const url = new URL(`${baseUrl}/api/chart`)
+        url.searchParams.append('symbol', symbol)
+        url.searchParams.append('interval', apiInterval)
+        
+        // Only add legacy subscription ID if no JWT token
+        if (!accessToken) {
+          const subscriptionId = getSubscriptionId()
+          if (subscriptionId) {
+            url.searchParams.append('id', subscriptionId)
+          }
+        }
+        
+        response = await fetch(url.toString(), { headers })
       }
 
       console.log(`API Response status: ${response.status} for ${symbol} ${tf}`)
@@ -1145,13 +1189,21 @@ function LightweightChart({
   // Fetch technical indicators from API
   const fetchTechnicalIndicators = async (indicatorTypes: string[]): Promise<any> => {
     try {
-      const subscriptionId = getSubscriptionId()
-      if (!subscriptionId) {
-        console.warn("No subscription ID found for technical indicators")
-        return null
+      // Get authentication
+      const accessToken = localStorage.getItem("koyn_access_token")
+      const headers: any = {}
+      
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+      } else {
+        const subscriptionId = getSubscriptionId()
+        if (!subscriptionId) {
+          console.warn("No authentication available for technical indicators")
+          return null
+        }
       }
 
-      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.ai:3001"
+      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.finance:3001"
       const indicatorParam = indicatorTypes.join(',')
       
       // Check cache first
@@ -1164,13 +1216,23 @@ function LightweightChart({
 
       console.log(`Fetching technical indicators: ${indicatorParam} for ${symbol}`)
       
-      const response = await fetch(
-        `${baseUrl}/api/technical-indicators?symbol=${symbol}&type=${indicatorParam}&id=${subscriptionId}`
-      )
+      const url = new URL(`${baseUrl}/api/technical-indicators`)
+      url.searchParams.append('symbol', symbol)
+      url.searchParams.append('type', indicatorParam)
+      
+      // Only add legacy subscription ID if no JWT token
+      if (!accessToken) {
+        const subscriptionId = getSubscriptionId()
+        if (subscriptionId) {
+          url.searchParams.append('id', subscriptionId)
+        }
+      }
+      
+      const response = await fetch(url.toString(), { headers })
 
       if (!response.ok) {
         if (response.status === 401) {
-          console.warn("Unauthorized access to technical indicators - subscription required")
+          console.warn("Unauthorized access to technical indicators - authentication required")
           return null
         }
         throw new Error(`Failed to fetch indicators: ${response.status}`)
@@ -1200,13 +1262,21 @@ function LightweightChart({
   // Fetch specific technical indicator with detailed data
   const fetchSpecificIndicator = async (indicatorType: string, periodLength: number = 14): Promise<any> => {
     try {
-      const subscriptionId = getSubscriptionId()
-      if (!subscriptionId) {
-        console.warn("No subscription ID found for specific indicator")
-        return null
+      // Get authentication
+      const accessToken = localStorage.getItem("koyn_access_token")
+      const headers: any = {}
+      
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+      } else {
+        const subscriptionId = getSubscriptionId()
+        if (!subscriptionId) {
+          console.warn("No authentication available for specific indicator")
+          return null
+        }
       }
 
-      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.ai:3001"
+      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.finance:3001"
       
       // Check cache first
       const cacheKey = `${symbol}-${indicatorType}-${periodLength}-${timeframe}`
@@ -1221,13 +1291,25 @@ function LightweightChart({
       
       console.log(`Fetching specific indicator: ${indicatorType} for ${symbol} with period ${periodLength}`)
       
-      const response = await fetch(
-        `${baseUrl}/api/technical-indicator?indicator=${indicatorType}&symbol=${symbol}&periodLength=${periodLength}&timeframe=${apiTimeframe}&id=${subscriptionId}`
-      )
+      const url = new URL(`${baseUrl}/api/technical-indicator`)
+      url.searchParams.append('indicator', indicatorType)
+      url.searchParams.append('symbol', symbol)
+      url.searchParams.append('periodLength', periodLength.toString())
+      url.searchParams.append('timeframe', apiTimeframe)
+      
+      // Only add legacy subscription ID if no JWT token
+      if (!accessToken) {
+        const subscriptionId = getSubscriptionId()
+        if (subscriptionId) {
+          url.searchParams.append('id', subscriptionId)
+        }
+      }
+      
+      const response = await fetch(url.toString(), { headers })
 
       if (!response.ok) {
         if (response.status === 401) {
-          console.warn("Unauthorized access to specific indicator - subscription required")
+          console.warn("Unauthorized access to specific indicator - authentication required")
           return null
         }
         throw new Error(`Failed to fetch specific indicator: ${response.status}`)

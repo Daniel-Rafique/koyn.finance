@@ -56,7 +56,7 @@ function BillingWithProvider() {
 
 function Billing() {
   const navigate = useNavigate();
-  const { subscriptionStatus, userEmail, openSubscriptionModal, closeSubscriptionModal, subscriptionDetails: contextSubscriptionDetails } = useSubscription();
+  const { isSubscribed, userEmail, user, isLoading: contextLoading } = useSubscription();
   const [subscriptionDetails, setSubscriptionDetails] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,40 +78,40 @@ function Billing() {
   
   // Cancel any subscription modal that might appear
   useEffect(() => {
-    // Mark this as a billing page to prevent modals from opening automatically
-    if (isClient) {
-      // Set a session storage flag that other components can check
-      try {
-        sessionStorage.setItem('on_billing_page', 'true');
-        console.log('Set billing page flag in session storage');
-      } catch (err) {
-        console.error('Error setting session storage:', err);
-      }
-    }
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
     
     // Close any subscription modal that might be open
-    closeSubscriptionModal();
-    console.log('Billing page loaded - subscription status:', subscriptionStatus);
+    // closeSubscriptionModal(); // Removed - not available in context
+    console.log('Billing page loaded - subscription status:', isSubscribed);
     
     // Only run once on mount
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
-      console.log('Initializing billing page, preventing redirects');
-    }
-    
-    // Clean up when navigating away
-    return () => {
-      if (isClient) {
-        try {
-          // Ensure the flag is removed when leaving the billing page
-          sessionStorage.removeItem('on_billing_page');
-          console.log('Removed billing page flag from session storage during cleanup');
-        } catch (err) {
-          console.error('Error removing session storage:', err);
+    const initializePage = async () => {
+      if (isClient && userEmail) {
+        setVerifiedEmail(userEmail);
+        await fetchSubscriptionDetails(userEmail);
+      } else {
+        // Check for legacy localStorage data as fallback
+        if (isClient) {
+          const legacySubscription = localStorage.getItem('koyn_subscription');
+          if (legacySubscription) {
+            try {
+              const parsedSubscription = JSON.parse(legacySubscription);
+              if (parsedSubscription.email) {
+                setVerifiedEmail(parsedSubscription.email);
+                await fetchSubscriptionDetails(parsedSubscription.email);
+              }
+            } catch (error) {
+              console.error('Failed to parse legacy subscription:', error);
+            }
+          }
         }
+        setIsLoading(false);
       }
     };
-  }, [closeSubscriptionModal, subscriptionStatus, isClient]);
+    
+    initializePage();
+  }, [isSubscribed, isClient]);
   
   // Additional cleanup on component unmount
   useEffect(() => {
@@ -183,9 +183,19 @@ function Billing() {
 
     try {
       // First check if we have details from context
-      if (contextSubscriptionDetails) {
+      if (user) {
         console.log('Using subscription details from context');
-        setSubscriptionDetails(contextSubscriptionDetails);
+        // Convert user context to subscription format
+        const contextSubscription: Subscription = {
+          id: `user-${user.email}`,
+          email: user.email,
+          status: user.isActive ? 'active' : 'inactive',
+          startedAt: new Date().toISOString(),
+          renewalDate: new Date().toISOString(),
+          plan: user.plan,
+          paymentMethod: 'crypto'
+        };
+        setSubscriptionDetails(contextSubscription);
         setIsLoading(false);
         return;
       }
@@ -265,32 +275,10 @@ function Billing() {
   };
 
   const handleUpgradeDowngrade = () => {
-    console.log('Opening subscription modal for upgrade/downgrade');
-    
-    // Skip client-side functionality during server rendering
-    if (!isClient) {
-      console.log('Skipping client-side operations during server render');
-      return;
-    }
-    
-    // Temporarily remove the blocking flag to allow the modal to open
-    try {
-      sessionStorage.removeItem('on_billing_page');
-    } catch (err) {
-      console.error('Error removing session storage:', err);
-    }
-    
-    // Force open the modal
-    openSubscriptionModal(true);
-    
-    // Add a small delay before restoring the flag to ensure the modal opens
-    setTimeout(() => {
-      try {
-        sessionStorage.setItem('on_billing_page', 'true');
-      } catch (err) {
-        console.error('Error setting session storage:', err);
-      }
-    }, 500);
+    // Upgrade/downgrade functionality would go here
+    console.log('Upgrade/downgrade feature not yet implemented');
+    // For now, just show a message
+    alert('Upgrade/downgrade functionality is not yet available. Please contact support for assistance.');
   };
   
   // Format currency amount
@@ -908,17 +896,17 @@ function Billing() {
               <div className="glowing-input-container button-container md:w-1/2" style={{ maxWidth: 'none', margin: '0' }}>
                 <button 
                   onClick={handleUpgradeDowngrade}
-                  disabled={subscriptionStatus === 'active'}
-                  className={`subscribe-button text-white font-bold py-2 px-6 ${subscriptionStatus === 'active' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={isSubscribed}
+                  className={`subscribe-button text-white font-bold py-2 px-6 ${isSubscribed ? 'opacity-50 cursor-not-allowed' : ''}`}
                   style={{ 
                     position: 'relative', 
                     width: '100%', 
                     height: '40px', 
-                    background: subscriptionStatus === 'active' 
+                    background: isSubscribed 
                       ? 'linear-gradient(180deg, #465370, #363f52, #505e7e)' 
                       : 'linear-gradient(180deg, #263c87, #1c2d65, #2d4aa6)'
                   }}
-                  title={subscriptionStatus === 'active' ? "You can upgrade/downgrade when your current subscription ends" : "Change your subscription plan"}
+                  title={isSubscribed ? "You can upgrade/downgrade when your current subscription ends" : "Change your subscription plan"}
                 >
                   Upgrade/Downgrade
                 </button>
@@ -934,7 +922,7 @@ function Billing() {
                 </p>
               )}
               
-              {subscriptionStatus === 'active' && (
+              {isSubscribed && (
                 <p>
                   Plan changes are not available while you have an active subscription. Please contact support for assistance.
                 </p>
@@ -942,7 +930,7 @@ function Billing() {
             </div>
             
             <p className="mt-6 text-sm text-[#ffffff]">
-              Need help? Contact <a href="mailto:support@koyn.ai" className="text-[#ffffff] hover:underline">hi@koyn.ai</a>
+              Need help? Contact <a href="mailto:support@koyn.finance" className="text-[#ffffff] hover:underline">hi@koyn.finance</a>
             </p>
           </div>
         ) : (
@@ -970,7 +958,7 @@ function Billing() {
             <div>
               <div><span className="font-mono">userEmail:</span> {userEmail || 'null'}</div>
               <div><span className="font-mono">verifiedEmail:</span> {verifiedEmail || 'null'}</div>
-              <div><span className="font-mono">subscriptionStatus:</span> {subscriptionStatus}</div>
+              <div><span className="font-mono">isSubscribed:</span> {isSubscribed}</div>
               <div><span className="font-mono">isClient:</span> {isClient ? 'true' : 'false'}</div>
               <div><span className="font-mono">localStorage:</span> {isClient ? (localStorage.getItem('koyn_subscription') ? 'has data' : 'empty') : 'not available (server)'}</div>
               <div><span className="font-mono">error:</span> {error || 'none'}</div>

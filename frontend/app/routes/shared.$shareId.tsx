@@ -30,7 +30,7 @@ export default function SharedAnalysis() {
 
       try {
         console.log(`Fetching shared result for shareId: ${shareId}`);
-        const response = await fetch(`https://koyn.ai:3001/api/shared-result/${shareId}`)
+        const response = await fetch(`https://koyn.finance:3001/api/shared-result/${shareId}`)
         console.log(`Response status: ${response.status}`);
         
         if (!response.ok) {
@@ -124,7 +124,7 @@ export default function SharedAnalysis() {
             href="/" 
             className="inline-block mt-4 px-3 py-1 text-sm bg-white text-black rounded hover:bg-gray-200 transition-colors"
           >
-            Try Koyn.ai
+            Try Koyn.finance
           </a>
         </div>
 

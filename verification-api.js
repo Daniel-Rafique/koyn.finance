@@ -68,24 +68,24 @@ const verificationCodes = new Map();
 function generateAccessToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { 
     expiresIn: ACCESS_TOKEN_EXPIRY,
-    issuer: 'koyn.ai',
-    audience: 'koyn.ai-users'
+    issuer: 'koyn.finance',
+    audience: 'koyn.finance-users'
   });
 }
 
 function generateRefreshToken(payload) {
   return jwt.sign(payload, JWT_REFRESH_SECRET, { 
     expiresIn: REFRESH_TOKEN_EXPIRY,
-    issuer: 'koyn.ai',
-    audience: 'koyn.ai-users'
+    issuer: 'koyn.finance',
+    audience: 'koyn.finance-users'
   });
 }
 
 function verifyAccessToken(token) {
   try {
     return jwt.verify(token, JWT_SECRET, {
-      issuer: 'koyn.ai',
-      audience: 'koyn.ai-users'
+      issuer: 'koyn.finance',
+      audience: 'koyn.finance-users'
     });
   } catch (error) {
     return null;
@@ -95,8 +95,8 @@ function verifyAccessToken(token) {
 function verifyRefreshToken(token) {
   try {
     return jwt.verify(token, JWT_REFRESH_SECRET, {
-      issuer: 'koyn.ai',
-      audience: 'koyn.ai-users'
+      issuer: 'koyn.finance',
+      audience: 'koyn.finance-users'
     });
   } catch (error) {
     return null;

@@ -119,28 +119,28 @@ const FALLBACK_TWEETS = [
   {
     guid: 'fallback-1',
     creator: 'koynlabs',
-    profileName: 'Koynlabs',
-    description: 'Check out the latest updates on crypto markets and trends!',
+    profileName: 'Koyn Labs',
+    description: 'Welcome to Koyn.finance! Get the latest insights on stocks, crypto, and market trends.',
     pubDate: new Date().toISOString(),
-    link: 'https://koyn.ai/koynlabs',
+    link: 'https://koyn.finance/koynlabs',
     profileImage: '/logo.jpg'
   },
   {
     guid: 'fallback-2',
-    creator: 'crypto',
-    profileName: 'Crypto',
+    creator: 'business',
+    profileName: 'Business',
     description: 'Markets are showing positive signs as tech stocks rally.',
     pubDate: new Date().toISOString(),
-    link: 'https://koyn.ai/crypto',
+    link: 'https://koyn.finance/crypto',
     profileImage: '/logo.jpg'
   },
   {
     guid: 'fallback-3',
-    creator: 'markets',
-    profileName: 'Markets',
-    description: 'Markets are showing positive signs as tech stocks rally.',
+    creator: 'BitcoinMagazine',
+    profileName: 'Bitcoin Magazine',
+    description: 'Bitcoin continues to demonstrate strong fundamentals despite market volatility.',
     pubDate: new Date().toISOString(),
-    link: 'https://koyn.ai/markets',
+    link: 'https://koyn.finance/markets',
     profileImage: '/logo.jpg'
   },
   {
@@ -149,7 +149,7 @@ const FALLBACK_TWEETS = [
     profileName: 'Solana',
     description: 'Solana ecosystem grows with new DeFi and NFT projects launching this week.',
     pubDate: new Date().toISOString(),
-    link: 'https://koyn.ai/solana',
+    link: 'https://koyn.finance/solana',
     profileImage: '/logo.jpg'
   }
 ];
@@ -277,15 +277,14 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
           }
 
           // Remove the problematic Cache-Control headers that cause CORS issues
-          const response = await fetch('https://koyn.ai:3001/api/profiles', {
+          const response = await fetch('https://koyn.finance:3001/api/profiles', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({ 
               profileId: account,
-              id: subscriptionId,
-              _timestamp: currentTime // Prevent any API caching but within the body
+              _timestamp: Date.now()
             }),
           });
           
@@ -492,39 +491,38 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
   
   // Fix potentially broken image URLs
   const fixImageUrl = (url: string | undefined) => {
-    if (!url) return '/logo.jpg'; // Default image if none provided
+    if (!url) return '/logo.jpg'
     
-    // If the URL is already absolute and not a koyn.ai URL, use it directly
-    if (url.startsWith('http') && !url.includes('koyn.ai/pic/')) {
-      return url;
+    // If the URL is already absolute and not a koyn.finance URL, use it directly
+    if (url.startsWith('http') && !url.includes('koyn.finance/pic/')) {
+      return url
     }
     
-    // Extract the actual URL from koyn.ai/pic/ format
-    if (url.includes('koyn.ai/pic/')) {
+    // Extract the actual URL from koyn.finance/pic/ format
+    if (url.includes('koyn.finance/pic/')) {
       try {
-        // Extract the encoded URL part
-        const encodedUrl = url.split('koyn.ai/pic/')[1];
-        // Some URLs might be double encoded
-        const decodedUrl = decodeURIComponent(encodedUrl);
+        const encodedUrl = url.split('koyn.finance/pic/')[1]
+        const decodedUrl = decodeURIComponent(encodedUrl)
         
-        // If it looks like another koyn.ai URL, return default
-        if (decodedUrl.includes('koyn.ai')) {
-          return '/logo.jpg';
+        // If it looks like another koyn.finance URL, return default
+        if (decodedUrl.includes('koyn.finance')) {
+          return '/logo.jpg'
         }
         
-        // If it's a Twitter URL, try to format it correctly
+        // If it's a Twitter image URL, ensure it's properly formatted
         if (decodedUrl.includes('pbs.twimg.com')) {
-          return `https://${decodedUrl.replace(/https?:\/\//, '')}`;
+          return `https://${decodedUrl.replace(/https?:\/\//, '')}`
         }
         
-        return `https://${decodedUrl}`;
-      } catch (e) {
-        return '/logo.jpg';
+        // For other URLs, ensure they have https
+        return `https://${decodedUrl}`
+      } catch (error) {
+        return '/logo.jpg'
       }
     }
     
-    return url;
-  };
+    return url
+  }
 
   // Convert koyn.ai tweet links to x.com format and ensure proper SEO
   const convertToXLink = (link: string): string => {

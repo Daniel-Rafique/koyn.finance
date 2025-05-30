@@ -60,7 +60,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
   let userEmail = null;
   try {
     const subscription = useSubscription();
-    subscriptionStatus = subscription.subscriptionStatus;
+    subscriptionStatus = subscription.isSubscribed ? 'active' : 'inactive';
     userEmail = subscription.userEmail;
   } catch (error) {
     console.log('Subscription context not available, using defaults');
@@ -172,7 +172,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
         username = username.replace(/[^A-Za-z0-9_]/g, '');
 
         // Create a link to the user's profile but keep the colon
-        return `<a href="https://koyn.ai/${username}" 
+        return `<a href="https://koyn.finance/${username}" 
                    class="twitter-username-post" 
                    target="_blank" 
                    rel="noopener noreferrer"
@@ -186,7 +186,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
         username = username.replace(/[^A-Za-z0-9_]/g, '');
 
         // Create a link to the user's profile
-        return `<a href="https://koyn.ai/${username}" 
+        return `<a href="https://koyn.finance/${username}" 
                    class="twitter-username" 
                    target="_blank" 
                    rel="noopener noreferrer"
@@ -195,6 +195,26 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
 
       // Format entire posts
       processedAnalysis = formatTwitterPosts(processedAnalysis);
+
+      // Convert @mentions to profile links
+      processedAnalysis = processedAnalysis.replace(
+        /@(\w+)/g,
+        `<a href="https://koyn.finance/$1" class="mention" target="_blank" rel="noopener noreferrer">@$1</a>`
+      )
+
+      // Convert regular usernames to profile links if they look like Twitter handles
+      processedAnalysis = processedAnalysis.replace(
+        /(?:^|\s)([A-Za-z0-9_]{1,15})(?=\s|$|[^\w])/g,
+        (match, username) => {
+          // Only convert if it looks like a valid Twitter handle and isn't already a link
+          if (username.length >= 3 && !match.includes('href')) {
+            const trimmedMatch = match.trim()
+            const leadingSpace = match.startsWith(' ') ? ' ' : ''
+            return `${leadingSpace}<a href="https://koyn.finance/${username}" class="username-link" target="_blank" rel="noopener noreferrer">${trimmedMatch}</a>`
+          }
+          return match
+        }
+      )
 
       return processedAnalysis;
     } catch (err) {
@@ -400,7 +420,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
         console.warn('Error reading subscription data from localStorage:', error)
       }
 
-      const response = await fetch("https://koyn.ai:3001/api/share-result", {
+      const response = await fetch("https://koyn.finance:3001/api/share-result", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -12,9 +12,17 @@ const crypto = require('crypto');
 const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const Redis = require('ioredis');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = 3001;
+
+// JWT configuration for secure authentication
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
+
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️  JWT_SECRET not set in environment. Using generated secret for development only.');
+}
 
 // Initialize Redis client
 let redisClient;
@@ -40,6 +48,42 @@ try {
 } catch (error) {
   console.error('Failed to initialize Redis client:', error);
   redisClient = null;
+}
+
+// JWT Authentication Functions
+function verifyAccessToken(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET, {
+      issuer: 'koyn.finance',
+      audience: 'koyn.finance-users'
+    });
+  } catch (error) {
+    return null;
+  }
+}
+
+// Middleware to extract subscription ID from JWT token or fallback to query param
+function getSubscriptionId(req) {
+  // First try to get from Authorization header (JWT token)
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const decoded = verifyAccessToken(token);
+    
+    if (decoded && decoded.subscriptionId) {
+      console.log(`Using secure JWT authentication for subscription: ${decoded.subscriptionId}`);
+      return decoded.subscriptionId;
+    }
+  }
+  
+  // Fallback to query parameter for backward compatibility (legacy)
+  const legacyId = req.query.id;
+  if (legacyId) {
+    console.warn(`⚠️  Using legacy subscription ID authentication: ${legacyId}`);
+    return legacyId;
+  }
+  
+  return null;
 }
 
 // Rate limiting configuration and functions
@@ -217,13 +261,13 @@ const RATE_LIMITS = {
   
   // Rate limiting middleware function
   function rateLimitMiddleware(req, res, next) {
-    const subscriptionId = req.query.id;
+    const subscriptionId = getSubscriptionId(req);
     
     if (!subscriptionId) {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription ID is required",
+        message: "Valid authentication is required. Please provide a valid JWT token in the Authorization header or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access this feature"
       });
@@ -618,7 +662,7 @@ function formatTweetContent(html) {
       // Handle Twitter/X URLs specially
       if (match.match(/(https?:\/\/)(x\.com|twitter\.com)\//)) {
         const path = match.split('.com/')[1];
-        return `<a href="https://koyn.ai/${path}" class="tweet-link" target="_blank" rel="noopener noreferrer">koyn.ai/${path}</a>`;
+        return `<a href="https://koyn.finance/${path}" class="tweet-link" target="_blank" rel="noopener noreferrer">koyn.finance/${path}</a>`;
       }
       // Handle other URLs
       return `<a href="${match}" class="tweet-link" target="_blank" rel="noopener noreferrer">${match}</a>`;
@@ -634,7 +678,7 @@ function formatTweetContent(html) {
   // Format mentions - only match valid username characters
   decoded = decoded.replace(
     /@([\w]+)/g,
-    '<a href="https://koyn.ai/$1" class="mention" target="_blank" rel="noopener noreferrer">@$1</a>'
+    '<a href="https://koyn.finance/$1" class="mention" target="_blank" rel="noopener noreferrer">@$1</a>'
   );
   
   // Handle line breaks - normalize different types of line breaks first
@@ -732,7 +776,7 @@ const getTwitterSentiment = async (asset) => {
       console.log(`🔍 Using local search for: ${localQueryText}`);
       
       // Use the local endpoint as fallback
-      const localResponse = await axios.post("https://koyn.ai:3001/api/search", {
+      const localResponse = await axios.post("https://koyn.finance:3001/api/search", {
           query: localQueryText,
           limit: 50
       }, {
@@ -2808,15 +2852,16 @@ app.post("/api/sentiment", async (req, res) => {
 
 app.post('/api/profiles', async (req, res) => {
   const origin = req.get('origin') || req.get('referer') || '';
-  const { profileId, id: subscriptionId, timestamp, hash } = req.body;
+  const { profileId, timestamp, hash } = req.body;
+  const subscriptionId = getSubscriptionId(req);
   console.log('Request origin:', origin);
   
   // List of allowed domains
   const allowedDomains = [
       'https://dipped.me',
       'https://www.dipped.me',
-      'https://koyn.ai',
-      'https://www.koyn.ai',
+      'https://koyn.finance',
+      'https://www.koyn.finance',
       'http://167.71.16.134'
   ];
   
@@ -3395,9 +3440,6 @@ app.post('/api/save-result', async (req, res) => {
 });
 
 
-
-
-
 app.get('/api/saved-results', async (req, res) => {
   try {
     const { email } = req.query;
@@ -3492,7 +3534,8 @@ app.delete('/api/saved-result/:resultId', async (req, res) => {
 // Endpoint for sharing analysis results
 app.post('/api/share-result', async (req, res) => {
   try {
-    const { resultId, result, id: subscriptionId } = req.body;
+    const { resultId, result } = req.body;
+    const subscriptionId = getSubscriptionId(req);
     
     if (!resultId || !result) {
       return res.status(400).json({
@@ -3506,7 +3549,7 @@ app.post('/api/share-result', async (req, res) => {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription is required for sharing analysis",
+        message: "Valid authentication is required for sharing analysis. Please provide a valid JWT token or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to share analysis"
       });
@@ -3550,7 +3593,7 @@ app.post('/api/share-result', async (req, res) => {
       success: true,
       message: 'Analysis shared successfully',
       shareId,
-      shareUrl: `https://koyn.ai/app/shared/${shareId}`
+      shareUrl: `https://koyn.finance/app/shared/${shareId}`
     });
   } catch (error) {
     console.error('Error sharing analysis result:', error);
@@ -4588,14 +4631,15 @@ app.get('/api/assets/commodities', async (req, res) => {
 // Insider trading API endpoint
 app.get('/api/insider-trading', async (req, res) => {
   try {
-    const { symbol, limit = 100, id: subscriptionId } = req.query;
+    const { symbol, limit = 100 } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     // Validate subscription for FMP API access
     if (!subscriptionId) {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription is required for insider trading data access",
+        message: "Valid authentication is required for insider trading data access. Please provide a valid JWT token or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access insider trading data"
       });
@@ -4662,7 +4706,8 @@ app.get('/api/insider-trading', async (req, res) => {
 // Historical prices API endpoint
 app.get('/api/historical-prices', async (req, res) => {
   try {
-    const { symbol, timeframe = '1D', id: subscriptionId } = req.query;
+    const { symbol, timeframe = '1D' } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     if (!symbol) {
       return res.status(400).json({ error: 'Symbol parameter is required' });
@@ -4673,7 +4718,7 @@ app.get('/api/historical-prices', async (req, res) => {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription is required for historical price data access",
+        message: "Valid authentication is required for historical price data access. Please provide a valid JWT token or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access historical price data"
       });
@@ -4745,7 +4790,8 @@ app.get('/api/historical-prices', async (req, res) => {
 // Intraday prices API endpoint
 app.get('/api/intraday-prices', async (req, res) => {
   try {
-    const { symbol, interval = '1min', id: subscriptionId } = req.query;
+    const { symbol, interval = '1min' } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     if (!symbol) {
       return res.status(400).json({ error: 'Symbol parameter is required' });
@@ -4756,7 +4802,7 @@ app.get('/api/intraday-prices', async (req, res) => {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription is required for intraday price data access",
+        message: "Valid authentication is required for intraday price data access. Please provide a valid JWT token or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access intraday price data"
       });
@@ -4805,7 +4851,8 @@ app.get('/api/intraday-prices', async (req, res) => {
 // Technical indicators API endpoint
 app.get('/api/technical-indicators', async (req, res) => {
   try {
-    const { symbol, period = 14, type = 'rsi', id: subscriptionId } = req.query;
+    const { symbol, period = 14, type = 'rsi' } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     if (!symbol) {
       return res.status(400).json({ error: 'Symbol parameter is required' });
@@ -4816,7 +4863,7 @@ app.get('/api/technical-indicators', async (req, res) => {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription is required for technical indicators access",
+        message: "Valid authentication is required for technical indicators access. Please provide a valid JWT token or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access technical indicators"
       });
@@ -4961,7 +5008,8 @@ app.get('/api/technical-indicator', async (req, res) => {
 // Chart data API endpoint for different time intervals
 app.get('/api/chart', async (req, res) => {
   try {
-    const { symbol, interval = '1day', contractAddress, isDex, id: subscriptionId } = req.query;
+    const { symbol, interval = '1day', contractAddress, isDex } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     // Allow chart to work with either a symbol or contract address
     if (!symbol && !contractAddress) {
@@ -4977,7 +5025,7 @@ app.get('/api/chart', async (req, res) => {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription is required for chart data access",
+        message: "Valid authentication is required for chart data access. Please provide a valid JWT token or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access chart data"
       });
@@ -5464,7 +5512,8 @@ app.get('/api/chart', async (req, res) => {
 // Add a dedicated /api/chart/eod endpoint that respects the dex flag from frontend
 app.get('/api/chart/eod', async (req, res) => {
   try {
-    const { symbol, contractAddress, isDex, id: subscriptionId } = req.query;
+    const { symbol, contractAddress, isDex } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     // Require either symbol or contract address
     if (!symbol && !contractAddress) {
@@ -5484,7 +5533,7 @@ app.get('/api/chart/eod', async (req, res) => {
         return res.status(401).json({
           success: false,
           error: "Unauthorized",
-          message: "Valid subscription is required for EOD data access",
+          message: "Valid authentication is required for EOD data access. Please provide a valid JWT token or subscription ID.",
           subscription_required: true,
           action: "Please subscribe or sign in to access EOD historical data"
         });
