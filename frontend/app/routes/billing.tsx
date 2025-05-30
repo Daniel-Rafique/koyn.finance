@@ -4,6 +4,7 @@ import { useSubscription, SubscriptionProvider } from "../context/SubscriptionCo
 import { Routes } from "../utils/routes";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
+import Loader from "../components/Loader";
 import "../styles/news-carousel-solid.css";
 import "../styles/glowing-input.css";
 import { HelioCheckout } from '@heliofi/checkout-react';
@@ -135,19 +136,20 @@ function Billing() {
       console.log('Context loading status:', contextLoading);
       console.log('=====================================');
       
-      // Wait for SubscriptionContext to finish loading/verification
+      // CRITICAL: Wait for SubscriptionContext to finish its verification process
       if (contextLoading) {
-        console.log('SubscriptionContext still verifying, waiting...');
+        console.log('⏳ SubscriptionContext still verifying user tokens, waiting...');
         return;
       }
       
-      // Context has finished loading, now check the results
+      // At this point, SubscriptionContext has finished verification
+      // Now we can trust the isSubscribed and userEmail values
+      
       if (isSubscribed && userEmail) {
-        console.log('✅ Subscription already verified by context, fetching billing details...');
+        console.log('✅ User verified with active subscription, loading billing details...');
         await fetchSubscriptionDetails(userEmail);
       } else if (userEmail && !isSubscribed) {
-        console.log('⚠️ User authenticated but no active subscription found');
-        // User is authenticated but doesn't have an active subscription
+        console.log('⚠️ User authenticated but no active subscription');
         setSubscriptionDetails({
           id: 'inactive-user',
           email: userEmail,
@@ -161,8 +163,7 @@ function Billing() {
         setError("No active subscription found");
         setIsLoading(false);
       } else {
-        console.log('❌ No authenticated user found');
-        // No JWT authentication at all
+        console.log('❌ No verified user found after context verification');
         setIsLoading(false);
         setError("Please log in to access your billing information");
       }
@@ -692,7 +693,7 @@ function Billing() {
 
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#ffffff]"></div>
+            <Loader />
           </div>
         ) : subscriptionDetails?.status !== 'active' || error ? (
           // Show expired/inactive subscription UI 
