@@ -127,17 +127,22 @@ function Billing() {
 
   useEffect(() => {
     const initializeBilling = async () => {
-      console.log('Billing page loaded - subscription status:', isSubscribed);
+      console.log('=== BILLING PAGE INITIALIZATION ===');
+      console.log('Subscription status (isSubscribed):', isSubscribed);
       console.log('User email from context:', userEmail);
       console.log('User object from context:', user);
+      console.log('User object type:', typeof user);
+      console.log('Context loading status:', contextLoading);
+      console.log('=====================================');
       
       if (contextLoading) {
         console.log('Context still loading, waiting...');
         return;
       }
       
-      if (user && userEmail) {
-        // User is authenticated via JWT, fetch their subscription details
+      // Check if we have a verified user with email
+      if (userEmail) {
+        console.log('Found authenticated user, fetching subscription details...');
         await fetchSubscriptionDetails(userEmail);
       } else {
         // No JWT authentication, show expired subscription UI
@@ -155,24 +160,6 @@ function Billing() {
     setError(null);
 
     try {
-      // First check if we have details from context
-      if (user) {
-        console.log('Using subscription details from context');
-        // Convert user context to subscription format
-        const contextSubscription: Subscription = {
-          id: `user-${user.email}`,
-          email: user.email,
-          status: user.isActive ? 'active' : 'inactive',
-          startedAt: new Date().toISOString(),
-          renewalDate: new Date().toISOString(),
-          plan: user.plan || 'unknown',
-          paymentMethod: 'crypto'
-        };
-        setSubscriptionDetails(contextSubscription);
-        setIsLoading(false);
-        return;
-      }
-      
       // Fetch subscription details from the webhook handler API with JWT authentication
       console.log('Fetching subscription details for:', email);
       const accessToken = localStorage.getItem('koyn_access_token');
@@ -199,22 +186,38 @@ function Billing() {
       
       if (data.active && data.subscription) {
         // Found an active subscription from webhook handler
+        console.log('Active subscription found from server:', data.subscription);
         setSubscriptionDetails(data.subscription);
       } else {
-        // No active subscription, but we'll still show the billing page
-        // with a basic inactive subscription representation
-        console.log('No active subscription found, creating inactive record');
-        setSubscriptionDetails({
-          id: 'inactive-user',
-          email: email,
-          status: 'inactive',
-          startedAt: new Date().toISOString(),
-          renewalDate: new Date().toISOString(),
-          transactionId: 'none',
-          plan: 'none',
-          paymentMethod: 'none'
-        });
-        setError("No active subscription found");
+        // No active subscription found on server, check if user context shows active
+        if (user && typeof user === 'object' && user.isActive) {
+          console.log('No server subscription found, but user context shows active. Creating subscription from context.');
+          // Convert user context to subscription format
+          const contextSubscription: Subscription = {
+            id: `user-${user.email}`,
+            email: user.email,
+            status: 'active',
+            startedAt: new Date().toISOString(),
+            renewalDate: new Date().toISOString(),
+            plan: user.plan || 'unknown',
+            paymentMethod: 'crypto'
+          };
+          setSubscriptionDetails(contextSubscription);
+        } else {
+          // No active subscription anywhere
+          console.log('No active subscription found anywhere, creating inactive record');
+          setSubscriptionDetails({
+            id: 'inactive-user',
+            email: email,
+            status: 'inactive',
+            startedAt: new Date().toISOString(),
+            renewalDate: new Date().toISOString(),
+            transactionId: 'none',
+            plan: 'none',
+            paymentMethod: 'none'
+          });
+          setError("No active subscription found");
+        }
       }
     } catch (err) {
       console.error("Error fetching subscription details:", err);
