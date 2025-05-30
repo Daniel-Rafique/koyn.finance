@@ -2893,35 +2893,41 @@ app.post('/api/profiles', async (req, res) => {
       });
     }
 
-    // Validate subscription for profiles access
-    if (!subscriptionId) {
+    // For NewsCarousel and general website display from allowed domains, allow access without subscription
+    // Only require subscription for advanced profile analytics or extensive usage
+    const isGeneralProfileRequest = isAllowedOrigin && profileId;
+    
+    if (!isGeneralProfileRequest && !subscriptionId) {
       return res.status(401).json({
         status: {
           code: 401,
-          message: "Valid subscription is required for profiles access"
+          message: "Valid subscription is required for advanced profile access"
         },
         data: null,
         subscription_required: true,
-        action: "Please subscribe or sign in to access profile data"
+        action: "Please subscribe or sign in to access detailed profile data"
       });
     }
 
-    // Check subscription status in database
-    const hasValidSubscription = isSubscriptionActive(subscriptionId);
-    if (!hasValidSubscription) {
-      console.log(`Profiles access denied for subscription ID: ${subscriptionId} - invalid or inactive subscription`);
-      return res.status(401).json({
-        status: {
-          code: 401,
-          message: "Invalid or inactive subscription"
-        },
-        data: null,
-        subscription_required: true,
-        action: "Please renew your subscription to access profile data"
-      });
+    // Check subscription status in database only if subscription is provided
+    if (subscriptionId) {
+      const hasValidSubscription = isSubscriptionActive(subscriptionId);
+      if (!hasValidSubscription) {
+        console.log(`Profiles access denied for subscription ID: ${subscriptionId} - invalid or inactive subscription`);
+        return res.status(401).json({
+          status: {
+            code: 401,
+            message: "Invalid or inactive subscription"
+          },
+          data: null,
+          subscription_required: true,
+          action: "Please renew your subscription to access profile data"
+        });
+      }
+      console.log(`Profiles access granted for subscription ID: ${subscriptionId}`);
+    } else {
+      console.log(`General profile access granted for domain: ${origin}`);
     }
-
-    console.log(`Profiles access granted for subscription ID: ${subscriptionId}`);
   
     try {
       let result;

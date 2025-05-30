@@ -264,24 +264,40 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
           
           console.log(`Fetching fresh data for ${account}`);
           
-          // Get subscription ID from localStorage
-          let subscriptionId = null
-          try {
-            const subscriptionData = localStorage.getItem('koyn_subscription')
-            if (subscriptionData) {
-              const parsed = JSON.parse(subscriptionData)
-              subscriptionId = parsed.id || null
+          // Get authentication token (JWT preferred, fallback to legacy subscription)
+          let authHeaders: any = {
+            'Content-Type': 'application/json'
+          };
+          
+          // Try JWT token first
+          const accessToken = localStorage.getItem('koyn_access_token');
+          if (accessToken) {
+            authHeaders['Authorization'] = `Bearer ${accessToken}`;
+            console.log('Using JWT token authentication for profile request');
+          } else {
+            // Fallback to legacy subscription ID
+            let subscriptionId = null;
+            try {
+              const subscriptionData = localStorage.getItem('koyn_subscription');
+              if (subscriptionData) {
+                const parsed = JSON.parse(subscriptionData);
+                subscriptionId = parsed.id || null;
+              }
+            } catch (error) {
+              console.warn('Error reading subscription data from localStorage:', error);
             }
-          } catch (error) {
-            console.warn('Error reading subscription data from localStorage:', error)
+            
+            if (subscriptionId) {
+              console.log('Using legacy subscription ID for profile request');
+            } else {
+              console.log('No authentication available, using general profile access');
+            }
           }
 
           // Remove the problematic Cache-Control headers that cause CORS issues
           const response = await fetch('https://koyn.finance:3001/api/profiles', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
+            headers: authHeaders,
             body: JSON.stringify({ 
               profileId: account,
               _timestamp: Date.now()
