@@ -295,7 +295,7 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
           }
 
           // Remove the problematic Cache-Control headers that cause CORS issues
-          const response = await fetch('https://koyn.finance:3001/api/profiles', {
+          const response = await fetch('/api/profiles', {
             method: 'POST',
             headers: authHeaders,
             body: JSON.stringify({ 

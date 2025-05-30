@@ -45,9 +45,36 @@ if (SENDGRID_API_KEY) {
 
 // Middleware
 app.use(cors({
-  origin: '*',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    // List of allowed origins
+    const allowedOrigins = [
+      'https://koyn.finance',
+      'https://www.koyn.finance',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://167.71.16.134'
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      return callback(new Error('Not allowed by CORS policy'), false);
+    }
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'X-Requested-With', 'X-Request-Time', 'Authorization', 'Accept', 'Origin']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin',
+    'X-Request-Time'
+  ]
 }));
 app.use(bodyParser.json({ limit: '10mb' }));
 
@@ -266,13 +293,13 @@ async function sendVerificationEmail(email, code) {
         
         const msg = {
           to: email,
-          from: 'hi@koyn.ai', // Use your verified sender
+          from: 'hi@koyn.finance', // Use your verified sender
           subject: 'Your koyn.ai Verification Code',
           text: `Your verification code is: ${code}\n\nThis code will expire in 10 minutes.\n\nThank you,\nThe Koyn.ai Team`,
           html: `
             <div style="font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #ffffff; background-color: #000000;">
               <div style="text-align: center; margin-bottom: 30px;">
-                <img src="https://koyn.ai/logo.png" alt="Koyn.ai Logo" style="max-width: 120px;">
+                <img src="https://koyn.finance/logo.png" alt="Koyn.finance Logo" style="max-width: 120px;">
               </div>
               
               <div style="background-color: #000000; border-radius: 0.75rem; padding: 30px; box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1); border: 1px solid #ffffff;">
@@ -296,9 +323,9 @@ async function sendVerificationEmail(email, code) {
               <div style="border-top: 1px solid #ffffff; margin-top: 30px; padding-top: 20px; font-size: 13px; color: #ffffff; text-align: center;">
                 <p style="margin-bottom: 10px;">© ${new Date().getFullYear()} Koyn.ai. All rights reserved.</p>
                 <div style="display: flex; justify-content: center; margin-top: 15px;">
-                  <a href="https://koyn.ai/terms" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Terms</a>
-                  <a href="https://koyn.ai/privacy" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Privacy</a>
-                  <a href="https://koyn.ai/contact" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Contact</a>
+                  <a href="https://koyn.finance/terms" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Terms</a>
+                  <a href="https://koyn.finance/privacy" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Privacy</a>
+                  <a href="https://koyn.finance/contact" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Contact</a>
                 </div>
               </div>
             </div>
