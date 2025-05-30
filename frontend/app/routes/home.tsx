@@ -18,14 +18,14 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
   const navigate = useNavigate();
   const [hasStoredResults, setHasStoredResults] = useState(false);
-  // Get subscription context
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  
+  // Get subscription context - updated to use new secure interface
   const { 
-    subscriptionStatus, 
-    isSubscriptionModalOpen, 
-    openSubscriptionModal, 
-    closeSubscriptionModal,
-    handleSubscriptionSuccess,
+    isSubscribed,
+    user,
     userEmail,
+    isLoading,
     verifySubscription
   } = useSubscription();
 
@@ -68,30 +68,37 @@ export default function Home() {
     }
   };
 
-  // Force check subscription status on page load 
+  // Subscription modal handlers
+  const openSubscriptionModal = () => {
+    setIsSubscriptionModalOpen(true);
+  };
+
+  const closeSubscriptionModal = () => {
+    setIsSubscriptionModalOpen(false);
+  };
+
+  const handleSubscriptionSuccess = (event: any) => {
+    console.log('Subscription success:', event);
+    closeSubscriptionModal();
+    // The new secure system handles authentication automatically
+  };
+
+  // Check authentication status on mount and clean up legacy data
   useEffect(() => {
-    // Check if user has a saved email in localStorage
-    const savedSubscription = localStorage.getItem('koyn_subscription');
-    if (savedSubscription) {
-      try {
-        const subscription = JSON.parse(savedSubscription);
-        if (subscription.email) {
-          // Verify with backend to ensure subscription is still active
-          // Set a flag to prevent auto-opening modal during initial page load verification
-          const skipModalOpen = true;
-          verifySubscription(subscription.email, skipModalOpen).catch(err => {
-            console.error('Error verifying subscription:', err);
-            // Clear localStorage on verification error
-            localStorage.removeItem('koyn_subscription');
-          });
-        }
-      } catch (err) {
-        console.error('Error parsing saved subscription:', err);
-        // Clear invalid localStorage data
+    // Remove any legacy insecure subscription data
+    try {
+      const legacyData = localStorage.getItem('koyn_subscription');
+      if (legacyData) {
+        console.warn('🚨 SECURITY: Removing legacy insecure subscription data from home page');
         localStorage.removeItem('koyn_subscription');
       }
+    } catch (error) {
+      console.error('Error cleaning up legacy data:', error);
     }
-  }, [verifySubscription]);
+
+    // The new secure context automatically handles authentication verification
+    // No need for manual verification calls here
+  }, []);
   
   // Load premium test script in development mode
   useEffect(() => {
@@ -265,14 +272,14 @@ export default function Home() {
           <div className="mb-4 text-center">
           </div>
           <SearchForm 
-            onSubscribeClick={() => openSubscriptionModal(false)}
-            isSubscribed={subscriptionStatus === 'active'} 
+            onSubscribeClick={() => openSubscriptionModal()}
+            isSubscribed={isSubscribed} 
           />
         </div>
       </main>
       
       {/* Subscription Modal */}
-      {(subscriptionStatus !== 'active') && (
+      {(isSubscribed === false) && (
         <SubscriptionModal 
           isOpen={isSubscriptionModalOpen} 
           onClose={closeSubscriptionModal} 
