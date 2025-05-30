@@ -60,8 +60,6 @@ function Billing() {
   const [subscriptionDetails, setSubscriptionDetails] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Track if we have a verified email even if no subscription
-  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
   // Flag to prevent subscription modal from opening on this page
   const hasInitialized = useRef(false);
   // Flag to indicate if we're on the client (to safely use localStorage/sessionStorage)
@@ -128,52 +126,29 @@ function Billing() {
   }, [isClient]);
 
   useEffect(() => {
-    // Check for any user identity - either from context or localStorage
-    let emailToUse = userEmail;
-    console.log('Checking for user email, current value:', emailToUse);
-    
-    // Skip this effect during server-side rendering
-    if (!isClient) {
-      console.log('Skipping localStorage check on server side');
-      return;
-    }
-    
-    if (!emailToUse) {
-      try {
-        // Try to find a verified email in localStorage
-        if (typeof window !== 'undefined' && window.localStorage) {
-          const storedData = localStorage.getItem('koyn_subscription');
-          if (storedData) {
-            const parsedData = JSON.parse(storedData);
-            if (parsedData.email) {
-              emailToUse = parsedData.email;
-              setVerifiedEmail(parsedData.email);
-              console.log('Found verified email in localStorage:', emailToUse);
-              
-              // Check for special billing access flag
-              if (parsedData.allowBillingAccess) {
-                console.log('Found allowBillingAccess flag, ensuring billing page access');
-              }
-            }
-          }
-        } else {
-          console.log('localStorage not available (likely server-side rendering)');
-        }
-      } catch (err) {
-        console.error('Error reading from localStorage:', err);
+    const initializeBilling = async () => {
+      console.log('Billing page loaded - subscription status:', isSubscribed);
+      console.log('User email from context:', userEmail);
+      console.log('User object from context:', user);
+      
+      if (contextLoading) {
+        console.log('Context still loading, waiting...');
+        return;
       }
-    }
+      
+      if (user && userEmail) {
+        // User is authenticated via JWT, fetch their subscription details
+        await fetchSubscriptionDetails(userEmail);
+      } else {
+        // No JWT authentication, show expired subscription UI
+        console.log('No authenticated user found');
+        setIsLoading(false);
+        setError("Please log in to access your billing information");
+      }
+    };
     
-    // If we have an email (from context or localStorage), fetch subscription details
-    if (emailToUse) {
-      console.log('Found email, fetching subscription details:', emailToUse);
-      fetchSubscriptionDetails(emailToUse);
-    } else {
-      // No email found anywhere, redirect to home - user must verify email first
-      console.log('No verified email found, redirecting to home');
-      navigate(Routes.HOME);
-    }
-  }, [userEmail, navigate, isClient]);
+    initializeBilling();
+  }, [isSubscribed, userEmail, user, contextLoading]);
 
   const fetchSubscriptionDetails = async (email: string) => {
     setIsLoading(true);
@@ -198,7 +173,7 @@ function Billing() {
         return;
       }
       
-      // Otherwise fetch subscription details from the API with JWT authentication
+      // Fetch subscription details from the webhook handler API with JWT authentication
       console.log('Fetching subscription details for:', email);
       const accessToken = localStorage.getItem('koyn_access_token');
       
@@ -223,7 +198,7 @@ function Billing() {
       console.log('API subscription response:', data);
       
       if (data.active && data.subscription) {
-        // Found an active subscription
+        // Found an active subscription from webhook handler
         setSubscriptionDetails(data.subscription);
       } else {
         // No active subscription, but we'll still show the billing page
@@ -374,7 +349,7 @@ function Billing() {
   // Render expired subscription UI
   const renderExpiredSubscription = () => {
     // Determine which email to display
-    const displayEmail = subscriptionDetails?.email || verifiedEmail || userEmail;
+    const displayEmail = subscriptionDetails?.email || userEmail;
     
     // Default paylink ID
     const defaultPaylinkId = '68229ffa2c8760f1eb3d19d7';
@@ -963,7 +938,6 @@ function Billing() {
             <h4 className="font-semibold mb-2">Debug Info</h4>
             <div>
               <div><span className="font-mono">userEmail:</span> {userEmail || 'null'}</div>
-              <div><span className="font-mono">verifiedEmail:</span> {verifiedEmail || 'null'}</div>
               <div><span className="font-mono">isSubscribed:</span> {isSubscribed}</div>
               <div><span className="font-mono">isClient:</span> {isClient ? 'true' : 'false'}</div>
               <div><span className="font-mono">localStorage:</span> {isClient ? (localStorage.getItem('koyn_subscription') ? 'has data' : 'empty') : 'not available (server)'}</div>
