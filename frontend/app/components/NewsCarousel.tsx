@@ -297,7 +297,7 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
           // API endpoint URL - use same domain for live server, localhost:3001 for development
           const apiUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
             ? `${window.location.protocol}//${window.location.hostname}:3001/api/profiles`
-            : `${window.location.protocol}//${window.location.hostname}/api/profiles`;
+            : `${window.location.protocol}//${window.location.hostname}:3001/api/profiles`;
             
           console.log(`Attempting to fetch from API URL: ${apiUrl}`);
           console.log(`Current hostname: ${window.location.hostname}`);
