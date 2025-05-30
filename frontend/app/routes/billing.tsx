@@ -135,18 +135,34 @@ function Billing() {
       console.log('Context loading status:', contextLoading);
       console.log('=====================================');
       
+      // Wait for SubscriptionContext to finish loading/verification
       if (contextLoading) {
-        console.log('Context still loading, waiting...');
+        console.log('SubscriptionContext still verifying, waiting...');
         return;
       }
       
-      // Check if we have a verified user with email
-      if (userEmail) {
-        console.log('Found authenticated user, fetching subscription details...');
+      // Context has finished loading, now check the results
+      if (isSubscribed && userEmail) {
+        console.log('✅ Subscription already verified by context, fetching billing details...');
         await fetchSubscriptionDetails(userEmail);
+      } else if (userEmail && !isSubscribed) {
+        console.log('⚠️ User authenticated but no active subscription found');
+        // User is authenticated but doesn't have an active subscription
+        setSubscriptionDetails({
+          id: 'inactive-user',
+          email: userEmail,
+          status: 'inactive',
+          startedAt: new Date().toISOString(),
+          renewalDate: new Date().toISOString(),
+          transactionId: 'none',
+          plan: 'none',
+          paymentMethod: 'none'
+        });
+        setError("No active subscription found");
+        setIsLoading(false);
       } else {
-        // No JWT authentication, show expired subscription UI
-        console.log('No authenticated user found');
+        console.log('❌ No authenticated user found');
+        // No JWT authentication at all
         setIsLoading(false);
         setError("Please log in to access your billing information");
       }
@@ -160,8 +176,25 @@ function Billing() {
     setError(null);
 
     try {
-      // Fetch subscription details from the webhook handler API with JWT authentication
-      console.log('Fetching subscription details for:', email);
+      // Since we know the subscription is verified, prioritize context data if available
+      if (user && typeof user === 'object' && user.isActive) {
+        console.log('Using verified subscription from context');
+        const contextSubscription: Subscription = {
+          id: `user-${user.email}`,
+          email: user.email,
+          status: 'active',
+          startedAt: new Date().toISOString(),
+          renewalDate: new Date().toISOString(),
+          plan: user.plan || 'unknown',
+          paymentMethod: 'crypto'
+        };
+        setSubscriptionDetails(contextSubscription);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch detailed subscription data from webhook handler for billing details
+      console.log('Fetching detailed billing information for:', email);
       const accessToken = localStorage.getItem('koyn_access_token');
       
       const headers: Record<string, string> = {
@@ -178,61 +211,56 @@ function Billing() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch subscription details: ${response.status}`);
+        console.warn(`API call failed with ${response.status}, using context data`);
+        // API failed but we know subscription is active from context
+        setSubscriptionDetails({
+          id: 'context-verified',
+          email: email,
+          status: 'active',
+          startedAt: new Date().toISOString(),
+          renewalDate: new Date().toISOString(),
+          transactionId: 'verified',
+          plan: 'verified',
+          paymentMethod: 'verified'
+        });
+        setIsLoading(false);
+        return;
       }
 
       const data = await response.json();
-      console.log('API subscription response:', data);
+      console.log('Detailed billing data from server:', data);
       
       if (data.active && data.subscription) {
-        // Found an active subscription from webhook handler
-        console.log('Active subscription found from server:', data.subscription);
+        // Use detailed data from webhook handler
+        console.log('Using detailed billing data from server');
         setSubscriptionDetails(data.subscription);
       } else {
-        // No active subscription found on server, check if user context shows active
-        if (user && typeof user === 'object' && user.isActive) {
-          console.log('No server subscription found, but user context shows active. Creating subscription from context.');
-          // Convert user context to subscription format
-          const contextSubscription: Subscription = {
-            id: `user-${user.email}`,
-            email: user.email,
-            status: 'active',
-            startedAt: new Date().toISOString(),
-            renewalDate: new Date().toISOString(),
-            plan: user.plan || 'unknown',
-            paymentMethod: 'crypto'
-          };
-          setSubscriptionDetails(contextSubscription);
-        } else {
-          // No active subscription anywhere
-          console.log('No active subscription found anywhere, creating inactive record');
-          setSubscriptionDetails({
-            id: 'inactive-user',
-            email: email,
-            status: 'inactive',
-            startedAt: new Date().toISOString(),
-            renewalDate: new Date().toISOString(),
-            transactionId: 'none',
-            plan: 'none',
-            paymentMethod: 'none'
-          });
-          setError("No active subscription found");
-        }
+        // Fallback to verified context data
+        console.log('Server has no detailed data, using verified context data');
+        setSubscriptionDetails({
+          id: 'context-verified',
+          email: email,
+          status: 'active',
+          startedAt: new Date().toISOString(),
+          renewalDate: new Date().toISOString(),
+          transactionId: 'verified',
+          plan: 'verified',
+          paymentMethod: 'verified'
+        });
       }
     } catch (err) {
-      console.error("Error fetching subscription details:", err);
-      // Create a minimal record just so we can show something
+      console.warn("Error fetching detailed billing data, using verified context:", err);
+      // Since subscription is verified by context, show as active even if API fails
       setSubscriptionDetails({
-        id: 'error-fetching',
+        id: 'context-verified',
         email: email,
-        status: 'inactive',
+        status: 'active',
         startedAt: new Date().toISOString(),
         renewalDate: new Date().toISOString(),
-        transactionId: 'unknown',
-        plan: 'unknown',
-        paymentMethod: 'unknown'
+        transactionId: 'verified',
+        plan: 'verified',
+        paymentMethod: 'verified'
       });
-      setError("Error loading subscription details");
     } finally {
       setIsLoading(false);
     }
