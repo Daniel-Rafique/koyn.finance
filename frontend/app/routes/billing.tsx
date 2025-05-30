@@ -46,16 +46,7 @@ interface Subscription {
   };
 }
 
-// Create a wrapper component that includes the provider
-function BillingWithProvider() {
-  return (
-    <SubscriptionProvider>
-      <Billing />
-    </SubscriptionProvider>
-  );
-}
-
-function Billing() {
+export default function Billing() {
   const navigate = useNavigate();
   const { isSubscribed, userEmail, user, isLoading: contextLoading } = useSubscription();
   const [subscriptionDetails, setSubscriptionDetails] = useState<Subscription | null>(null);
@@ -984,6 +975,3 @@ function Billing() {
     </div>
   );
 }
-
-// Export the wrapper component as the default export
-export default BillingWithProvider;
