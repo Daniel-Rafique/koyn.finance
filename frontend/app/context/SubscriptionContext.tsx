@@ -32,14 +32,19 @@ const ACCESS_TOKEN_KEY = 'koyn_access_token';
 const REFRESH_TOKEN_KEY = 'koyn_refresh_token';
 const TOKEN_EXPIRY_KEY = 'koyn_token_expiry';
 
+// Helper function to safely check if we're on the client
+const isClient = typeof window !== 'undefined';
+
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [tokenRefreshTimer, setTokenRefreshTimer] = useState<NodeJS.Timeout | null>(null);
+  const [isClientMounted, setIsClientMounted] = useState(false);
 
   // Get stored access token
   const getAccessToken = (): string | null => {
+    if (!isClient) return null;
     try {
       return localStorage.getItem(ACCESS_TOKEN_KEY);
     } catch {
@@ -49,6 +54,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Get stored refresh token
   const getRefreshToken = (): string | null => {
+    if (!isClient) return null;
     try {
       return localStorage.getItem(REFRESH_TOKEN_KEY);
     } catch {
@@ -58,6 +64,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Check if access token is expired
   const isTokenExpired = (): boolean => {
+    if (!isClient) return true;
     try {
       const expiryTime = localStorage.getItem(TOKEN_EXPIRY_KEY);
       if (!expiryTime) return true;
@@ -74,6 +81,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Store auth tokens securely
   const storeAuthTokens = (authData: AuthTokens) => {
+    if (!isClient) return;
     try {
       localStorage.setItem(ACCESS_TOKEN_KEY, authData.accessToken);
       localStorage.setItem(REFRESH_TOKEN_KEY, authData.refreshToken);
@@ -90,6 +98,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Clear all auth data
   const clearAuthData = () => {
+    if (!isClient) return;
     try {
       localStorage.removeItem(ACCESS_TOKEN_KEY);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
@@ -161,6 +170,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Refresh access token using refresh token
   const refreshAuth = async (): Promise<boolean> => {
+    if (!isClient) return false;
     try {
       const refreshToken = getRefreshToken();
       if (!refreshToken) {
@@ -215,6 +225,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Verify subscription status using secure endpoint
   const verifySubscription = async (email?: string): Promise<boolean> => {
+    if (!isClient) return false;
     try {
       setIsLoading(true);
 
@@ -275,6 +286,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Logout and clear all data
   const logout = async () => {
+    if (!isClient) return;
     try {
       const refreshToken = getRefreshToken();
       
@@ -329,8 +341,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     setTokenRefreshTimer(timer);
   };
 
-  // Check authentication status on mount and handle legacy data
+  // Effect to handle client-side mounting
   useEffect(() => {
+    setIsClientMounted(true);
+  }, []);
+
+  // Check authentication status only after client mount
+  useEffect(() => {
+    if (!isClientMounted) return;
+
     const initializeAuth = async () => {
       try {
         // Clear any legacy insecure subscription data
@@ -377,7 +396,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         clearTimeout(tokenRefreshTimer);
       }
     };
-  }, []);
+  }, [isClientMounted]);
 
   const value: SubscriptionContextType = {
     isSubscribed,

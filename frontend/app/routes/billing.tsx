@@ -62,7 +62,7 @@ export default function Billing() {
   // Track cancel error state
   const [cancelError, setCancelError] = useState<string | null>(null)
 
-  // Replace the isClient state and its effect with this approach
+  // Client-side rendering state - starts as false to match server
   const [isClientSide, setIsClientSide] = useState(false)
 
   // Safe way to detect client-side rendering
@@ -70,26 +70,26 @@ export default function Billing() {
     setIsClientSide(true)
   }, [])
 
-  // Cancel any subscription modal that might appear
+  // Cancel any subscription modal that might appear - only on client
   useEffect(() => {
     // Only run on client-side
-    if (typeof window !== "undefined") {
-      try {
-        sessionStorage.setItem("on_billing_page", "true")
+    if (!isClientSide || typeof window === "undefined") return
 
-        // Clean up when navigating away
-        return () => {
-          try {
-            sessionStorage.removeItem("on_billing_page")
-          } catch (err) {
-            console.error("Error removing session storage:", err)
-          }
+    try {
+      sessionStorage.setItem("on_billing_page", "true")
+
+      // Clean up when navigating away
+      return () => {
+        try {
+          sessionStorage.removeItem("on_billing_page")
+        } catch (err) {
+          console.error("Error removing session storage:", err)
         }
-      } catch (err) {
-        console.error("Error setting session storage:", err)
       }
+    } catch (err) {
+      console.error("Error setting session storage:", err)
     }
-  }, [])
+  }, [isClientSide])
 
   useEffect(() => {
     const initializeBilling = async () => {
@@ -143,12 +143,13 @@ export default function Billing() {
       // Since we know the subscription is verified, prioritize context data if available
       if (user && typeof user === "object" && user.isActive) {
         console.log("Using verified subscription from context")
+        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
         const contextSubscription: Subscription = {
           id: `user-${user.email}`,
           email: user.email,
           status: "active",
-          startedAt: new Date().toISOString(),
-          renewalDate: new Date().toISOString(),
+          startedAt: fallbackDate,
+          renewalDate: fallbackDate,
           plan: user.plan || "unknown",
           paymentMethod: "crypto",
         }
@@ -159,7 +160,7 @@ export default function Billing() {
 
       // Fetch detailed subscription data from webhook handler for billing details
       console.log("Fetching detailed billing information for:", email)
-      const accessToken = typeof window !== "undefined" ? localStorage.getItem("koyn_access_token") : null
+      const accessToken = isClientSide && typeof window !== "undefined" ? localStorage.getItem("koyn_access_token") : null
 
       const headers: Record<string, string> = {
         Accept: "application/json",
@@ -177,12 +178,13 @@ export default function Billing() {
       if (!response.ok) {
         console.warn(`API call failed with ${response.status}, using context data`)
         // API failed but we know subscription is active from context
+        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
         setSubscriptionDetails({
           id: "context-verified",
           email: email,
           status: "active",
-          startedAt: new Date().toISOString(),
-          renewalDate: new Date().toISOString(),
+          startedAt: fallbackDate,
+          renewalDate: fallbackDate,
           transactionId: "verified",
           plan: "verified",
           paymentMethod: "verified",
@@ -201,12 +203,13 @@ export default function Billing() {
       } else {
         // Fallback to verified context data
         console.log("Server has no detailed data, using verified context data")
+        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
         setSubscriptionDetails({
           id: "context-verified",
           email: email,
           status: "active",
-          startedAt: new Date().toISOString(),
-          renewalDate: new Date().toISOString(),
+          startedAt: fallbackDate,
+          renewalDate: fallbackDate,
           transactionId: "verified",
           plan: "verified",
           paymentMethod: "verified",
@@ -215,12 +218,13 @@ export default function Billing() {
     } catch (err) {
       console.warn("Error fetching detailed billing data, using verified context:", err)
       // Since subscription is verified by context, show as active even if API fails
+      const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
       setSubscriptionDetails({
         id: "context-verified",
         email: email,
         status: "active",
-        startedAt: new Date().toISOString(),
-        renewalDate: new Date().toISOString(),
+        startedAt: fallbackDate,
+        renewalDate: fallbackDate,
         transactionId: "verified",
         plan: "verified",
         paymentMethod: "verified",
@@ -265,6 +269,11 @@ export default function Billing() {
 
   // Replace the formatDate function with this
   const formatDate = (dateString: string) => {
+    // Don't format dates during server-side rendering to avoid hydration mismatches
+    if (!isClientSide) {
+      return dateString
+    }
+    
     try {
       // Use a fixed format that will be consistent between server and client
       const date = new Date(dateString)
@@ -597,8 +606,8 @@ export default function Billing() {
 
   // Replace the particles effect with this
   useEffect(() => {
-    // Skip during server-side rendering
-    if (typeof window === "undefined") return
+    // Skip during server-side rendering and ensure client is ready
+    if (!isClientSide || typeof window === "undefined") return
 
     const canvas = document.getElementById("particles-canvas") as HTMLCanvasElement
     if (!canvas) return
@@ -689,7 +698,7 @@ export default function Billing() {
     return () => {
       window.removeEventListener("resize", handleResize)
     }
-  }, [])
+  }, [isClientSide])
 
   // Replace the return statement with this
   return (
@@ -756,13 +765,13 @@ export default function Billing() {
                         <div className="mb-4">
                           <span className="text-[#ffffff] block">Started On</span>
                           <span className="text-white font-medium">
-                            {formatDate(subscriptionDetails.startedAt || new Date().toISOString())}
+                            {formatDate(subscriptionDetails.startedAt || "2024-01-01T00:00:00.000Z")}
                           </span>
                         </div>
                         <div className="mb-4">
                           <span className="text-[#ffffff] block">Renewal Date</span>
                           <span className="text-white font-medium">
-                            {formatDate(subscriptionDetails.renewalDate || new Date().toISOString())}
+                            {formatDate(subscriptionDetails.renewalDate || "2024-01-01T00:00:00.000Z")}
                           </span>
                           {subscriptionDetails.renewalDate && (
                             <span
@@ -1084,7 +1093,7 @@ export default function Billing() {
               </div>
               <div>
                 <span className="font-mono">localStorage:</span>{" "}
-                {typeof window !== "undefined"
+                {isClientSide && typeof window !== "undefined"
                   ? localStorage.getItem("koyn_subscription")
                     ? "has data"
                     : "empty"

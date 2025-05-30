@@ -173,26 +173,28 @@ export default function SearchForm({
         // save information before navigating
         
         try {
-          // First, make sure we preserve existing results
-          const existingResults = localStorage.getItem("koyn_analysis_results");
-          
-          if (existingResults) {
-            // We have existing results, don't erase them
-            // Just set a marker to indicate this is a new search from home page
-            localStorage.setItem("koyn_new_search_query", question);
-          } else {
-            // No existing results, create a new results array
-            localStorage.setItem("koyn_analysis_results", JSON.stringify([]));
-          }
-          
-          // Add the query to recent queries if not already there
-          const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]");
-          if (!recentQueries.includes(question)) {
-            const updatedQueries = [
-              question,
-              ...recentQueries.filter((q: string) => q !== question).slice(0, 9),
-            ];
-            localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries));
+          // First, make sure we preserve existing results - only access localStorage on client-side
+          if (typeof window !== "undefined") {
+            const existingResults = localStorage.getItem("koyn_analysis_results");
+            
+            if (existingResults) {
+              // We have existing results, don't erase them
+              // Just set a marker to indicate this is a new search from home page
+              localStorage.setItem("koyn_new_search_query", question);
+            } else {
+              // No existing results, create a new results array
+              localStorage.setItem("koyn_analysis_results", JSON.stringify([]));
+            }
+            
+            // Add the query to recent queries if not already there
+            const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]");
+            if (!recentQueries.includes(question)) {
+              const updatedQueries = [
+                question,
+                ...recentQueries.filter((q: string) => q !== question).slice(0, 9),
+              ];
+              localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries));
+            }
           }
         } catch (err) {
           console.error("Error preparing search data:", err);

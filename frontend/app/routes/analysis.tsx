@@ -71,6 +71,8 @@ function normalizeQuery(q: string): string {
 // Helper functions for array-based storage
 function getResultsArray(): ResultEntry[] {
   try {
+    // Only access localStorage on client-side
+    if (typeof window === "undefined") return []
     const storedArray = localStorage.getItem("koyn_analysis_results")
     if (!storedArray) return []
     return JSON.parse(storedArray)
@@ -82,6 +84,8 @@ function getResultsArray(): ResultEntry[] {
 
 function saveResultsArray(arr: ResultEntry[]): void {
   try {
+    // Only access localStorage on client-side
+    if (typeof window === "undefined") return
     localStorage.setItem("koyn_analysis_results", JSON.stringify(arr))
   } catch (error) {
     console.error("Error saving results array:", error)
@@ -110,6 +114,7 @@ export default function Analysis() {
   const [error, setError] = useState<string | null>(null)
   const [isProtected, setIsProtected] = useState(!isSubscribed)
   const [isFirstLoad, setIsFirstLoad] = useState(true)
+  const [isClientMounted, setIsClientMounted] = useState(false)
   const previousQueryRef = useRef<string | null>(null)
   const hasInitializedFromStorage = useRef<boolean>(false)
   const searchHistoryRef = useRef<string[]>([])
@@ -123,8 +128,14 @@ export default function Analysis() {
 
   const query = searchParams.get("q")
 
+  // Effect to handle client-side mounting
+  useEffect(() => {
+    setIsClientMounted(true)
+  }, [])
+
   // Load search history from localStorage on initial mount
   useEffect(() => {
+    if (!isClientMounted) return
     try {
       const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]")
       searchHistoryRef.current = recentQueries
@@ -132,10 +143,12 @@ export default function Analysis() {
       console.error("Error loading search history:", error)
       searchHistoryRef.current = []
     }
-  }, [])
+  }, [isClientMounted])
 
   // Load results array from localStorage on mount and set current index based on query
   useEffect(() => {
+    if (!isClientMounted) return
+    
     const arr = getResultsArray()
     setResultsArray(arr)
 
@@ -161,7 +174,7 @@ export default function Analysis() {
     if (!query || (query && arr.length > 0 && findEntryIndexByQuery(arr, query) !== -1)) {
       setIsLoading(false)
     }
-  }, [query])
+  }, [query, isClientMounted])
 
   // Debug effect to log when currentIndex changes
   useEffect(() => {
@@ -287,24 +300,27 @@ export default function Analysis() {
         // If any of these values are missing, try to get them from localStorage
         if (!email || !status || !subId) {
           try {
-            const storedSubscription = localStorage.getItem("koyn_subscription")
-            if (storedSubscription) {
-              const parsedSubscription = JSON.parse(storedSubscription)
+            // Only access localStorage on client-side
+            if (typeof window !== "undefined") {
+              const storedSubscription = localStorage.getItem("koyn_subscription")
+              if (storedSubscription) {
+                const parsedSubscription = JSON.parse(storedSubscription)
 
-              // Use localStorage values if they exist and our current values are null/undefined
-              if (!email && parsedSubscription.email) {
-                email = parsedSubscription.email
-                console.log("Using email from localStorage:", email)
-              }
+                // Use localStorage values if they exist and our current values are null/undefined
+                if (!email && parsedSubscription.email) {
+                  email = parsedSubscription.email
+                  console.log("Using email from localStorage:", email)
+                }
 
-              if (!subId && (parsedSubscription.id || parsedSubscription.subscriptionId)) {
-                subId = parsedSubscription.id || parsedSubscription.subscriptionId
-                console.log("Using subscription ID from localStorage:", subId)
-              }
+                if (!subId && (parsedSubscription.id || parsedSubscription.subscriptionId)) {
+                  subId = parsedSubscription.id || parsedSubscription.subscriptionId
+                  console.log("Using subscription ID from localStorage:", subId)
+                }
 
-              if ((!status || status === "loading") && parsedSubscription.status) {
-                status = parsedSubscription.status
-                console.log("Using subscription status from localStorage:", status)
+                if ((!status || status === "loading") && parsedSubscription.status) {
+                  status = parsedSubscription.status
+                  console.log("Using subscription status from localStorage:", status)
+                }
               }
             }
           } catch (e) {
@@ -347,9 +363,12 @@ export default function Analysis() {
 
           if (email) {
             try {
-              const subscription = JSON.parse(localStorage.getItem("koyn_subscription") || "{}")
-              subscription.status = "inactive"
-              localStorage.setItem("koyn_subscription", JSON.stringify(subscription))
+              // Only access localStorage on client-side
+              if (typeof window !== "undefined") {
+                const subscription = JSON.parse(localStorage.getItem("koyn_subscription") || "{}")
+                subscription.status = "inactive"
+                localStorage.setItem("koyn_subscription", JSON.stringify(subscription))
+              }
             } catch (e) {
               console.error("Error updating stored subscription:", e)
             }
@@ -382,20 +401,21 @@ export default function Analysis() {
           // This is just for development/testing purposes - remove in production
           if (!data.news || data.news.length === 0) {
             console.log("Adding sample news items for testing");
+            const fallbackDate = "2024-01-01T00:00:00.000Z"; // Use consistent fallback date
             data.news = [
               {
                 source: "CoinDesk",
                 url: "https://www.coindesk.com/",
                 title: "Bitcoin Price Analysis Shows Bullish Trend",
                 description: "Recent market indicators suggest Bitcoin may continue its upward trajectory.",
-                publishedAt: new Date().toISOString()
+                publishedAt: fallbackDate
               },
               {
                 source: "Reuters",
                 url: "https://www.reuters.com/",
                 title: "Market Analysts Predict Bitcoin Rally",
                 description: "Financial experts weigh in on cryptocurrency market movements.",
-                publishedAt: new Date().toISOString()
+                publishedAt: fallbackDate
               }
             ];
           }
@@ -436,15 +456,18 @@ export default function Analysis() {
 
           // Update search history
           try {
-            const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]")
-            if (!recentQueries.includes(questionQuery)) {
-              const updatedQueries = [
-                questionQuery,
-                ...recentQueries.filter((q: string) => q !== questionQuery).slice(0, 9),
-              ]
-              localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries))
-              searchHistoryRef.current = updatedQueries
-              setHistoryVersion((prev) => prev + 1)
+            // Only access localStorage on client-side
+            if (typeof window !== "undefined") {
+              const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]")
+              if (!recentQueries.includes(questionQuery)) {
+                const updatedQueries = [
+                  questionQuery,
+                  ...recentQueries.filter((q: string) => q !== questionQuery).slice(0, 9),
+                ]
+                localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries))
+                searchHistoryRef.current = updatedQueries
+                setHistoryVersion((prev) => prev + 1)
+              }
             }
           } catch (historyError) {
             console.error("Error updating search history:", historyError)
@@ -491,17 +514,20 @@ export default function Analysis() {
 
       // Update search history in localStorage
       try {
-        const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]")
+        // Only access localStorage on client-side
+        if (typeof window !== "undefined") {
+          const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]")
 
-        // Only add to history if this is a new query (not already in history)
-        if (!recentQueries.includes(searchQuery)) {
-          // Keep only the most recent 10 queries, excluding the current one
-          const updatedQueries = [searchQuery, ...recentQueries.filter((q: string) => q !== searchQuery).slice(0, 9)]
+          // Only add to history if this is a new query (not already in history)
+          if (!recentQueries.includes(searchQuery)) {
+            // Keep only the most recent 10 queries, excluding the current one
+            const updatedQueries = [searchQuery, ...recentQueries.filter((q: string) => q !== searchQuery).slice(0, 9)]
 
-          // Update localStorage and reference
-          localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries))
-          searchHistoryRef.current = updatedQueries
-          console.log("Updated search history with new query:", searchQuery)
+            // Update localStorage and reference
+            localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries))
+            searchHistoryRef.current = updatedQueries
+            console.log("Updated search history with new query:", searchQuery)
+          }
         }
       } catch (err) {
         console.error("Error updating search history:", err)
@@ -524,24 +550,31 @@ export default function Analysis() {
       try {
         console.log("Clearing history item:", itemQuery);
 
-        // Update search history in localStorage
-        const historySaved = localStorage.getItem("koyn_recent_queries");
-        if (historySaved) {
-          let history = JSON.parse(historySaved);
-          history = history.filter((q: string) => q !== itemQuery);
-          localStorage.setItem("koyn_recent_queries", JSON.stringify(history));
-          searchHistoryRef.current = history;
-        }
+        // Only access localStorage on client-side
+        if (typeof window !== "undefined") {
+          // Update search history in localStorage
+          const historySaved = localStorage.getItem("koyn_recent_queries");
+          if (historySaved) {
+            let history = JSON.parse(historySaved);
+            history = history.filter((q: string) => q !== itemQuery);
+            localStorage.setItem("koyn_recent_queries", JSON.stringify(history));
+            searchHistoryRef.current = history;
+          }
 
-        // Remove from results array in localStorage and state
-        const resultsSaved = localStorage.getItem("koyn_analysis_results");
-        if (resultsSaved) {
-          let results = JSON.parse(resultsSaved);
-          results = results.filter((entry: ResultEntry) => entry.query !== itemQuery);
-          localStorage.setItem("koyn_analysis_results", JSON.stringify(results));
-          setResultsArray(results);
+          // Remove from results array in localStorage and state
+          const resultsSaved = localStorage.getItem("koyn_analysis_results");
+          if (resultsSaved) {
+            let results = JSON.parse(resultsSaved);
+            results = results.filter((entry: ResultEntry) => entry.query !== itemQuery);
+            localStorage.setItem("koyn_analysis_results", JSON.stringify(results));
+            setResultsArray(results);
+          } else {
+            // Just update the state if localStorage is empty
+            const newArray = resultsArray.filter(entry => entry.query !== itemQuery);
+            setResultsArray(newArray);
+          }
         } else {
-          // Just update the state if localStorage is empty
+          // Just update the state if not on client-side
           const newArray = resultsArray.filter(entry => entry.query !== itemQuery);
           setResultsArray(newArray);
         }
@@ -588,10 +621,13 @@ export default function Analysis() {
         currentIndex
       });
 
-      // Clear history arrays in localStorage
-      localStorage.removeItem("koyn_recent_queries");
-      localStorage.removeItem("koyn_analysis_results");
-      console.log("localStorage items removed");
+      // Only access localStorage on client-side
+      if (typeof window !== "undefined") {
+        // Clear history arrays in localStorage
+        localStorage.removeItem("koyn_recent_queries");
+        localStorage.removeItem("koyn_analysis_results");
+        console.log("localStorage items removed");
+      }
       
       // Update state references
       searchHistoryRef.current = [];

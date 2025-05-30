@@ -19,18 +19,25 @@ export default function Home() {
   const navigate = useNavigate();
   const [hasStoredResults, setHasStoredResults] = useState(false);
   const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [isClientMounted, setIsClientMounted] = useState(false);
   
   // Get subscription context - updated to use new secure interface
   const { 
     isSubscribed,
     user,
     userEmail,
-    isLoading,
+    isLoading: contextLoading,
     verifySubscription
   } = useSubscription();
 
+  // Effect to handle client-side mounting
+  useEffect(() => {
+    setIsClientMounted(true);
+  }, []);
+
   // Check if there are any stored results
   useEffect(() => {
+    if (!isClientMounted) return;
     try {
       const storedResults = localStorage.getItem('koyn_analysis_results');
       const hasResults = storedResults ? JSON.parse(storedResults).length > 0 : false;
@@ -40,7 +47,7 @@ export default function Home() {
       console.error('Error checking stored results:', error);
       setHasStoredResults(false);
     }
-  }, []);
+  }, [isClientMounted]);
 
   // Handle back button click - use direct browser navigation instead of React Router
   const handleBackToAnalysis = () => {
@@ -85,6 +92,7 @@ export default function Home() {
 
   // Check authentication status on mount and clean up legacy data
   useEffect(() => {
+    if (!isClientMounted) return;
     // Remove any legacy insecure subscription data
     try {
       const legacyData = localStorage.getItem('koyn_subscription');
@@ -98,7 +106,7 @@ export default function Home() {
 
     // The new secure context automatically handles authentication verification
     // No need for manual verification calls here
-  }, []);
+  }, [isClientMounted]);
   
   // Load premium test script in development mode
   useEffect(() => {
