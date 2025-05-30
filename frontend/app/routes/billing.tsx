@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router";
-import { useSubscription, SubscriptionProvider } from "../context/SubscriptionContext";
+import { useSubscription } from "../context/SubscriptionContext";
 import { Routes } from "../utils/routes";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
@@ -45,144 +45,51 @@ interface Subscription {
   };
 }
 
-// Create a wrapper component that includes the provider
-function BillingWithProvider() {
-  return (
-    <SubscriptionProvider>
-      <Billing />
-    </SubscriptionProvider>
-  );
-}
-
-function Billing() {
+export default function Billing() {
   const navigate = useNavigate();
   const { isSubscribed, userEmail, user, isLoading: contextLoading } = useSubscription();
   const [subscriptionDetails, setSubscriptionDetails] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Track if we have a verified email even if no subscription
-  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
-  // Flag to prevent subscription modal from opening on this page
-  const hasInitialized = useRef(false);
-  // Flag to indicate if we're on the client (to safely use localStorage/sessionStorage)
   const [isClient, setIsClient] = useState(false);
-  // State to track if user is cancelling their subscription
-  const [isCancelling, setIsCancelling] = useState(false);
-  // Track cancel error state
-  const [cancelError, setCancelError] = useState<string | null>(null);
   
-  // Set isClient flag after component mounts (which only happens in the browser)
+  // Set isClient flag after component mounts
   useEffect(() => {
     setIsClient(true);
   }, []);
   
-  // Cancel any subscription modal that might appear
+  // Initialize billing page data
   useEffect(() => {
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
-    
-    // Close any subscription modal that might be open
-    // closeSubscriptionModal(); // Removed - not available in context
-    console.log('Billing page loaded - subscription status:', isSubscribed);
-    
-    // Only run once on mount
-    const initializePage = async () => {
-      if (isClient && userEmail) {
-        setVerifiedEmail(userEmail);
+    const initializeBilling = async () => {
+      console.log('Billing page loaded - subscription status:', isSubscribed);
+      console.log('User email from context:', userEmail);
+      console.log('User object from context:', user);
+      
+      if (contextLoading) {
+        console.log('Context still loading, waiting...');
+        return;
+      }
+      
+      if (user && userEmail) {
+        // User is authenticated via JWT, fetch their subscription details
         await fetchSubscriptionDetails(userEmail);
       } else {
-        // Check for legacy localStorage data as fallback
-        if (isClient) {
-          const legacySubscription = localStorage.getItem('koyn_subscription');
-          if (legacySubscription) {
-            try {
-              const parsedSubscription = JSON.parse(legacySubscription);
-              if (parsedSubscription.email) {
-                setVerifiedEmail(parsedSubscription.email);
-                await fetchSubscriptionDetails(parsedSubscription.email);
-              }
-            } catch (error) {
-              console.error('Failed to parse legacy subscription:', error);
-            }
-          }
-        }
+        // No JWT authentication, show expired subscription UI
+        console.log('No authenticated user found');
         setIsLoading(false);
+        setError("Please log in to access your billing information");
       }
     };
     
-    initializePage();
-  }, [isSubscribed, isClient]);
-  
-  // Additional cleanup on component unmount
-  useEffect(() => {
-    // This additional effect ensures cleanup happens
-    return () => {
-      if (isClient && typeof sessionStorage !== 'undefined') {
-        try {
-          // Double-check removal of the flag
-          sessionStorage.removeItem('on_billing_page');
-          console.log('Removed billing page flag from session storage on unmount');
-        } catch (err) {
-          console.error('Error removing session storage in cleanup:', err);
-        }
-      }
-    };
-  }, [isClient]);
-
-  useEffect(() => {
-    // Check for any user identity - either from context or localStorage
-    let emailToUse = userEmail;
-    console.log('Checking for user email, current value:', emailToUse);
-    
-    // Skip this effect during server-side rendering
-    if (!isClient) {
-      console.log('Skipping localStorage check on server side');
-      return;
-    }
-    
-    if (!emailToUse) {
-      try {
-        // Try to find a verified email in localStorage
-        if (typeof window !== 'undefined' && window.localStorage) {
-          const storedData = localStorage.getItem('koyn_subscription');
-          if (storedData) {
-            const parsedData = JSON.parse(storedData);
-            if (parsedData.email) {
-              emailToUse = parsedData.email;
-              setVerifiedEmail(parsedData.email);
-              console.log('Found verified email in localStorage:', emailToUse);
-              
-              // Check for special billing access flag
-              if (parsedData.allowBillingAccess) {
-                console.log('Found allowBillingAccess flag, ensuring billing page access');
-              }
-            }
-          }
-        } else {
-          console.log('localStorage not available (likely server-side rendering)');
-        }
-      } catch (err) {
-        console.error('Error reading from localStorage:', err);
-      }
-    }
-    
-    // If we have an email (from context or localStorage), fetch subscription details
-    if (emailToUse) {
-      console.log('Found email, fetching subscription details:', emailToUse);
-      fetchSubscriptionDetails(emailToUse);
-    } else {
-      // No email found anywhere, redirect to home - user must verify email first
-      console.log('No verified email found, redirecting to home');
-      navigate(Routes.HOME);
-    }
-  }, [userEmail, navigate, isClient]);
+    initializeBilling();
+  }, [isSubscribed, userEmail, user, contextLoading]);
 
   const fetchSubscriptionDetails = async (email: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // First check if we have details from context
+      // Use subscription details from context if available
       if (user) {
         console.log('Using subscription details from context');
         // Convert user context to subscription format
@@ -192,7 +99,7 @@ function Billing() {
           status: user.isActive ? 'active' : 'inactive',
           startedAt: new Date().toISOString(),
           renewalDate: new Date().toISOString(),
-          plan: user.plan,
+          plan: user.plan || 'unknown',
           paymentMethod: 'crypto'
         };
         setSubscriptionDetails(contextSubscription);
@@ -200,13 +107,21 @@ function Billing() {
         return;
       }
       
-      // Otherwise fetch subscription details from the API
+      // Fetch subscription details from the API with JWT authentication
       console.log('Fetching subscription details for:', email);
+      const accessToken = localStorage.getItem('koyn_access_token');
+      
+      const headers: Record<string, string> = {
+        'Accept': 'application/json',
+      };
+      
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+      
       const response = await fetch(`/api/subscription/${encodeURIComponent(email)}?t=${Date.now()}`, {
         method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        }
+        headers
       });
 
       if (!response.ok) {
@@ -217,12 +132,10 @@ function Billing() {
       console.log('API subscription response:', data);
       
       if (data.active && data.subscription) {
-        // Found an active subscription
         setSubscriptionDetails(data.subscription);
       } else {
-        // No active subscription, but we'll still show the billing page
-        // with a basic inactive subscription representation
-        console.log('No active subscription found, creating inactive record');
+        // No active subscription found
+        console.log('No active subscription found');
         setSubscriptionDetails({
           id: 'inactive-user',
           email: email,
@@ -237,7 +150,6 @@ function Billing() {
       }
     } catch (err) {
       console.error("Error fetching subscription details:", err);
-      // Create a minimal record just so we can show something
       setSubscriptionDetails({
         id: 'error-fetching',
         email: email,
@@ -368,7 +280,7 @@ function Billing() {
   // Render expired subscription UI
   const renderExpiredSubscription = () => {
     // Determine which email to display
-    const displayEmail = subscriptionDetails?.email || verifiedEmail || userEmail;
+    const displayEmail = subscriptionDetails?.email || userEmail;
     
     // Default paylink ID
     const defaultPaylinkId = '68229ffa2c8760f1eb3d19d7';
@@ -957,12 +869,9 @@ function Billing() {
             <h4 className="font-semibold mb-2">Debug Info</h4>
             <div>
               <div><span className="font-mono">userEmail:</span> {userEmail || 'null'}</div>
-              <div><span className="font-mono">verifiedEmail:</span> {verifiedEmail || 'null'}</div>
               <div><span className="font-mono">isSubscribed:</span> {isSubscribed}</div>
               <div><span className="font-mono">isClient:</span> {isClient ? 'true' : 'false'}</div>
-              <div><span className="font-mono">localStorage:</span> {isClient ? (localStorage.getItem('koyn_subscription') ? 'has data' : 'empty') : 'not available (server)'}</div>
               <div><span className="font-mono">error:</span> {error || 'none'}</div>
-              <div><span className="font-mono">cancelError:</span> {cancelError || 'none'}</div>
             </div>
           </div>
         )}
@@ -972,6 +881,3 @@ function Billing() {
     </div>
   );
 }
-
-// Export the wrapper component as the default export
-export default BillingWithProvider;
