@@ -8,5 +8,5 @@ export default [
   route("app/404", "routes/404.tsx"),
   route("app/error", "routes/error.tsx"),
   // Catch-all route for unmatched paths
-  route("*", "routes/404.tsx"),
+  route("*", "routes/catch-all.tsx"),
 ] satisfies RouteConfig;
