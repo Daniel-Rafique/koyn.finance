@@ -62,9 +62,9 @@ interface Subscription {
 // Extract the core billing content into a separate component
 function BillingContent() {
   const navigate = useNavigate()
-  const { isSubscribed, userEmail, user } = useAuth()
+  const { isSubscribed, userEmail, user, isLoading } = useAuth()
   const [subscriptionDetails, setSubscriptionDetails] = useState<Subscription | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isBillingLoading, setIsBillingLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Flag to prevent subscription modal from opening on this page
   const hasInitialized = useRef(false)
@@ -81,7 +81,8 @@ function BillingContent() {
     userEmail,
     user: user?.email,
     isClientSide,
-    isLoading
+    isLoading,
+    isBillingLoading
   })
 
   // Safe way to detect client-side rendering
@@ -112,6 +113,13 @@ function BillingContent() {
 
   useEffect(() => {
     const initializeBilling = async () => {
+      // IMPORTANT: Wait for authentication initialization to complete
+      // This prevents the SubscriptionModal from briefly appearing
+      if (isLoading) {
+        console.log("Waiting for authentication initialization to complete...")
+        return
+      }
+
       console.log("AuthProvider loaded - subscription status:", isSubscribed, "userEmail:", userEmail)
 
       // Only proceed if user is authenticated with a valid email
@@ -121,7 +129,7 @@ function BillingContent() {
         } catch (error) {
           console.error("Error fetching billing details for authenticated user:", error)
           setError("Failed to load your billing information")
-          setIsLoading(false)
+          setIsBillingLoading(false)
         }
       } 
       // Handle authenticated user without subscription
@@ -139,12 +147,12 @@ function BillingContent() {
           paymentMethod: "none",
         })
         setError("No active subscription found")
-        setIsLoading(false)
+        setIsBillingLoading(false)
       } 
       // User not authenticated - should not happen on billing page
       else {
         console.log("User not authenticated - billing page access error")
-        setIsLoading(false)
+        setIsBillingLoading(false)
         setError("Please log in to access your billing information")
       }
     }
@@ -154,12 +162,12 @@ function BillingContent() {
     } catch (error) {
       console.error("Error in billing initialization:", error)
       setError("Failed to initialize billing page")
-      setIsLoading(false)
+      setIsBillingLoading(false)
     }
-  }, [isSubscribed, userEmail, user])
+  }, [isLoading, isSubscribed, userEmail, user])
 
   const fetchSubscriptionDetails = async (email: string) => {
-    setIsLoading(true)
+    setIsBillingLoading(true)
     setError(null)
 
     try {
@@ -188,7 +196,7 @@ function BillingContent() {
           // Use detailed data from server - this has the real dates!
           console.log("Using detailed billing data from server")
           setSubscriptionDetails(data.subscription)
-          setIsLoading(false)
+          setIsBillingLoading(false)
           return
         }
       } else {
@@ -209,14 +217,14 @@ function BillingContent() {
           paymentMethod: "crypto",
         }
         setSubscriptionDetails(contextSubscription)
-        setIsLoading(false)
+        setIsBillingLoading(false)
         return
       }
 
       // If we get here, no subscription found
       console.log("No subscription data available from server or context")
       setError("No active subscription found")
-      setIsLoading(false)
+      setIsBillingLoading(false)
 
     } catch (err) {
       console.error("Error fetching detailed billing data:", err)
@@ -238,7 +246,7 @@ function BillingContent() {
       } else {
         setError("Failed to load subscription information")
       }
-      setIsLoading(false)
+      setIsBillingLoading(false)
     }
   }
 
@@ -789,14 +797,14 @@ function BillingContent() {
           <p className="text-[#ffffff] mt-2">Manage your subscription and payment details</p>
         </div>
 
-        {isLoading ? (
+        {isBillingLoading ? (
           <div className="flex justify-center items-center h-64">
             <div className="text-white text-sm mt-4">Loading subscription status...</div>
           </div>
         ) : (
           <>
             {/* Only render subscription content after client-side hydration AND context loading */}
-            {isClientSide && !isLoading && (
+            {isClientSide && !isBillingLoading && (
               <>
                 {subscriptionDetails?.status !== "active" || error ? (
                   renderExpiredSubscription()
