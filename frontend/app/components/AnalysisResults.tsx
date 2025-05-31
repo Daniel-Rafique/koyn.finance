@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { useSubscription, useAuth } from '../context/AuthProvider';
+import { useSubscription } from '../context/SubscriptionContext';
 import LightweightChart from './LightweightChart';
 
 interface NewsItem {
@@ -54,23 +54,6 @@ interface AnalysisResultsProps {
   news?: NewsItem[];
 }
 
-// Helper function to safely get auth context
-const useAuthSafely = () => {
-  try {
-    // Check if we're in a context where auth should be available
-    if (typeof window !== 'undefined' && window.location.pathname.includes('/shared/')) {
-      // We're on a shared page, return null instead of using hook
-      return null;
-    }
-    // Try to use auth context
-    return useAuth();
-  } catch (error) {
-    // Auth context not available
-    console.log('Auth context not available:', error);
-    return null;
-  }
-};
-
 const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeClick, news }) => {
   // Handle subscription context safely - it might not be available on shared pages
   let subscriptionStatus = 'inactive';
@@ -82,9 +65,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
   } catch (error) {
     console.log('Subscription context not available, using defaults');
   }
-  
-  // Safely get auth context
-  const authContext = useAuthSafely();
   
   const isSubscribed = subscriptionStatus === 'active';
   const analysisRef = useRef<HTMLDivElement>(null);
@@ -110,14 +90,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
     try {
       let processedAnalysis = result.analysis;
 
-      // First, clean up any malformed HTML that might be in the original content
-      processedAnalysis = processedAnalysis
-        .replace(/class="[^"]*">/g, '') // Remove any stray class attributes
-        .replace(/data-[^=]*="[^"]*">/g, '') // Remove any stray data attributes
-        .replace(/><[^>]*class="article-tag">/g, '') // Remove malformed article-tag structures
-        .replace(/class="news-source"[^>]*>/g, '') // Remove news-source class remnants
-        .replace(/>\s*class="/g, ' class="') // Fix spacing issues
-
       // Known news sources
       const newsSources = [
         'Barron\'s', 'Investor\'s Business Daily', 'MarketWatch', 'Bloomberg', 'CNBC', 
@@ -127,12 +99,11 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
       // Get news items either from result object or from props
       const newsItems = result.news || news || [];
 
-      // Process each news source - look for both [Source] and plain Source patterns
+      // Process each news source
       newsSources.forEach(source => {
-        // Pattern 1: [Source] format
-        const bracketSourceRegex = new RegExp(`\\[${source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'g');
-        
-        processedAnalysis = processedAnalysis.replace(bracketSourceRegex, (match) => {
+        const sourceRegex = new RegExp(`\\[${source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'g');
+
+        processedAnalysis = processedAnalysis.replace(sourceRegex, (match) => {
           // Find matching news item for this source
           const matchingNews = newsItems.find(item => 
               item.source.toLowerCase() === source.toLowerCase() ||
@@ -142,8 +113,8 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
 
           if (matchingNews) {
             return `<span class="article-tag">${source}<div class="tooltip-content">
-              <h4 class="font-medium text-white mb-1">${matchingNews.title || 'News Article'}</h4>
-              <p class="text-xs text-[#a099d8] mb-2">${matchingNews.description || 'Click to read more'}</p>
+              <h4 class="font-medium text-white mb-1">${matchingNews.title}</h4>
+              <p class="text-xs text-[#a099d8] mb-2">${matchingNews.description || 'No description available'}</p>
               <a href="${matchingNews.url}" target="_blank" rel="noopener noreferrer" class="text-xs bg-[rgb(13,10,33)] text-[#95D5B2] px-3 py-1 rounded hover:bg-[rgb(19,15,47)] transition-colors inline-block">Read article</a>
             </div></span>`;
           }
@@ -151,20 +122,11 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
           // If no matching news, return just the source name without a tooltip
           return `<span class="article-tag">${source}</span>`;
         });
-
-        // Pattern 2: Plain source name (only if not already processed)
-        const plainSourceRegex = new RegExp(`\\b${source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b(?![^<]*</span>)`, 'g');
-        
-        processedAnalysis = processedAnalysis.replace(plainSourceRegex, (match) => {
-          // Skip if this is already inside a span or link
-          return `<span class="article-tag">${match}</span>`;
-        });
       });
 
-      // Clean up any remaining bracket notation for unrecognized sources
-      const remainingBracketRegex = /\[([^\]]+)\]/g;
-      processedAnalysis = processedAnalysis.replace(remainingBracketRegex, (match, sourceName) => {
-        // Only replace if it's not already inside a span
+      // Also look for any remaining source tags that weren't processed
+      const genericSourceRegex = /\[([\w\s']+)\]/g;
+      processedAnalysis = processedAnalysis.replace(genericSourceRegex, (match, sourceName) => {
         return `<span class="article-tag">${sourceName}</span>`;
       });
 
@@ -210,7 +172,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
         username = username.replace(/[^A-Za-z0-9_]/g, '');
 
         // Create a link to the user's profile but keep the colon
-        return `<a href="https://koyn.finance/${username}" 
+        return `<a href="https://koyn.ai/${username}" 
                    class="twitter-username-post" 
                    target="_blank" 
                    rel="noopener noreferrer"
@@ -224,7 +186,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
         username = username.replace(/[^A-Za-z0-9_]/g, '');
 
         // Create a link to the user's profile
-        return `<a href="https://koyn.finance/${username}" 
+        return `<a href="https://koyn.ai/${username}" 
                    class="twitter-username" 
                    target="_blank" 
                    rel="noopener noreferrer"
@@ -233,26 +195,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
 
       // Format entire posts
       processedAnalysis = formatTwitterPosts(processedAnalysis);
-
-      // Convert @mentions to profile links
-      processedAnalysis = processedAnalysis.replace(
-        /@(\w+)/g,
-        `<a href="https://koyn.finance/$1" class="mention" target="_blank" rel="noopener noreferrer">@$1</a>`
-      )
-
-      // Convert regular usernames to profile links if they look like Twitter handles
-      processedAnalysis = processedAnalysis.replace(
-        /(?:^|\s)([A-Za-z0-9_]{1,15})(?=\s|$|[^\w])/g,
-        (match, username) => {
-          // Only convert if it looks like a valid Twitter handle and isn't already a link
-          if (username.length >= 3 && !match.includes('href')) {
-            const trimmedMatch = match.trim()
-            const leadingSpace = match.startsWith(' ') ? ' ' : ''
-            return `${leadingSpace}<a href="https://koyn.finance/${username}" class="username-link" target="_blank" rel="noopener noreferrer">${trimmedMatch}</a>`
-          }
-          return match
-        }
-      )
 
       return processedAnalysis;
     } catch (err) {
@@ -410,182 +352,64 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
     }
   }, [result.analysis]);
   
-  // const handleSave = async () => {
-  //   if (!isSubscribed) {
-  //     console.log('Analysis results save button triggering subscription modal');
-  //     setTimeout(() => {
-  //       onSubscribeClick();
-  //     }, 100);
-  //     return;
-  //   }
-    
-  //   try {
-  //     const response = await fetch('/api/save-result', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify({
-  //         email: userEmail,
-  //         resultId: result.actions.result_id,
-  //         result: result,
-  //       }),
-  //     });
-      
-  //     const data = await response.json();
-  //     if (data.success) {
-  //       // Update UI to show saved state
-  //       result.actions.saved = true;
-  //       // Force component update
-  //       // setResult({...result});
-  //     }
-  //   } catch (error) {
-  //     console.error('Error saving analysis:', error);
-  //   }
-  // };
-
   const handleShare = async () => {
     try {
-      // Get the secure access token from the auth context (if available)
-      let accessToken = null;
+      // Get subscription ID from localStorage
+      let subscriptionId = null
       try {
-        // Use the safely obtained auth context
-        if (authContext && authContext.getSecureAccessToken) {
-          accessToken = await authContext.getSecureAccessToken();
+        const subscriptionData = localStorage.getItem('koyn_subscription')
+        if (subscriptionData) {
+          const parsed = JSON.parse(subscriptionData)
+          subscriptionId = parsed.id || null
         }
       } catch (error) {
-        console.log('Token fetch failed:', error);
-        // This is expected on shared pages or when not authenticated
+        console.warn('Error reading subscription data from localStorage:', error)
       }
-
-      // Prepare headers for the request
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-
-      // If we have an access token, use JWT authentication
-      if (accessToken) {
-        headers["Authorization"] = `Bearer ${accessToken}`;
-      }
-
-      const requestBody: Record<string, any> = {
-        resultId: result.actions.result_id,
-        result: result,
-      };
-
-      // Fallback: if no JWT token, try to get subscription ID from localStorage for backward compatibility
-      if (!accessToken) {
-        try {
-          const subscriptionData = localStorage.getItem('koyn_subscription');
-          if (subscriptionData) {
-            const parsed = JSON.parse(subscriptionData);
-            requestBody.id = parsed.id || null;
-          }
-        } catch (error) {
-          console.warn('Error reading subscription data from localStorage:', error);
-        }
-      }
-
-      console.log('Sharing analysis with authentication:', { 
-        hasJWT: !!accessToken, 
-        hasLegacyId: !!requestBody.id,
-        resultId: result.actions.result_id 
-      });
 
       const response = await fetch("https://koyn.finance:3001/api/share-result", {
         method: "POST",
-        headers,
-        body: JSON.stringify(requestBody),
-      });
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          resultId: result.actions.result_id,
+          result: result,
+          id: subscriptionId,
+        }),
+      })
 
-      const data = await response.json();
+      const data = await response.json()
       
       if (data.success) {
         // Copy share URL to clipboard
         navigator.clipboard
           .writeText(data.shareUrl)
           .then(() => {
-            // Create a more user-friendly notification
-            const notification = document.createElement('div');
-            notification.innerHTML = `
-              <div style="
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: #46A758;
-                color: white;
-                padding: 12px 20px;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 500;
-                z-index: 10000;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-                animation: slideIn 0.3s ease-out;
-              ">
-                ✅ Share link copied to clipboard!
-              </div>
-              <style>
-                @keyframes slideIn {
-                  from { transform: translateX(100%); opacity: 0; }
-                  to { transform: translateX(0); opacity: 1; }
-                }
-              </style>
-            `;
-            document.body.appendChild(notification);
-            setTimeout(() => {
-              document.body.removeChild(notification);
-            }, 3000);
+            alert("Share link copied to clipboard!")
           })
           .catch((err) => {
-            console.error("Could not copy link: ", err);
-            // Fallback: show the link in a prompt
-            prompt("Share link (copy manually):", data.shareUrl);
-          });
+            console.error("Could not copy link: ", err)
+            alert(`Share link: ${data.shareUrl}`)
+          })
       } else {
         // Handle different error scenarios
-        console.error("Share failed:", data);
+        console.error("Share failed:", data)
         
         if (data.subscription_required) {
-          alert(`Sharing requires a subscription: ${data.message || 'Please subscribe to share analysis'}`);
+          alert(`Sharing requires a subscription: ${data.message || 'Please subscribe to share analysis'}`)
         } else if (response.status === 401) {
-          alert("Authentication required. Please sign in to share analysis.");
+          alert("Authentication required. Please sign in to share analysis.")
         } else if (response.status === 400) {
-          alert("Invalid request. Please try again.");
+          alert("Invalid request. Please try again.")
         } else {
-          alert(`Failed to share analysis: ${data.message || 'Unknown error'}`);
+          alert(`Failed to share analysis: ${data.message || 'Unknown error'}`)
         }
       }
     } catch (error) {
-      console.error("Error sharing analysis:", error);
-      alert("Failed to share analysis. Please check your connection and try again.");
+      console.error("Error sharing analysis:", error)
+      alert("Failed to share analysis. Please check your connection and try again.")
     }
-  };
-  
-  // Function to render the save button
-  // const renderSaveButton = () => {
-  //   if (!result.ui_options?.show_save_button) return null;
-    
-  //   return (
-  //     <button 
-  //       onClick={handleSave}
-  //       className={`action-button save-button flex items-center ${result.actions.saved ? 'saved' : ''}`}
-  //       title={result.actions.saved ? 'Saved' : 'Save Analysis'}
-  //     >
-  //       <span className="icon">
-  //         {result.actions.saved ? (
-  //           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-  //             <path d="M5 2h14a1 1 0 0 1 1 1v19.143a.5.5 0 0 1-.766.424L12 18.03l-7.234 4.536A.5.5 0 0 1 4 22.143V3a1 1 0 0 1 1-1z" />
-  //           </svg>
-  //         ) : (
-  //           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2">
-  //             <path d="M5 2h14a1 1 0 0 1 1 1v19.143a.5.5 0 0 1-.766.424L12 18.03l-7.234 4.536A.5.5 0 0 1 4 22.143V3a1 1 0 0 1 1-1z" />
-  //           </svg>
-  //         )}
-  //       </span>
-  //       <span className="text">{result.actions.saved ? 'Saved' : result.ui_options.save_button_text}</span>
-  //     </button>
-  //   );
-  // };
+  }
 
   // Function to render the share button
   const renderShareButton = () => {
@@ -613,7 +437,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
 
   return (
     <div className="analysis-results rounded-lg p-4 my-4">
-      {/* Add Twitter username styling */}
       <style>
         {`
         .twitter-username {
@@ -651,7 +474,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
           transform-origin: bottom left;
         }
 
-        /* Make the underline visible on focus for accessibility */
         .twitter-username:focus {
           outline: none;
           background-color: rgba(29, 161, 242, 0.3);
@@ -662,7 +484,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
           transform-origin: bottom left;
         }
 
-        /* Twitter username in post styling */
         .twitter-username-post {
           color: #1DA1F2;
           font-weight: 600;
@@ -677,7 +498,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
           text-decoration: underline;
         }
 
-        /* Twitter post container styling */
         .twitter-post-container {
           margin: 0.75rem 0;
           padding: 0.75rem;
@@ -702,7 +522,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
           line-height: 1.5;
         }
 
-        /* Sentiment analysis section styling */
         .sentiment-section {
           margin: 0.75rem 0;
           padding: 0.5rem;
@@ -716,7 +535,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
           background-color: rgba(13, 10, 33, 0.5);
         }
         
-        /* Section color styling */
         .bullish-section {
           border-left-color: #46A758;
         }
@@ -787,7 +605,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
           transform: translateY(0);
         }
         
-        /* Mobile-specific tooltip styles */
         @media (max-width: 768px) {
           .tooltip-content {
             width: calc(100vw - 40px);
@@ -809,7 +626,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
           }
         }
         
-        /* Fix for small screens to ensure tooltip content doesn't overflow */
         .tooltip-content h4 {
           word-break: break-word;
           overflow-wrap: break-word;
@@ -838,21 +654,18 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="action-buttons flex space-x-2">
-          {/* {renderSaveButton()} */}
           {renderShareButton()}
         </div>
       </div>
 
-      {/* Chart Section - Display Chart Here */}
       <div className="chart-container mb-4" style={{ height: '400px' }}>
         {result.asset?.symbol ? (
           <div className="h-full w-full">
             <LightweightChart 
               symbol={result.asset.symbol}
               assetType={result.asset.type}
-                chartData={result.chart}
+              chartData={result.chart}
             />
           </div>
         ) : (
@@ -862,7 +675,6 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
         )}
       </div>
 
-      {/* Analysis Section */}
       <div className="analysis-section mt-4">
         <h3 className="text-lg font-semibold text-white mb-2">Analysis</h3>
         <div

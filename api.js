@@ -85,7 +85,7 @@ function getSubscriptionId(req) {
       // Check if token already has subscriptionId (new format)
       if (decoded.subscriptionId) {
         console.log(`✅ Using JWT subscriptionId: ${decoded.subscriptionId}`);
-        return decoded.subscriptionId;
+      return decoded.subscriptionId;
       }
       
       // Handle legacy token format - look up subscription ID by email
@@ -1269,7 +1269,7 @@ const detectAsset = async (query) => {
             
             // Enhanced crypto matching with common abbreviation support
             let cryptoMatch = null;
-            const queryLower = query.toLowerCase();
+                const queryLower = query.toLowerCase();
             
             // First try exact matches
             cryptoMatch = cryptoList.find(crypto => {
@@ -2313,7 +2313,7 @@ app.post("/api/sentiment", rateLimitMiddleware, async (req, res) => {
   } else {
     // JWT authentication was already handled by rateLimitMiddleware
     // If we reach here, the user is authenticated and has a valid subscription
-    isPaidUser = true;
+      isPaidUser = true;
     console.log("JWT authentication successful via rate limit middleware");
   }
 
