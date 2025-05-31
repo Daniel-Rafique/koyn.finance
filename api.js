@@ -4910,6 +4910,7 @@ app.get('/api/technical-indicators', async (req, res) => {
 app.get('/api/technical-indicator', async (req, res) => {
   try {
     const { indicator, symbol, periodLength = 10, timeframe = '1day' } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     if (!indicator || !symbol) {
       return res.status(400).json({
