@@ -4,8 +4,6 @@ import { HelioCheckout } from '@heliofi/checkout-react';
 import type { EmbedThemeMode } from '@heliofi/checkout-react';
 import { useSubscription } from '../context/AuthProvider';
 import { trackTwitterConversion } from './Tracking';
-import { useAuth } from '../context/AuthProvider';
-// CSS styles moved to root.tsx to prevent duplication
 
 interface SubscriptionModalProps {
   isOpen: boolean;
@@ -120,8 +118,8 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   
-  // Get the login function from context
-  const { userEmail, login } = useSubscription();
+  // Get the verifySubscription function from context
+  const { verifySubscription, userEmail, login } = useSubscription();
   
   // Reset the checkout loading state when plan changes
   useEffect(() => {
@@ -195,10 +193,12 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
   // Check current subscription status when modal is opened
   useEffect(() => {
     if (isOpen && userEmail) {
-      // The new AuthProvider automatically handles subscription verification
-      console.log('Modal opened for user:', userEmail);
+      // Check if current stored email subscription is still valid
+      verifySubscription(userEmail).catch(err => {
+        console.error('Error verifying current subscription:', err);
+      });
     }
-  }, [isOpen, userEmail]);
+  }, [isOpen, userEmail, verifySubscription]);
 
   // Get the active plan configuration
   const getActivePlanConfig = () => {
@@ -562,6 +562,407 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
 
   return (
     <>
+      {/* Modal styles - keeping the original brand styling */}
+      <style>{`
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.9);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 99999;
+          animation: fadeIn 0.4s ease-out forwards;
+        }
+        
+        .modal-container {
+          position: relative;
+          background: rgb(7, 4, 23);
+          border-radius: 12px;
+          width: 100%;
+          max-width: 420px;
+          overflow: hidden;
+          margin: 1rem;
+          z-index: 100000;
+          animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes slideUp {
+          from { 
+            transform: translateY(30px);
+            opacity: 0;
+          }
+          to { 
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        
+        .modal-overlay.closing {
+          animation: fadeOut 0.3s ease-out forwards;
+        }
+        
+        .modal-container.closing {
+          animation: slideDown 0.3s ease-out forwards;
+        }
+        
+        @keyframes fadeOut {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+        
+        @keyframes slideDown {
+          from { 
+            transform: translateY(0);
+            opacity: 1;
+          }
+          to { 
+            transform: translateY(20px);
+            opacity: 0;
+          }
+        }
+        
+        .modal-close {
+          position: absolute;
+          top: 1rem;
+          right: 1rem;
+          color: rgba(255, 255, 255, 0.7);
+          cursor: pointer;
+          z-index: 100001;
+          background: none;
+          border: none;
+          padding: 0.5rem;
+          animation: fadeIn 0.3s ease-out 0.2s forwards;
+          opacity: 0;
+        }
+        
+        .modal-close:hover {
+          color: white;
+        }
+        
+        /* Tab styles */
+        .tab-container {
+          display: flex;
+          justify-content: center;
+          gap: 1.5rem;
+          padding: 1.25rem 1rem 0.75rem;
+          animation: contentFade 0.3s ease-out 0.15s forwards;
+          opacity: 0;
+        }
+        
+        .tab-button-container {
+          position: relative;
+          transition: all 0.3s ease;
+        }
+        
+        .tab-button-outer {
+          position: relative;
+          height: 40px;
+          width: 110px;
+        }
+        
+        .tab-button-glow {
+          position: absolute;
+          top: -2px;
+          left: -2px;
+          right: -2px;
+          bottom: -2px;
+          border-radius: 10px;
+          filter: blur(8px);
+          opacity: 0.4;
+          z-index: 0;
+          overflow: hidden;
+        }
+        
+        .tab-button-glow::before {
+          content: "";
+          z-index: -2;
+          text-align: center;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) rotate(60deg);
+          position: absolute;
+          width: 999px;
+          height: 999px;
+          background-repeat: no-repeat;
+          background-position: 0 0;
+          background-image: conic-gradient(
+            #000,
+            #402fb5 5%,
+            #000 38%,
+            #000 50%,
+            #cf30aa 60%,
+            #000 87%
+          );
+          transition: all 2s;
+        }
+        
+        .tab-button-container.active .tab-button-glow {
+          opacity: 0.7;
+          animation: pulse 3s infinite ease-in-out;
+        }
+        
+        .tab-button-container:hover .tab-button-glow {
+          opacity: 0.6;
+        }
+        
+        .tab-button-border {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border-radius: 10px;
+          z-index: 1;
+          overflow: hidden;
+        }
+        
+        .tab-button-border::before {
+          content: "";
+          text-align: center;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) rotate(90deg);
+          position: absolute;
+          width: 600px;
+          height: 600px;
+          background-repeat: no-repeat;
+          background-position: 0 0;
+          filter: brightness(1.35);
+          background-image: conic-gradient(
+            rgba(0, 0, 0, 0),
+            #fff,
+            rgba(0, 0, 0, 0) 50%,
+            rgba(0, 0, 0, 0) 50%,
+            #fff,
+            rgba(0, 0, 0, 0) 100%
+          );
+        }
+        
+        .tab-button-container.active .tab-button-border::before {
+          animation: rotate 4s linear infinite;
+        }
+        
+        .tab-button {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2;
+          isolation: isolate;
+          overflow: hidden;
+          border-radius: 10px;
+          background: linear-gradient(180deg, #161329, black, #1d1b4b);
+          border: 1px solid transparent;
+          cursor: pointer;
+          font-weight: 500;
+          color: white;
+          padding: 0.5rem 1rem;
+          gap: 0.5rem;
+          transition: background 0.3s ease, transform 0.15s ease;
+        }
+        
+        .tab-button:hover {
+          background: linear-gradient(180deg, #1c1833, #0d0d0d, #242057);
+        }
+        
+        .tab-button:active {
+          transform: scale(0.97);
+        }
+        
+        .tab-button-container.active .tab-button {
+          background: linear-gradient(180deg, #1a1636, #0a0a1a, #28256b);
+        }
+        
+        .tab-icon {
+          opacity: 0.9;
+          transition: opacity 0.2s;
+        }
+        
+        .tab-button:hover .tab-icon {
+          opacity: 1;
+        }
+        
+        /* Highlight for subscribe tab */
+        .tab-button-container.highlight .tab-button-glow {
+          animation: pulseHighlight 1.5s infinite ease-in-out;
+          opacity: 0.9;
+        }
+        
+        @keyframes pulseHighlight {
+          0% {
+            opacity: 0.6;
+            filter: blur(8px);
+          }
+          50% {
+            opacity: 1;
+            filter: blur(12px);
+          }
+          100% {
+            opacity: 0.6;
+            filter: blur(8px);
+          }
+        }
+        
+        @keyframes pulse {
+          0% {
+            opacity: 0.4;
+          }
+          50% {
+            opacity: 0.7;
+          }
+          100% {
+            opacity: 0.4;
+          }
+        }
+        
+        @keyframes rotate {
+          100% {
+            transform: translate(-50%, -50%) rotate(450deg);
+          }
+        }
+        
+        .result-message {
+          margin: 1rem 0;
+          padding: 0.75rem;
+          border-radius: 0.5rem;
+          font-size: 0.875rem;
+        }
+        
+        .result-message.success {
+          background: rgba(16, 185, 129, 0.2);
+          border: 1px solid rgba(16, 185, 129, 0.5);
+          color: #10b981;
+        }
+        
+        .result-message.error {
+          background: rgba(239, 68, 68, 0.2);
+          border: 1px solid rgba(239, 68, 68, 0.5);
+          color: #ef4444;
+        }
+        
+        .content-container {
+          padding: 0 1.5rem 1.25rem;
+          animation: contentFade 0.3s ease-out 0.25s forwards;
+          opacity: 0;
+        }
+        
+        .verification-info {
+          margin-top: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        
+        .code-timer {
+          font-weight: 500;
+          color: #6366f1;
+        }
+        
+        .resend-code-button,
+        .change-email-button {
+          background: none;
+          border: none;
+          color: #6366f1;
+          font-size: 0.8rem;
+          text-align: left;
+          padding: 0;
+          cursor: pointer;
+          transition: color 0.2s ease;
+        }
+        
+        .resend-code-button:hover,
+        .change-email-button:hover {
+          color: #818cf8;
+          text-decoration: underline;
+        }
+        
+        .resend-code-button:disabled {
+          color: rgba(255, 255, 255, 0.4);
+          cursor: not-allowed;
+          text-decoration: none;
+        }
+        
+        .checkout-container {
+          padding: 0 1rem 0.75rem;
+          margin: 0 auto;
+          animation: contentFade 0.3s ease-out 0.25s forwards;
+          opacity: 0;
+          position: relative;
+          min-height: 200px;
+        }
+        
+        .plan-selector {
+          margin: 0.5rem 1rem 1rem;
+          display: flex;
+          background: rgba(15, 10, 40, 0.6);
+          border-radius: 10px;
+          padding: 0.25rem;
+          position: relative;
+          z-index: 1;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .plan-option {
+          flex: 1;
+          padding: 0.5rem 0.25rem;
+          text-align: center;
+          cursor: pointer;
+          border-radius: 8px;
+          font-size: 0.85rem;
+          font-weight: 500;
+          color: rgba(255, 255, 255, 0.7);
+          transition: all 0.2s ease;
+          position: relative;
+          z-index: 2;
+        }
+        
+        .plan-option:hover {
+          color: white;
+        }
+        
+        .plan-option.active {
+          background: #111827;
+          color: white;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .plan-option .plan-name {
+          font-weight: 600;
+          display: block;
+          margin-bottom: 0.15rem;
+        }
+        
+        .plan-option .plan-description {
+          font-size: 0.7rem;
+          opacity: 0.8;
+        }
+        
+        @keyframes contentFade {
+          0% {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
       <div className={`modal-overlay ${isClosing ? 'closing' : ''}`}>
         <div className={`modal-container ${isClosing ? 'closing' : ''}`}>
           {/* Close button */}
@@ -748,7 +1149,7 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
                   )}
                   
                   <div className="verification-info">
-                    <p className="login-note">
+                    <p className="text-sm text-gray-300">
                       Enter the 6-digit code sent to {verificationEmail}
                       {remainingTime > 0 && (
                         <span className="code-timer"> (expires in {Math.floor(remainingTime / 60)}:{(remainingTime % 60).toString().padStart(2, '0')})</span>
@@ -761,7 +1162,7 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
                       onClick={sendVerificationCode}
                       disabled={codeSent && remainingTime > 0}
                     >
-                      {codeSent && remainingTime > 0 ? 'Resend code' : 'Resend code'}
+                      Resend code
                     </button>
                     
                     <button

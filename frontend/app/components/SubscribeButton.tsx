@@ -1,8 +1,5 @@
 "use client"
-
 import React, { useState, useRef, useEffect } from "react"
-import { Routes } from "../utils/routes"
-import SubscriptionModal from "./SubscriptionModal"
 import { useSubscription } from "../context/AuthProvider"
 import { createPortal } from "react-dom"
 import { useNavigate } from "react-router"
@@ -10,6 +7,7 @@ import { useNavigate } from "react-router"
 interface SubscribeButtonProps {
   onClick?: () => void
   text?: string
+  onSubscribeClick?: () => void  // New prop to trigger parent modal
 }
 
 // Dropdown component that renders directly into body via portal
@@ -172,9 +170,8 @@ function DropdownMenu({
   return createPortal(portalContent, portalElement)
 }
 
-export default function SubscribeButton({ onClick, text }: SubscribeButtonProps) {
+export default function SubscribeButton({ onClick, text, onSubscribeClick }: SubscribeButtonProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [modalOpen, setModalOpen] = useState(false)
   const buttonRef = useRef<HTMLDivElement>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, right: 0 })
   
@@ -196,26 +193,17 @@ export default function SubscribeButton({ onClick, text }: SubscribeButtonProps)
       }
       setDropdownOpen(!dropdownOpen)
     } else {
-      // For non-logged-in users, show subscription modal
-      setModalOpen(true)
+      // For non-logged-in users, trigger parent modal
+      if (onSubscribeClick) {
+        onSubscribeClick()
+      }
     }
-  }
-
-  // Handle modal close
-  const handleModalClose = () => {
-    setModalOpen(false)
   }
 
   // Handle successful subscription
   const handleSubscriptionSuccess = (event: any) => {
     console.log("Subscription successful:", event)
-    setModalOpen(false)
     // The subscription context will automatically update when user logs in
-  }
-
-  // Function to close the dropdown
-  const closeDropdown = () => {
-    setDropdownOpen(false)
   }
 
   // Update dropdown position based on button position
@@ -356,16 +344,7 @@ export default function SubscribeButton({ onClick, text }: SubscribeButtonProps)
           isOpen={dropdownOpen}
           position={dropdownPosition}
           userEmail={userEmail}
-          onNavigate={closeDropdown}
-        />
-      )}
-
-      {/* Subscription Modal */}
-      {modalOpen && (
-        <SubscriptionModal
-          isOpen={modalOpen}
-          onClose={handleModalClose}
-          onSuccess={handleSubscriptionSuccess}
+          onNavigate={() => setDropdownOpen(false)}
         />
       )}
     </>
