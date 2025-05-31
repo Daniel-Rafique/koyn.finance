@@ -14,11 +14,21 @@ export default function ProtectedPage({
   requiresSubscription = true,
   fallback 
 }: ProtectedPageProps) {
-  const { isSubscribed, isAuthenticated } = useAuth();
+  const { isSubscribed, isAuthenticated, isLoading } = useAuth();
 
   // If subscription not required, always show content
   if (!requiresSubscription) {
     return <>{children}</>;
+  }
+
+  // SECURITY FIX: Wait for auth state to load before making subscription decisions
+  // This prevents the subscription modal from flashing when the user is actually subscribed
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[rgb(0,0,0)] flex items-center justify-center">
+        <Loader />
+      </div>
+    );
   }
 
   // If user is subscribed, show content

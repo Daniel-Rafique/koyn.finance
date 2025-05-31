@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useSyncExternalStore } from 'react';
+import React, { createContext, useContext, useState, useCallback, useSyncExternalStore, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 interface User {
@@ -53,12 +53,18 @@ class AuthStore {
   // Keep access token in memory only for security
   private accessTokenInMemory: string | null = null;
   
+  // Track initialization state
+  private isInitialized: boolean = false;
+  
   private listeners = new Set<() => void>();
 
   constructor() {
     // Only initialize from storage on client
     if (typeof window !== 'undefined') {
       this.initializeFromStorage();
+    } else {
+      // On server, mark as initialized immediately
+      this.isInitialized = true;
     }
   }
 
@@ -88,9 +94,15 @@ class AuthStore {
         
         console.log('🔄 Auth state restored from storage - access token will be refreshed');
       }
+      
+      // Mark as initialized after attempting to restore state
+      this.isInitialized = true;
+      this.notifyListeners();
     } catch (error) {
       console.error('Failed to initialize auth from storage:', error);
       this.clearStorage();
+      this.isInitialized = true;
+      this.notifyListeners();
     }
   }
 
@@ -218,6 +230,10 @@ class AuthStore {
       return true;
     }
   };
+
+  getInitialized = (): boolean => {
+    return this.isInitialized;
+  };
 }
 
 // Create a singleton store
@@ -239,7 +255,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({ isAuthenticated: false, user: null, tokens: null })
   );
 
+  // Track loading state separately from the auth store
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Track initialization state - this prevents subscription modal from showing too early
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Check if auth store is initialized
+  const isStoreInitialized = authStore.getInitialized();
+
+  // Update initialization state when auth store finishes initializing
+  useEffect(() => {
+    if (isStoreInitialized && isInitializing) {
+      setIsInitializing(false);
+      console.log('🔄 Auth initialization complete');
+    }
+  }, [isStoreInitialized, isInitializing]);
 
   // SECURITY: Function to get access token with automatic refresh
   const getSecureAccessToken = useCallback(async (): Promise<string | null> => {
@@ -382,7 +413,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: authState.user,
     isSubscribed: authState.user?.isActive || false,
     userEmail: authState.user?.email || null,
-    isLoading,
+    isLoading: isLoading || isInitializing, // Include initialization in loading state
     login,
     logout,
     refreshAuth,
