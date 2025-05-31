@@ -683,10 +683,10 @@ function AnalysisContent() {
                   <p className="text-[#a099d8] mb-4 leading-relaxed">{error}</p>
                   <div className="space-y-3">
                     <button 
-                      onClick={() => navigate('/billing')}
+                      onClick={() => navigate('/app/billing')}
                       className="w-full px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors font-medium"
                     >
-                      Upgrade Plan
+                      Account
                     </button>
                     <p className="text-xs text-gray-400">
                       Your searches reset daily at midnight UTC

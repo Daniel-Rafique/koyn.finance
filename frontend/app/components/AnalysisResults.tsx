@@ -110,6 +110,14 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
     try {
       let processedAnalysis = result.analysis;
 
+      // First, clean up any malformed HTML that might be in the original content
+      processedAnalysis = processedAnalysis
+        .replace(/class="[^"]*">/g, '') // Remove any stray class attributes
+        .replace(/data-[^=]*="[^"]*">/g, '') // Remove any stray data attributes
+        .replace(/><[^>]*class="article-tag">/g, '') // Remove malformed article-tag structures
+        .replace(/class="news-source"[^>]*>/g, '') // Remove news-source class remnants
+        .replace(/>\s*class="/g, ' class="') // Fix spacing issues
+
       // Known news sources
       const newsSources = [
         'Barron\'s', 'Investor\'s Business Daily', 'MarketWatch', 'Bloomberg', 'CNBC', 
@@ -119,11 +127,12 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
       // Get news items either from result object or from props
       const newsItems = result.news || news || [];
 
-      // Process each news source
+      // Process each news source - look for both [Source] and plain Source patterns
       newsSources.forEach(source => {
-        const sourceRegex = new RegExp(`\\[${source}\\]`, 'g');
-
-        processedAnalysis = processedAnalysis.replace(sourceRegex, (match) => {
+        // Pattern 1: [Source] format
+        const bracketSourceRegex = new RegExp(`\\[${source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'g');
+        
+        processedAnalysis = processedAnalysis.replace(bracketSourceRegex, (match) => {
           // Find matching news item for this source
           const matchingNews = newsItems.find(item => 
               item.source.toLowerCase() === source.toLowerCase() ||
@@ -133,8 +142,8 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
 
           if (matchingNews) {
             return `<span class="article-tag">${source}<div class="tooltip-content">
-              <h4 class="font-medium text-white mb-1">${matchingNews.title}</h4>
-              <p class="text-xs text-[#a099d8] mb-2">${matchingNews.description || 'No description available'}</p>
+              <h4 class="font-medium text-white mb-1">${matchingNews.title || 'News Article'}</h4>
+              <p class="text-xs text-[#a099d8] mb-2">${matchingNews.description || 'Click to read more'}</p>
               <a href="${matchingNews.url}" target="_blank" rel="noopener noreferrer" class="text-xs bg-[rgb(13,10,33)] text-[#95D5B2] px-3 py-1 rounded hover:bg-[rgb(19,15,47)] transition-colors inline-block">Read article</a>
             </div></span>`;
           }
@@ -142,11 +151,20 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
           // If no matching news, return just the source name without a tooltip
           return `<span class="article-tag">${source}</span>`;
         });
+
+        // Pattern 2: Plain source name (only if not already processed)
+        const plainSourceRegex = new RegExp(`\\b${source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b(?![^<]*</span>)`, 'g');
+        
+        processedAnalysis = processedAnalysis.replace(plainSourceRegex, (match) => {
+          // Skip if this is already inside a span or link
+          return `<span class="article-tag">${match}</span>`;
+        });
       });
 
-      // Also look for any remaining source tags that weren't processed
-      const genericSourceRegex = /\[([\w\s']+)\]/g;
-      processedAnalysis = processedAnalysis.replace(genericSourceRegex, (match, sourceName) => {
+      // Clean up any remaining bracket notation for unrecognized sources
+      const remainingBracketRegex = /\[([^\]]+)\]/g;
+      processedAnalysis = processedAnalysis.replace(remainingBracketRegex, (match, sourceName) => {
+        // Only replace if it's not already inside a span
         return `<span class="article-tag">${sourceName}</span>`;
       });
 
