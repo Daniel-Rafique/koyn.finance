@@ -291,6 +291,8 @@ function AnalysisContent() {
           if (fetchError instanceof Error && 
               (fetchError.message.includes('429') || 
                fetchError.message.includes('Too Many Requests') ||
+               fetchError.message.includes('Daily API limit exceeded') ||
+               fetchError.message.includes('Rate Limit Exceeded') ||
                fetchError.message.includes('rate limit'))) {
             setError("You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!")
           } else if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
@@ -313,11 +315,11 @@ function AnalysisContent() {
             try {
               const errorData = await response.json()
               
-              // Check if we have detailed rate limit info from the API
-              if (errorData.message && errorData.message.includes('rate limit')) {
-                setError(`You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!`)
+              // Use the API's error message if available, or provide a fallback
+              if (errorData.message) {
+                setError(errorData.message)
               } else {
-                setError(`You've used all your searches for today. Your limit will reset tomorrow at midnight UTC. Upgrade your plan for unlimited searches!`)
+                setError(`You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!`)
               }
             } catch (parseError) {
               // Fallback if we can't parse the error response
@@ -469,7 +471,7 @@ function AnalysisContent() {
           setError("Unable to connect to our servers. Please check your internet connection and try again.")
         } else if (err instanceof Error && err.message.includes('Authentication failed')) {
           setError("Authentication failed. Please sign in again.")
-        } else if (err instanceof Error && (err.message.includes('429') || err.message.includes('Too Many Requests'))) {
+        } else if (err instanceof Error && (err.message.includes('429') || err.message.includes('Too Many Requests') || err.message.includes('Daily API limit exceeded') || err.message.includes('Rate Limit Exceeded'))) {
           setError("You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!")
         } else if (err instanceof Error && err.message.includes('Failed to fetch')) {
           // This could be a network-level error including 429 that didn't get caught above
@@ -674,7 +676,7 @@ function AnalysisContent() {
           <div className="flex-grow flex flex-col items-center justify-center">
             <div className="text-center max-w-md mx-auto p-6 bg-[rgba(13,10,33,0.6)]">
               {/* Different styling based on error type */}
-              {error.includes('daily search limit') || error.includes('rate limit') ? (
+              {error.includes('Daily API limit exceeded') || error.includes('daily search limit') || error.includes('rate limit') || error.includes('Rate Limit Exceeded') || error.includes('requests today') ? (
                 <>
                   <div className="text-yellow-400 text-3xl mb-4">⏰</div>
                   <h3 className="text-xl font-semibold text-white mb-2">Daily Limit Reached</h3>
