@@ -277,11 +277,35 @@ function AnalysisContent() {
           userEmail: user?.email || userEmail
         })
 
-        const response = await fetch("https://koyn.finance:3001/api/sentiment", {
-          method: "POST",
-          headers,
-          body: JSON.stringify(requestBody),
-        })
+        let response;
+        try {
+          response = await fetch("https://koyn.finance:3001/api/sentiment", {
+            method: "POST",
+            headers,
+            body: JSON.stringify(requestBody),
+          })
+        } catch (fetchError) {
+          // Handle network-level errors including 429s that don't return a response
+          console.error("Network error during fetch:", fetchError)
+          
+          if (fetchError instanceof Error && 
+              (fetchError.message.includes('429') || 
+               fetchError.message.includes('Too Many Requests') ||
+               fetchError.message.includes('rate limit'))) {
+            setError("You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!")
+          } else if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
+            setError("Unable to connect to our servers. Please check your internet connection and try again.")
+          } else {
+            setError("Network error occurred. Please try again or contact support if this persists.")
+          }
+          
+          setIsLoading(false)
+          if (setSearchLoadingCallback) {
+            setSearchLoadingCallback(false)
+            setSearchFormLoading(false)
+          }
+          return
+        }
 
         if (!response.ok) {
           // Handle rate limiting (429) with user-friendly message
@@ -445,8 +469,11 @@ function AnalysisContent() {
           setError("Unable to connect to our servers. Please check your internet connection and try again.")
         } else if (err instanceof Error && err.message.includes('Authentication failed')) {
           setError("Authentication failed. Please sign in again.")
-        } else if (err instanceof Error && err.message.includes('429')) {
+        } else if (err instanceof Error && (err.message.includes('429') || err.message.includes('Too Many Requests'))) {
           setError("You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!")
+        } else if (err instanceof Error && err.message.includes('Failed to fetch')) {
+          // This could be a network-level error including 429 that didn't get caught above
+          setError("Unable to connect to our servers. This could be due to rate limiting or connection issues. Please try again later.")
         } else {
           setError("An unexpected error occurred. Please try again or contact support if this persists.")
         }
@@ -645,7 +672,7 @@ function AnalysisContent() {
           </div>
         ) : error ? (
           <div className="flex-grow flex flex-col items-center justify-center">
-            <div className="text-center max-w-md mx-auto p-6 bg-[rgba(13,10,33,0.6)] rounded-lg border border-[rgba(255,255,255,0.1)]">
+            <div className="text-center max-w-md mx-auto p-6 bg-[rgba(13,10,33,0.6)]">
               {/* Different styling based on error type */}
               {error.includes('daily search limit') || error.includes('rate limit') ? (
                 <>
