@@ -274,7 +274,7 @@ function BillingContent() {
     try {
       console.log('Navigating back to home page using direct browser navigation');
       // Use direct browser navigation instead of React Router
-      window.location.href = '/app';
+      window.location.href = '/';
     } catch (error) {
       console.error('Error navigating to home:', error);
       
@@ -286,11 +286,11 @@ function BillingContent() {
           fallbackLink.click();
         } else {
           // Last resort
-          window.location.replace('/app');
+          window.location.replace('/');
         }
       } catch (fallbackError) {
         console.error('Fallback navigation failed:', fallbackError);
-        window.location.replace('/app');
+        window.location.replace('/');
       }
     }
   };
@@ -784,7 +784,7 @@ function BillingContent() {
           </a>
         </div>
 
-        <div className="mb-6 mt-6">
+        <div className="mb-6 mt-16">
           <h1 className="text-2xl font-semibold text-white">Billing & Subscription</h1>
           <p className="text-[#ffffff] mt-2">Manage your subscription and payment details</p>
         </div>
