@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import type { Route } from "./+types/billing"
 
 import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router"
@@ -13,6 +14,15 @@ import "../styles/glowing-input.css"
 import { HelioCheckout } from "@heliofi/checkout-react"
 // Import the specific types from the Helio library
 import type { HelioEmbedConfig } from "@heliofi/checkout-react"
+
+// Meta function for React Router to set page title and description
+export const meta: Route.MetaFunction = () => {
+  return [
+    { title: "Billing & Subscription - koyn.finance" },
+    { name: "description", content: "Manage your koyn.finance subscription, view billing history, and update your payment information for AI-powered financial market insights." },
+    { name: "robots", content: "noindex, nofollow" }, // Don't index billing pages
+  ];
+};
 
 interface Subscription {
   id: string
@@ -258,6 +268,32 @@ function BillingContent() {
     // For now, just show a message
     alert("Upgrade/downgrade functionality is not yet available. Please contact support for assistance.")
   }
+
+  // Handle back button click - navigate to home page
+  const handleBackToHome = () => {
+    try {
+      console.log('Navigating back to home page using direct browser navigation');
+      // Use direct browser navigation instead of React Router
+      window.location.href = '/app';
+    } catch (error) {
+      console.error('Error navigating to home:', error);
+      
+      // Try to click the fallback link
+      try {
+        console.log('Trying fallback link navigation');
+        const fallbackLink = document.getElementById('home-fallback-link') as HTMLAnchorElement;
+        if (fallbackLink) {
+          fallbackLink.click();
+        } else {
+          // Last resort
+          window.location.replace('/app');
+        }
+      } catch (fallbackError) {
+        console.error('Fallback navigation failed:', fallbackError);
+        window.location.replace('/app');
+      }
+    }
+  };
 
   // Format currency amount
   const formatAmount = (amount?: number, currency = "USDC") => {
@@ -709,6 +745,45 @@ function BillingContent() {
       )}
 
       <main className="max-w-[1200px] px-12 relative z-10 min-h-[calc(100vh-240px)] flex flex-col overflow-x-hidden pb-20 mx-0 lg:mx-auto">
+        {/* Back to Home button - positioned in top-left corner as a floating button */}
+        <div className="absolute top-4 left-4 z-20">
+          <a
+            href="/app"
+            className="flex items-center text-[#ffffff] hover:text-white transition-colors text-sm px-3"
+            aria-label="Return to home page"
+            onClick={(e) => {
+              // Still handle the click event to get logging
+              e.preventDefault();
+              console.log('Home link clicked');
+              handleBackToHome();
+            }}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="mr-1"
+            >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Back to Home
+          </a>
+          
+          {/* Hidden anchor tag as fallback */}
+          <a 
+            href="/app"
+            className="hidden"
+            id="home-fallback-link"
+            aria-hidden="true"
+          >
+            Back to Home
+          </a>
+        </div>
+
         <div className="mb-6 mt-6">
           <h1 className="text-2xl font-semibold text-white">Billing & Subscription</h1>
           <p className="text-[#ffffff] mt-2">Manage your subscription and payment details</p>

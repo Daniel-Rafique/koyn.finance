@@ -14,6 +14,25 @@ import Nav from "../components/Nav"
 import Loader from "../components/Loader"
 import NewsCarousel from "../components/NewsCarousel"
 
+// Meta function for React Router to set page title and description
+export const meta = ({ location }: { location: { search: string } }) => {
+  const searchParams = new URLSearchParams(location.search);
+  const query = searchParams.get("q");
+  
+  if (query) {
+    return [
+      { title: `Analysis: ${query} - koyn.finance` },
+      { name: "description", content: `AI-powered financial analysis and market sentiment for ${query}. Get real-time insights, price trends, and social sentiment analysis.` },
+      { name: "robots", content: "noindex, nofollow" }, // Don't index specific searches
+    ];
+  }
+  
+  return [
+    { title: "Market Analysis - koyn.finance" },
+    { name: "description", content: "AI-powered financial market analysis with real-time sentiment tracking, price predictions, and comprehensive market insights for cryptocurrencies and stocks." },
+  ];
+};
+
 interface SearchResult {
   asset: {
     name: string
