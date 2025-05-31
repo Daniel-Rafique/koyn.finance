@@ -1970,7 +1970,7 @@ Use sophisticated language that demonstrates expertise in technical analysis. St
                 temperature: 0.7,
                 topK: 40,
                 topP: 0.8,
-                maxOutputTokens: 2000
+                maxOutputTokens: 8192
             }
         };
 
@@ -2001,15 +2001,27 @@ Use sophisticated language that demonstrates expertise in technical analysis. St
                     try {
                         // Check if response has the expected structure
                         if (response.data && response.data.candidates && Array.isArray(response.data.candidates) && response.data.candidates.length > 0) {
-                            // Standard Gemini 1.5 structure
                             const candidate = response.data.candidates[0];
+                            
+                            // Check for proper content structure with parts
                             if (candidate && candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts) && candidate.content.parts.length > 0) {
                                 responseText = candidate.content.parts[0].text || 'Analysis not available';
-                            } else {
+                                console.log('Successfully extracted text from parts array');
+                            } 
+                            // Handle case where content exists but no parts (often when MAX_TOKENS reached)
+                            else if (candidate && candidate.content && candidate.finishReason === 'MAX_TOKENS') {
+                                console.warn('Response truncated due to MAX_TOKENS limit. Content structure:', candidate.content);
+                                responseText = 'Analysis was truncated due to length limits. The market analysis is partially available but may be incomplete.';
+                            }
+                            // Handle other unexpected candidate structures
+                            else {
                                 console.warn('Unexpected candidate structure:', candidate);
+                                if (candidate.finishReason) {
+                                    responseText = `Analysis not available due to ${candidate.finishReason}. Please try again.`;
+                                }
                             }
                         } 
-                        // Check for alternative response structures (Gemini 2.5 might use different format)
+                        // Check for alternative response structures (other possible Gemini formats)
                         else if (response.data && response.data.text) {
                             // Direct text response
                             responseText = response.data.text;
