@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { useSubscription } from '../context/AuthProvider';
+import { useSubscription, useAuth } from '../context/AuthProvider';
 import LightweightChart from './LightweightChart';
 
 interface NewsItem {
@@ -408,62 +408,118 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
 
   const handleShare = async () => {
     try {
-      // Get subscription ID from localStorage
-      let subscriptionId = null
+      // Get the secure access token from the auth context (if available)
+      let accessToken = null;
       try {
-        const subscriptionData = localStorage.getItem('koyn_subscription')
-        if (subscriptionData) {
-          const parsed = JSON.parse(subscriptionData)
-          subscriptionId = parsed.id || null
-        }
+        // Try to get auth context if we're in a protected page
+        const { getSecureAccessToken } = useAuth();
+        accessToken = await getSecureAccessToken();
       } catch (error) {
-        console.warn('Error reading subscription data from localStorage:', error)
+        console.log('Auth context not available or token fetch failed:', error);
       }
+
+      // Prepare headers for the request
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      // If we have an access token, use JWT authentication
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
+
+      const requestBody: Record<string, any> = {
+        resultId: result.actions.result_id,
+        result: result,
+      };
+
+      // Fallback: if no JWT token, try to get subscription ID from localStorage for backward compatibility
+      if (!accessToken) {
+        try {
+          const subscriptionData = localStorage.getItem('koyn_subscription');
+          if (subscriptionData) {
+            const parsed = JSON.parse(subscriptionData);
+            requestBody.id = parsed.id || null;
+          }
+        } catch (error) {
+          console.warn('Error reading subscription data from localStorage:', error);
+        }
+      }
+
+      console.log('Sharing analysis with authentication:', { 
+        hasJWT: !!accessToken, 
+        hasLegacyId: !!requestBody.id,
+        resultId: result.actions.result_id 
+      });
 
       const response = await fetch("https://koyn.finance:3001/api/share-result", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          resultId: result.actions.result_id,
-          result: result,
-          id: subscriptionId,
-        }),
-      })
+        headers,
+        body: JSON.stringify(requestBody),
+      });
 
-      const data = await response.json()
+      const data = await response.json();
       
       if (data.success) {
         // Copy share URL to clipboard
         navigator.clipboard
           .writeText(data.shareUrl)
           .then(() => {
-            alert("Share link copied to clipboard!")
+            // Create a more user-friendly notification
+            const notification = document.createElement('div');
+            notification.innerHTML = `
+              <div style="
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #46A758;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 500;
+                z-index: 10000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                animation: slideIn 0.3s ease-out;
+              ">
+                ✅ Share link copied to clipboard!
+              </div>
+              <style>
+                @keyframes slideIn {
+                  from { transform: translateX(100%); opacity: 0; }
+                  to { transform: translateX(0); opacity: 1; }
+                }
+              </style>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+              document.body.removeChild(notification);
+            }, 3000);
           })
           .catch((err) => {
-            console.error("Could not copy link: ", err)
-            alert(`Share link: ${data.shareUrl}`)
-          })
+            console.error("Could not copy link: ", err);
+            // Fallback: show the link in a prompt
+            prompt("Share link (copy manually):", data.shareUrl);
+          });
       } else {
         // Handle different error scenarios
-        console.error("Share failed:", data)
+        console.error("Share failed:", data);
         
         if (data.subscription_required) {
-          alert(`Sharing requires a subscription: ${data.message || 'Please subscribe to share analysis'}`)
+          alert(`Sharing requires a subscription: ${data.message || 'Please subscribe to share analysis'}`);
         } else if (response.status === 401) {
-          alert("Authentication required. Please sign in to share analysis.")
+          alert("Authentication required. Please sign in to share analysis.");
         } else if (response.status === 400) {
-          alert("Invalid request. Please try again.")
+          alert("Invalid request. Please try again.");
         } else {
-          alert(`Failed to share analysis: ${data.message || 'Unknown error'}`)
+          alert(`Failed to share analysis: ${data.message || 'Unknown error'}`);
         }
       }
     } catch (error) {
-      console.error("Error sharing analysis:", error)
-      alert("Failed to share analysis. Please check your connection and try again.")
+      console.error("Error sharing analysis:", error);
+      alert("Failed to share analysis. Please check your connection and try again.");
     }
-  }
+  };
   
   // Function to render the save button
   // const renderSaveButton = () => {

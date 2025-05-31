@@ -3516,10 +3516,9 @@ app.delete('/api/saved-result/:resultId', async (req, res) => {
 });
 
 // Endpoint for sharing analysis results
-app.post('/api/share-result', async (req, res) => {
+app.post('/api/share-result', rateLimitMiddleware, async (req, res) => {
   try {
     const { resultId, result } = req.body;
-    const subscriptionId = getSubscriptionId(req);
     
     if (!resultId || !result) {
       return res.status(400).json({
@@ -3528,30 +3527,8 @@ app.post('/api/share-result', async (req, res) => {
       });
     }
 
-    // Validate subscription for sharing functionality
-    if (!subscriptionId) {
-      return res.status(401).json({
-        success: false,
-        error: "Unauthorized",
-        message: "Valid authentication is required for sharing analysis. Please provide a valid JWT token or subscription ID.",
-        subscription_required: true,
-        action: "Please subscribe or sign in to share analysis"
-      });
-    }
-
-    // Check subscription status in database
-    const hasValidSubscription = isSubscriptionActive(subscriptionId);
-    if (!hasValidSubscription) {
-      console.log(`Share result access denied for subscription ID: ${subscriptionId} - invalid or inactive subscription`);
-      return res.status(401).json({
-        success: false,
-        error: "Unauthorized",
-        message: "Invalid or inactive subscription",
-        subscription_required: true,
-        action: "Please renew your subscription to share analysis"
-      });
-    }
-
+    // Authentication is already handled by rateLimitMiddleware
+    const subscriptionId = getSubscriptionId(req);
     console.log(`Share result access granted for subscription ID: ${subscriptionId}`);
     
     // Create shared results directory if it doesn't exist (in frontend public folder)
@@ -3577,7 +3554,7 @@ app.post('/api/share-result', async (req, res) => {
       success: true,
       message: 'Analysis shared successfully',
       shareId,
-      shareUrl: `https://koyn.finance/app/shared/${shareId}`
+      shareUrl: `https://koyn.finance/shared/${shareId}`
     });
   } catch (error) {
     console.error('Error sharing analysis result:', error);

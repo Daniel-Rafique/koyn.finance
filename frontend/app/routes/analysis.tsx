@@ -484,8 +484,77 @@ function AnalysisContent() {
     }
   }, [query, isClientMounted, hasInitializedFromStorage.current, fetchAnalysis])
 
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Only handle arrow keys when not typing in an input/textarea
+      if (event.target instanceof HTMLInputElement || 
+          event.target instanceof HTMLTextAreaElement || 
+          event.target instanceof HTMLSelectElement) {
+        return
+      }
+
+      if (resultsArray.length > 1) {
+        if (event.key === 'ArrowLeft' && currentIndex > 0) {
+          event.preventDefault()
+          goToPrevious()
+        } else if (event.key === 'ArrowRight' && currentIndex < resultsArray.length - 1) {
+          event.preventDefault()
+          goToNext()
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [currentIndex, resultsArray.length])
+
   // Get the current entry to display
   const currentEntry = resultsArray[currentIndex] || null
+
+  // Navigation functions
+  const goToPrevious = () => {
+    if (currentIndex > 0) {
+      const newIndex = currentIndex - 1
+      setCurrentIndex(newIndex)
+      
+      // Update URL to reflect the new query
+      const newQuery = resultsArray[newIndex].query
+      const newUrl = `${Routes.ANALYSIS}?q=${encodeURIComponent(newQuery)}`
+      window.history.pushState({}, "", newUrl)
+      
+      console.log(`Navigated to previous result: "${newQuery}" (${newIndex + 1}/${resultsArray.length})`)
+    }
+  }
+
+  const goToNext = () => {
+    if (currentIndex < resultsArray.length - 1) {
+      const newIndex = currentIndex + 1
+      setCurrentIndex(newIndex)
+      
+      // Update URL to reflect the new query
+      const newQuery = resultsArray[newIndex].query
+      const newUrl = `${Routes.ANALYSIS}?q=${encodeURIComponent(newQuery)}`
+      window.history.pushState({}, "", newUrl)
+      
+      console.log(`Navigated to next result: "${newQuery}" (${newIndex + 1}/${resultsArray.length})`)
+    }
+  }
+
+  const jumpToResult = (index: number) => {
+    if (index >= 0 && index < resultsArray.length) {
+      setCurrentIndex(index)
+      
+      // Update URL to reflect the new query
+      const newQuery = resultsArray[index].query
+      const newUrl = `${Routes.ANALYSIS}?q=${encodeURIComponent(newQuery)}`
+      window.history.pushState({}, "", newUrl)
+      
+      console.log(`Jumped to result: "${newQuery}" (${index + 1}/${resultsArray.length})`)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[rgb(0,0,0)] overflow-y-auto">
@@ -522,6 +591,86 @@ function AnalysisContent() {
                   Results for: <span className="font-bold break-words" title={currentEntry.query}>{truncateQuery(currentEntry.query, 60)}</span>
                 </h1>
               </div>
+
+              {/* Navigation Controls */}
+              {resultsArray.length > 1 && (
+                <div className="navigation-controls mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[rgba(13,10,33,0.4)] rounded-lg p-4 border border-[rgba(255,255,255,0.1)] gap-4 sm:gap-0">
+                  <div className="flex items-center space-x-3 w-full sm:w-auto">
+                    <button
+                      onClick={goToPrevious}
+                      disabled={currentIndex === 0}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
+                        currentIndex === 0
+                          ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                          : 'bg-[#46A758] text-white hover:bg-[#3d9049] cursor-pointer'
+                      }`}
+                      title="Previous result (← arrow key)"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                      <span className="hidden sm:inline">Previous</span>
+                    </button>
+
+                    <button
+                      onClick={goToNext}
+                      disabled={currentIndex === resultsArray.length - 1}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
+                        currentIndex === resultsArray.length - 1
+                          ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                          : 'bg-[#46A758] text-white hover:bg-[#3d9049] cursor-pointer'
+                      }`}
+                      title="Next result (→ arrow key)"
+                    >
+                      <span className="hidden sm:inline">Next</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+                    {/* Results Counter */}
+                    <span className="text-sm text-[#a099d8] whitespace-nowrap">
+                      {currentIndex + 1} of {resultsArray.length}
+                    </span>
+
+                    <div className="flex items-center space-x-3 w-full sm:w-auto">
+                      {/* Results Dropdown */}
+                      <select
+                        value={currentIndex}
+                        onChange={(e) => jumpToResult(parseInt(e.target.value))}
+                        className="bg-[rgba(13,10,33,0.8)] text-white border border-[rgba(255,255,255,0.2)] rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#46A758] focus:border-transparent flex-grow sm:flex-grow-0 min-w-0"
+                        title="Jump to result"
+                      >
+                        {resultsArray.map((entry, index) => (
+                          <option key={index} value={index}>
+                            {truncateQuery(entry.query, 30)}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Clear All Results Button */}
+                      <button
+                        onClick={() => {
+                          if (confirm('Clear all analysis history? This cannot be undone.')) {
+                            localStorage.removeItem('koyn_analysis_results')
+                            setResultsArray([])
+                            setCurrentIndex(-1)
+                            // Navigate to analysis page without query
+                            window.history.pushState({}, "", Routes.ANALYSIS)
+                            setResultsVersion(prev => prev + 1)
+                          }
+                        }}
+                        className="text-red-400 hover:text-red-300 text-sm px-2 py-1 rounded transition-colors whitespace-nowrap"
+                        title="Clear all analysis history"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Display analysis results with news data */}
               {currentEntry.results.map((result, index) => (
