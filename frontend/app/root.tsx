@@ -171,8 +171,10 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
   let message = "Oops!";
   let details = "An unexpected error occurred.";
   let stack: string | undefined;
+  let errorCode = "500";
 
   if (isRouteErrorResponse(error)) {
+    errorCode = error.status.toString();
     message = error.status === 404 ? "404" : "Error";
     details =
       error.status === 404
@@ -183,15 +185,57 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
     stack = error.stack;
   }
 
-  return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
-      {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
+  // In development, show the detailed error
+  if (import.meta.env.DEV && stack) {
+    return (
+      <main className="pt-16 p-4 container mx-auto">
+        <h1 className="text-2xl font-bold text-white mb-4">{message}</h1>
+        <p className="text-[#a099d8] mb-4">{details}</p>
+        <pre className="w-full p-4 overflow-x-auto bg-gray-900 text-green-400 rounded">
           <code>{stack}</code>
         </pre>
-      )}
-    </main>
+      </main>
+    );
+  }
+
+  // In production, show the custom error page
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#0d0a21] to-[#1a1535] flex items-center justify-center px-4">
+      <div className="max-w-md w-full text-center">
+        <div className="mb-8">
+          <div className="text-6xl font-bold text-[#E5484D] mb-4">{errorCode}</div>
+          <h1 className="text-2xl font-semibold text-white mb-2">{message}</h1>
+          <p className="text-[#a099d8] text-sm leading-relaxed">
+            {details}
+          </p>
+        </div>
+        
+        <div className="space-y-4">
+          <a 
+            href="/"
+            className="inline-block w-full bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white font-medium py-3 px-6 rounded-lg hover:from-[#7C3AED] hover:to-[#DB2777] transition-all duration-200 transform hover:scale-105"
+          >
+            Go Home
+          </a>
+          
+          <button 
+            onClick={() => window.location.reload()}
+            className="inline-block w-full bg-[rgba(139,92,246,0.1)] text-[#8B5CF6] font-medium py-3 px-6 rounded-lg border border-[#8B5CF6] hover:bg-[rgba(139,92,246,0.2)] transition-all duration-200"
+          >
+            Try Again
+          </button>
+        </div>
+        
+        <div className="mt-8 text-xs text-[#6b7280]">
+          If this problem persists, please{' '}
+          <a 
+            href="mailto:support@koyn.finance" 
+            className="text-[#8B5CF6] hover:text-[#7C3AED] underline"
+          >
+            contact support
+          </a>
+        </div>
+      </div>
+    </div>
   );
 }
