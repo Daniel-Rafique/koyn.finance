@@ -32,14 +32,19 @@ const ACCESS_TOKEN_KEY = 'koyn_access_token';
 const REFRESH_TOKEN_KEY = 'koyn_refresh_token';
 const TOKEN_EXPIRY_KEY = 'koyn_token_expiry';
 
+// Helper function to safely check if we're on the client
+const isClient = typeof window !== 'undefined';
+
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [tokenRefreshTimer, setTokenRefreshTimer] = useState<NodeJS.Timeout | null>(null);
+  const [isClientMounted, setIsClientMounted] = useState(false);
 
   // Get stored access token
   const getAccessToken = (): string | null => {
+    if (!isClient) return null;
     try {
       return localStorage.getItem(ACCESS_TOKEN_KEY);
     } catch {
@@ -49,6 +54,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Get stored refresh token
   const getRefreshToken = (): string | null => {
+    if (!isClient) return null;
     try {
       return localStorage.getItem(REFRESH_TOKEN_KEY);
     } catch {
@@ -58,6 +64,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Check if access token is expired
   const isTokenExpired = (): boolean => {
+    if (!isClient) return true;
     try {
       const expiryTime = localStorage.getItem(TOKEN_EXPIRY_KEY);
       if (!expiryTime) return true;
@@ -74,6 +81,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Store auth tokens securely
   const storeAuthTokens = (authData: AuthTokens) => {
+    if (!isClient) return;
     try {
       localStorage.setItem(ACCESS_TOKEN_KEY, authData.accessToken);
       localStorage.setItem(REFRESH_TOKEN_KEY, authData.refreshToken);
@@ -90,6 +98,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Clear all auth data
   const clearAuthData = () => {
+    if (!isClient) return;
     try {
       localStorage.removeItem(ACCESS_TOKEN_KEY);
       localStorage.removeItem(REFRESH_TOKEN_KEY);
@@ -113,13 +122,26 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       throw new Error('No access token available');
     }
 
+    // Construct the full URL based on endpoint type
+    let fullUrl: string;
+    if (url.startsWith('/api/auth/')) {
+      // Auth endpoints go to verification API server (port 3005)
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol;
+      const port = hostname === 'localhost' || hostname === '127.0.0.1' ? ':3005' : ':3005';
+      fullUrl = `${protocol}//${hostname}${port}${url}`;
+    } else {
+      // Other API endpoints use relative URLs (handled by nginx or direct API)
+      fullUrl = url;
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${accessToken}`,
       ...options.headers,
     };
 
-    const response = await fetch(url, {
+    const response = await fetch(fullUrl, {
       ...options,
       headers,
     });
@@ -130,7 +152,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       if (refreshed) {
         // Retry with new token
         const newAccessToken = getAccessToken();
-        return fetch(url, {
+        return fetch(fullUrl, {
           ...options,
           headers: {
             ...headers,
@@ -148,6 +170,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Refresh access token using refresh token
   const refreshAuth = async (): Promise<boolean> => {
+    if (!isClient) return false;
     try {
       const refreshToken = getRefreshToken();
       if (!refreshToken) {
@@ -157,7 +180,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
       console.log('🔄 Refreshing access token...');
 
-      const response = await fetch('/api/auth/refresh', {
+      // Auth refresh endpoint goes to verification API server (port 3005)
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol;
+      const port = hostname === 'localhost' || hostname === '127.0.0.1' ? ':3005' : ':3005';
+      const refreshUrl = `${protocol}//${hostname}${port}/api/auth/refresh`;
+
+      const response = await fetch(refreshUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -196,6 +225,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Verify subscription status using secure endpoint
   const verifySubscription = async (email?: string): Promise<boolean> => {
+    if (!isClient) return false;
     try {
       setIsLoading(true);
 
@@ -256,12 +286,19 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Logout and clear all data
   const logout = async () => {
+    if (!isClient) return;
     try {
       const refreshToken = getRefreshToken();
       
       // Invalidate refresh token on server
       if (refreshToken) {
-        await fetch('/api/auth/logout', {
+        // Auth logout endpoint goes to verification API server (port 3005)
+        const hostname = window.location.hostname;
+        const protocol = window.location.protocol;
+        const port = hostname === 'localhost' || hostname === '127.0.0.1' ? ':3005' : ':3005';
+        const logoutUrl = `${protocol}//${hostname}${port}/api/auth/logout`;
+        
+        await fetch(logoutUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -304,8 +341,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     setTokenRefreshTimer(timer);
   };
 
-  // Check authentication status on mount and handle legacy data
+  // Effect to handle client-side mounting
   useEffect(() => {
+    setIsClientMounted(true);
+  }, []);
+
+  // Check authentication status only after client mount
+  useEffect(() => {
+    if (!isClientMounted) return;
+
     const initializeAuth = async () => {
       try {
         // Clear any legacy insecure subscription data
@@ -352,7 +396,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         clearTimeout(tokenRefreshTimer);
       }
     };
-  }, []);
+  }, [isClientMounted]);
 
   const value: SubscriptionContextType = {
     isSubscribed,

@@ -6,6 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const https = require('https');
+const cookieParser = require('cookie-parser');
 
 // Create Express app
 const app = express();
@@ -45,11 +47,39 @@ if (SENDGRID_API_KEY) {
 
 // Middleware
 app.use(cors({
-  origin: '*',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    // List of allowed origins
+    const allowedOrigins = [
+      'https://koyn.finance',
+      'https://www.koyn.finance',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://167.71.16.134'
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      return callback(new Error('Not allowed by CORS policy'), false);
+    }
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'X-Requested-With', 'X-Request-Time', 'Authorization', 'Accept', 'Origin']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin',
+    'X-Request-Time'
+  ]
 }));
 app.use(bodyParser.json({ limit: '10mb' }));
+app.use(cookieParser());
 
 // Add OPTIONS handling for preflight requests
 app.options('*', cors());
@@ -68,24 +98,24 @@ const verificationCodes = new Map();
 function generateAccessToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { 
     expiresIn: ACCESS_TOKEN_EXPIRY,
-    issuer: 'koyn.ai',
-    audience: 'koyn.ai-users'
+    issuer: 'koyn.finance',
+    audience: 'koyn.finance-users'
   });
 }
 
 function generateRefreshToken(payload) {
   return jwt.sign(payload, JWT_REFRESH_SECRET, { 
     expiresIn: REFRESH_TOKEN_EXPIRY,
-    issuer: 'koyn.ai',
-    audience: 'koyn.ai-users'
+    issuer: 'koyn.finance',
+    audience: 'koyn.finance-users'
   });
 }
 
 function verifyAccessToken(token) {
   try {
     return jwt.verify(token, JWT_SECRET, {
-      issuer: 'koyn.ai',
-      audience: 'koyn.ai-users'
+      issuer: 'koyn.finance',
+      audience: 'koyn.finance-users'
     });
   } catch (error) {
     return null;
@@ -95,8 +125,8 @@ function verifyAccessToken(token) {
 function verifyRefreshToken(token) {
   try {
     return jwt.verify(token, JWT_REFRESH_SECRET, {
-      issuer: 'koyn.ai',
-      audience: 'koyn.ai-users'
+      issuer: 'koyn.finance',
+      audience: 'koyn.finance-users'
     });
   } catch (error) {
     return null;
@@ -266,13 +296,13 @@ async function sendVerificationEmail(email, code) {
         
         const msg = {
           to: email,
-          from: 'hi@koyn.ai', // Use your verified sender
-          subject: 'Your koyn.ai Verification Code',
-          text: `Your verification code is: ${code}\n\nThis code will expire in 10 minutes.\n\nThank you,\nThe Koyn.ai Team`,
+          from: 'hi@koyn.finance', // Use your verified sender
+          subject: 'Your koyn.finance Verification Code',
+          text: `Your verification code is: ${code}\n\nThis code will expire in 10 minutes.\n\nThank you,\nThe koyn.finance Team`,
           html: `
             <div style="font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #ffffff; background-color: #000000;">
               <div style="text-align: center; margin-bottom: 30px;">
-                <img src="https://koyn.ai/logo.png" alt="Koyn.ai Logo" style="max-width: 120px;">
+                <img src="https://koyn.finance/logo.png" alt="Koyn.finance Logo" style="max-width: 120px;">
               </div>
               
               <div style="background-color: #000000; border-radius: 0.75rem; padding: 30px; box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1); border: 1px solid #ffffff;">
@@ -294,11 +324,11 @@ async function sendVerificationEmail(email, code) {
               </div>
               
               <div style="border-top: 1px solid #ffffff; margin-top: 30px; padding-top: 20px; font-size: 13px; color: #ffffff; text-align: center;">
-                <p style="margin-bottom: 10px;">© ${new Date().getFullYear()} Koyn.ai. All rights reserved.</p>
+                <p style="margin-bottom: 10px;">© ${new Date().getFullYear()} koyn.finance. All rights reserved.</p>
                 <div style="display: flex; justify-content: center; margin-top: 15px;">
-                  <a href="https://koyn.ai/terms" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Terms</a>
-                  <a href="https://koyn.ai/privacy" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Privacy</a>
-                  <a href="https://koyn.ai/contact" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Contact</a>
+                  <a href="https://koyn.finance/terms" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Terms</a>
+                  <a href="https://koyn.finance/privacy" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Privacy</a>
+                  <a href="https://koyn.finance/contact" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Contact</a>
                 </div>
               </div>
             </div>
@@ -641,21 +671,30 @@ app.post('/api/verification/verify', async (req, res) => {
     // Log successful authentication
     console.log(`🔐 Secure session created for ${email}`);
 
-    // Return secure tokens instead of subscription data
+    // SECURITY: Set refresh token as httpOnly cookie
+    res.cookie('refreshToken', sessionData.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/api/auth' // Limit cookie scope
+    });
+
+    // Return only access token in response body (for memory storage)
     return res.json({
       success: true,
       message: 'Verification successful',
       verifiedAt: new Date().toISOString(),
       auth: {
         accessToken: sessionData.accessToken,
-        refreshToken: sessionData.refreshToken,
         expiresIn: sessionData.expiresIn,
         tokenType: sessionData.tokenType
       },
       user: {
         email: email.toLowerCase(),
         plan: subscription.plan,
-        isActive: true
+        isActive: true,
+        subscriptionId: subscription.id // Include subscription ID
       }
     });
   } catch (error) {
@@ -669,9 +708,23 @@ app.post('/api/verification/verify', async (req, res) => {
 
 // Token refresh endpoint
 app.post('/api/auth/refresh', (req, res) => {
-  const { refreshToken } = req.body;
+  console.log('🔄 Refresh token request received');
+  console.log('Request cookies:', req.cookies ? Object.keys(req.cookies) : 'No cookies');
+  console.log('Request body keys:', req.body ? Object.keys(req.body) : 'No body');
+  
+  // SECURITY: Try to get refresh token from httpOnly cookie first
+  let refreshToken = req.cookies?.refreshToken;
+  
+  // Fallback to request body for backward compatibility
+  if (!refreshToken) {
+    refreshToken = req.body.refreshToken;
+    console.log('⚠️ Using refresh token from request body (legacy method)');
+  } else {
+    console.log('🔐 Using refresh token from secure httpOnly cookie');
+  }
 
   if (!refreshToken) {
+    console.log('❌ No refresh token found in cookies or body');
     return res.status(401).json({
       success: false,
       error: 'Refresh token required',
@@ -679,9 +732,12 @@ app.post('/api/auth/refresh', (req, res) => {
     });
   }
 
+  console.log('🔍 Attempting to verify refresh token...');
+  
   // Verify refresh token
   const decoded = verifyRefreshToken(refreshToken);
   if (!decoded) {
+    console.log('❌ Refresh token verification failed - token is invalid or expired');
     return res.status(403).json({
       success: false,
       error: 'Invalid or expired refresh token',
@@ -689,15 +745,21 @@ app.post('/api/auth/refresh', (req, res) => {
     });
   }
 
+  console.log(`✅ Refresh token verified for email: ${decoded.email}`);
+
   // Check if refresh token exists in our store
   const storedTokenData = refreshTokenStore.get(refreshToken);
   if (!storedTokenData) {
+    console.log('❌ Refresh token not found in server store - may have been cleared');
+    console.log('📊 Current tokens in store:', refreshTokenStore.size);
     return res.status(403).json({
       success: false,
-      error: 'Refresh token not found',
+      error: 'Refresh token not found in server store',
       code: 'REFRESH_TOKEN_NOT_FOUND'
     });
   }
+
+  console.log(`✅ Token found in store for ${decoded.email}, last used: ${storedTokenData.lastUsed}`);
 
   // Verify the subscription is still active
   const subscriptions = readSubscriptions();
@@ -707,6 +769,7 @@ app.post('/api/auth/refresh', (req, res) => {
   );
 
   if (!subscription) {
+    console.log(`❌ No active subscription found for ${decoded.email}`);
     // Remove invalid refresh token
     refreshTokenStore.delete(refreshToken);
     return res.status(403).json({
@@ -715,6 +778,8 @@ app.post('/api/auth/refresh', (req, res) => {
       code: 'SUBSCRIPTION_INACTIVE'
     });
   }
+
+  console.log(`✅ Active subscription confirmed for ${decoded.email}, plan: ${subscription.plan}`);
 
   // Update last used timestamp
   storedTokenData.lastUsed = new Date().toISOString();
@@ -731,7 +796,7 @@ app.post('/api/auth/refresh', (req, res) => {
 
   const newAccessToken = generateAccessToken(newTokenPayload);
 
-  console.log(`🔄 Access token refreshed for ${decoded.email}`);
+  console.log(`🔄 Access token refreshed successfully for ${decoded.email}`);
 
   res.json({
     success: true,
@@ -776,12 +841,21 @@ app.get('/api/auth/subscription', authenticateToken, (req, res) => {
 
 // Logout endpoint (invalidates refresh token)
 app.post('/api/auth/logout', (req, res) => {
-  const { refreshToken } = req.body;
+  // Get refresh token from cookie or request body
+  const refreshToken = req.cookies?.refreshToken || req.body.refreshToken;
 
   if (refreshToken && refreshTokenStore.has(refreshToken)) {
     refreshTokenStore.delete(refreshToken);
     console.log(`🚪 User logged out and refresh token invalidated`);
   }
+
+  // SECURITY: Clear httpOnly cookie
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/api/auth'
+  });
 
   res.json({
     success: true,
@@ -840,18 +914,18 @@ async function sendSubscriptionEmail(email, type, subscriptionData = {}) {
     
     switch (type) {
       case 'started':
-        subject = `Welcome to koyn.ai ${planDisplayName}!`;
+        subject = `Welcome to koyn.finance ${planDisplayName}!`;
         heading = 'Your Subscription is Active';
         message = `
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
-            Thank you for subscribing to koyn.ai ${planDisplayName}! Your subscription is now active.
+            Thank you for subscribing to koyn.finance ${planDisplayName}! Your subscription is now active.
           </p>
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
             You now have full access to all premium features and content.
           </p>
         `;
         ctaText = 'Get Started';
-        ctaLink = 'https://koyn.ai';
+        ctaLink = 'https://koyn.finance';
         additionalInfo = `
           <div style="background: rgba(99, 102, 241, 0.1); border-radius: 0.5rem; padding: 20px; margin: 20px 0; border: 1px solid rgba(99, 102, 241, 0.3);">
             <h3 style="color: #818cf8; font-size: 16px; margin-top: 0; margin-bottom: 15px;">Subscription Details</h3>
@@ -863,18 +937,18 @@ async function sendSubscriptionEmail(email, type, subscriptionData = {}) {
         break;
         
       case 'renewed':
-        subject = 'Your koyn.ai Subscription Has Been Renewed';
+        subject = 'Your koyn.finance Subscription Has Been Renewed';
         heading = 'Subscription Renewed';
         message = `
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
-            Your koyn.ai ${planDisplayName} subscription has been successfully renewed.
+            Your koyn.finance ${planDisplayName} subscription has been successfully renewed.
           </p>
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
             You'll continue to enjoy uninterrupted access to all premium features.
           </p>
         `;
         ctaText = 'View Dashboard';
-        ctaLink = 'https://koyn.ai';
+        ctaLink = 'https://koyn.finance';
         additionalInfo = `
           <div style="background: rgba(99, 102, 241, 0.1); border-radius: 0.5rem; padding: 20px; margin: 20px 0; border: 1px solid rgba(99, 102, 241, 0.3);">
             <h3 style="color: #818cf8; font-size: 16px; margin-top: 0; margin-bottom: 15px;">Renewal Details</h3>
@@ -886,18 +960,18 @@ async function sendSubscriptionEmail(email, type, subscriptionData = {}) {
         break;
         
       case 'ended':
-        subject = 'Your koyn.ai Subscription Has Ended';
+        subject = 'Your koyn.finance Subscription Has Ended';
         heading = 'Subscription Ended';
         message = `
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
-            Your koyn.ai ${planDisplayName} subscription has ended.
+            Your koyn.finance ${planDisplayName} subscription has ended.
           </p>
           <p style="margin-bottom: 20px; color: #cbd5e1; text-align: center; font-size: 15px;">
             We're sorry to see you go. You can resubscribe at any time to regain access to premium features.
           </p>
         `;
         ctaText = 'Resubscribe Now';
-        ctaLink = 'https://koyn.ai';
+        ctaLink = 'https://koyn.finance';
         additionalInfo = `
           <div style="background: rgba(99, 102, 241, 0.1); border-radius: 0.5rem; padding: 20px; margin: 20px 0; border: 1px solid rgba(99, 102, 241, 0.3);">
             <h3 style="color: #818cf8; font-size: 16px; margin-top: 0; margin-bottom: 15px;">Subscription Details</h3>
@@ -918,13 +992,13 @@ async function sendSubscriptionEmail(email, type, subscriptionData = {}) {
       
       const msg = {
         to: email,
-        from: 'hi@koyn.ai',
+        from: 'hi@koyn.finance',
         subject: subject,
-        text: `${heading}\n\n${subject}\n\nVisit our website at https://koyn.ai\n\nThank you,\nThe Koyn.ai Team`,
+        text: `${heading}\n\n${subject}\n\nVisit our website at https://koyn.finance\n\nThank you,\nThe koyn.finance Team`,
         html: `
           <div style="font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #ffffff; background-color: #000000;">
             <div style="text-align: center; margin-bottom: 30px;">
-              <img src="https://koyn.ai/logo.png" alt="Koyn.ai Logo" style="max-width: 120px;">
+              <img src="https://koyn.finance/logo.png" alt="koyn.finance Logo" style="max-width: 120px;">
             </div>
             
             <div style="background-color: #000000; border-radius: 0.75rem; padding: 30px; box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1); border: 1px solid #ffffff;">
@@ -940,11 +1014,11 @@ async function sendSubscriptionEmail(email, type, subscriptionData = {}) {
             </div>
             
             <div style="border-top: 1px solid #ffffff; margin-top: 30px; padding-top: 20px; font-size: 13px; color: #ffffff; text-align: center;">
-              <p style="margin-bottom: 10px;">© ${new Date().getFullYear()} Koyn.ai. All rights reserved.</p>
+              <p style="margin-bottom: 10px;">© ${new Date().getFullYear()} koyn.finance. All rights reserved.</p>
               <div style="display: flex; justify-content: center; margin-top: 15px;">
-                <a href="https://koyn.ai/terms" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Terms</a>
-                <a href="https://koyn.ai/privacy" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Privacy</a>
-                <a href="https://koyn.ai/contact" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Contact</a>
+                <a href="https://koyn.finance/terms" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Terms</a>
+                <a href="https://koyn.finance/privacy" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Privacy</a>
+                <a href="https://koyn.finance/contact" style="color: #ffffff; text-decoration: none; margin: 0 10px;">Contact</a>
               </div>
             </div>
           </div>
@@ -1184,11 +1258,96 @@ function writeSubscriptions(subscriptions) {
   }
 }
 
+// SSL Certificate configuration
+function loadSSLCertificates() {
+  // First, try environment variables (consistent with main API)
+  const SSL_KEY_PATH = process.env.SSL_KEY_PATH;
+  const SSL_CERT_PATH = process.env.SSL_CERT_PATH;
+  
+  if (SSL_KEY_PATH && SSL_CERT_PATH) {
+    try {
+      if (fs.existsSync(SSL_KEY_PATH) && fs.existsSync(SSL_CERT_PATH)) {
+        const key = fs.readFileSync(SSL_KEY_PATH, 'utf8');
+        const cert = fs.readFileSync(SSL_CERT_PATH, 'utf8');
+        console.log(`✅ SSL certificates loaded from environment variables:`);
+        console.log(`   Key: ${SSL_KEY_PATH}`);
+        console.log(`   Cert: ${SSL_CERT_PATH}`);
+        return { key, cert };
+      } else {
+        console.warn(`⚠️  SSL certificate files not found at specified environment paths:`);
+        console.warn(`   SSL_KEY_PATH: ${SSL_KEY_PATH} (exists: ${fs.existsSync(SSL_KEY_PATH)})`);
+        console.warn(`   SSL_CERT_PATH: ${SSL_CERT_PATH} (exists: ${fs.existsSync(SSL_CERT_PATH)})`);
+      }
+    } catch (error) {
+      console.error(`Failed to load SSL certificates from environment variables:`, error.message);
+    }
+  }
+
+  // Fallback to common certificate paths
+  const certPaths = [
+    // Common certificate paths on different systems  
+    { key: '/etc/letsencrypt/live/koyn.finance/privkey.pem', cert: '/etc/letsencrypt/live/koyn.finance/fullchain.pem' },
+    { key: '/etc/ssl/certs/koyn.finance.key', cert: '/etc/ssl/certs/koyn.finance.crt' },
+    { key: '/usr/local/etc/ssl/koyn.finance.key', cert: '/usr/local/etc/ssl/koyn.finance.crt' },
+    { key: './ssl/koyn.finance.key', cert: './ssl/koyn.finance.crt' },
+    { key: './certs/koyn.finance.key', cert: './certs/koyn.finance.crt' }
+  ];
+
+  // Try each fallback certificate path
+  for (const certPath of certPaths) {
+    try {
+      if (fs.existsSync(certPath.key) && fs.existsSync(certPath.cert)) {
+        const key = fs.readFileSync(certPath.key, 'utf8');
+        const cert = fs.readFileSync(certPath.cert, 'utf8');
+        console.log(`✅ SSL certificates loaded from fallback path: ${certPath.key}`);
+        return { key, cert };
+      }
+    } catch (error) {
+      console.warn(`Failed to load SSL certificates from ${certPath.key}:`, error.message);
+    }
+  }
+
+  // No certificates found
+  console.warn('⚠️  No SSL certificates found. For production, please install proper SSL certificates.');
+  console.log('💡 Set SSL certificate paths using environment variables:');
+  console.log('   export SSL_KEY_PATH=/path/to/your/private.key');
+  console.log('   export SSL_CERT_PATH=/path/to/your/certificate.crt');
+  console.log('💡 Or for development, create self-signed certificates:');
+  console.log('   mkdir ssl && openssl req -x509 -newkey rsa:4096 -keyout ssl/koyn.finance.key -out ssl/koyn.finance.crt -days 365 -nodes');
+  
+  return null;
+}
+
 // Start the server if this is the main module
 if (require.main === module) {
-  app.listen(port, () => {
-    console.log(`Verification API server listening on port ${port}`);
-  });
+  const sslOptions = loadSSLCertificates();
+  
+  if (sslOptions) {
+    // Start HTTPS server with SSL certificates
+    const server = https.createServer(sslOptions, app);
+    
+    server.listen(port, () => {
+      console.log(`🔒 Verification API server (HTTPS) listening on port ${port}`);
+      console.log(`🌐 Access via: https://koyn.finance:${port}`);
+    });
+
+    // Handle HTTPS server errors
+    server.on('error', (error) => {
+      console.error('HTTPS server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${port} is already in use. Please stop the existing service or use a different port.`);
+      }
+    });
+  } else {
+    // Fallback to HTTP for development/testing (but warn about it)
+    console.warn('🚨 SECURITY WARNING: Starting HTTP server instead of HTTPS');
+    console.warn('🚨 This should only be used for development/testing purposes');
+    
+    app.listen(port, () => {
+      console.log(`⚠️  Verification API server (HTTP) listening on port ${port}`);
+      console.log(`⚠️  WARNING: Using insecure HTTP connection`);
+    });
+  }
 }
 
 // Export for use in other files

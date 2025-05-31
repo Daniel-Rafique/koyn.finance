@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { HelioCheckout } from '@heliofi/checkout-react';
 import type { EmbedThemeMode } from '@heliofi/checkout-react';
-import { useSubscription } from '../context/SubscriptionContext';
+import { useSubscription } from '../context/AuthProvider';
 import { trackTwitterConversion } from './Tracking';
+import '../styles/glowing-input.css';
 
 interface SubscriptionModalProps {
   isOpen: boolean;
@@ -118,8 +119,8 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   
-  // Get the verifySubscription function from context
-  const { verifySubscription, userEmail, login } = useSubscription();
+  // Get the login function from context
+  const { userEmail, login } = useSubscription();
   
   // Reset the checkout loading state when plan changes
   useEffect(() => {
@@ -193,12 +194,10 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
   // Check current subscription status when modal is opened
   useEffect(() => {
     if (isOpen && userEmail) {
-      // Check if current stored email subscription is still valid
-      verifySubscription(userEmail).catch(err => {
-        console.error('Error verifying current subscription:', err);
-      });
+      // The new AuthProvider automatically handles subscription verification
+      console.log('Modal opened for user:', userEmail);
     }
-  }, [isOpen, userEmail, verifySubscription]);
+  }, [isOpen, userEmail]);
 
   // Get the active plan configuration
   const getActivePlanConfig = () => {

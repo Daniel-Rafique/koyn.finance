@@ -98,6 +98,7 @@ interface Tweet {
   link: string;
   profileImage?: string;
   profileName?: string;
+  accountId?: string;
 }
 
 interface ProfileData {
@@ -122,7 +123,7 @@ const FALLBACK_TWEETS = [
     profileName: 'Koynlabs',
     description: 'Check out the latest updates on crypto markets and trends!',
     pubDate: new Date().toISOString(),
-    link: 'https://koyn.ai/koynlabs',
+    link: 'https://koyn.finance/koynlabs',
     profileImage: '/logo.jpg'
   },
   {
@@ -131,7 +132,7 @@ const FALLBACK_TWEETS = [
     profileName: 'Crypto',
     description: 'Markets are showing positive signs as tech stocks rally.',
     pubDate: new Date().toISOString(),
-    link: 'https://koyn.ai/crypto',
+    link: 'https://koyn.finance/crypto',
     profileImage: '/logo.jpg'
   },
   {
@@ -140,7 +141,7 @@ const FALLBACK_TWEETS = [
     profileName: 'Markets',
     description: 'Markets are showing positive signs as tech stocks rally.',
     pubDate: new Date().toISOString(),
-    link: 'https://koyn.ai/markets',
+    link: 'https://koyn.finance/markets',
     profileImage: '/logo.jpg'
   },
   {
@@ -149,7 +150,7 @@ const FALLBACK_TWEETS = [
     profileName: 'Solana',
     description: 'Solana ecosystem grows with new DeFi and NFT projects launching this week.',
     pubDate: new Date().toISOString(),
-    link: 'https://koyn.ai/solana',
+    link: 'https://koyn.finance/solana',
     profileImage: '/logo.jpg'
   }
 ];
@@ -264,28 +265,58 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
           
           console.log(`Fetching fresh data for ${account}`);
           
-          // Get subscription ID from localStorage
-          let subscriptionId = null
+          // Prepare authentication headers
+          const authHeaders: Record<string, string> = {
+            'Content-Type': 'application/json'
+          };
+          
+          // Get JWT token from localStorage (new authentication method)
+          let jwtToken = null;
           try {
-            const subscriptionData = localStorage.getItem('koyn_subscription')
+            const subscriptionData = localStorage.getItem('koyn_subscription');
             if (subscriptionData) {
-              const parsed = JSON.parse(subscriptionData)
-              subscriptionId = parsed.id || null
+              const parsed = JSON.parse(subscriptionData);
+              jwtToken = parsed.token || null;
+              if (jwtToken) {
+                authHeaders['Authorization'] = `Bearer ${jwtToken}`;
+                console.log('Using JWT token authentication for profile request');
+              }
             }
           } catch (error) {
-            console.warn('Error reading subscription data from localStorage:', error)
+            console.warn('Error reading JWT token from localStorage:', error);
+          }
+          
+          // Fallback to legacy subscription ID if no JWT token
+          if (!jwtToken) {
+            let subscriptionId = null;
+            try {
+              const subscriptionData = localStorage.getItem('koyn_subscription');
+              if (subscriptionData) {
+                const parsed = JSON.parse(subscriptionData);
+                subscriptionId = parsed.id || null;
+              }
+            } catch (error) {
+              console.warn('Error reading subscription data from localStorage:', error);
+            }
+            
+            if (subscriptionId) {
+              console.log('Using legacy subscription ID for profile request');
+            } else {
+              console.log('No authentication available, using general profile access');
+            }
           }
 
-          // Remove the problematic Cache-Control headers that cause CORS issues
-          const response = await fetch('https://koyn.ai:3001/api/profiles', {
+          // API endpoint URL - use same domain for live server, localhost:3001 for development
+          const apiUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? `${window.location.protocol}//${window.location.hostname}:3001/api/profiles`
+            : `${window.location.protocol}//${window.location.hostname}:3001/api/profiles`;
+            
+          const response = await fetch(apiUrl, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
+            headers: authHeaders,
             body: JSON.stringify({ 
               profileId: account,
-              id: subscriptionId,
-              _timestamp: currentTime // Prevent any API caching but within the body
+              _timestamp: Date.now()
             }),
           });
           
@@ -494,21 +525,21 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
   const fixImageUrl = (url: string | undefined) => {
     if (!url) return '/logo.jpg'; // Default image if none provided
     
-    // If the URL is already absolute and not a koyn.ai URL, use it directly
-    if (url.startsWith('http') && !url.includes('koyn.ai/pic/')) {
+    // If the URL is already absolute and not a koyn.finance URL, use it directly
+    if (url.startsWith('http') && !url.includes('koyn.finance/pic/')) {
       return url;
     }
     
-    // Extract the actual URL from koyn.ai/pic/ format
-    if (url.includes('koyn.ai/pic/')) {
+    // Extract the actual URL from koyn.finance/pic/ format
+    if (url.includes('koyn.finance/pic/')) {
       try {
         // Extract the encoded URL part
-        const encodedUrl = url.split('koyn.ai/pic/')[1];
+        const encodedUrl = url.split('koyn.finance/pic/')[1];
         // Some URLs might be double encoded
         const decodedUrl = decodeURIComponent(encodedUrl);
         
-        // If it looks like another koyn.ai URL, return default
-        if (decodedUrl.includes('koyn.ai')) {
+        // If it looks like another koyn.finance URL, return default
+        if (decodedUrl.includes('koyn.finance')) {
           return '/logo.jpg';
         }
         
@@ -526,7 +557,7 @@ export default function NewsCarousel({ accounts }: NewsCarouselProps) {
     return url;
   };
 
-  // Convert koyn.ai tweet links to x.com format and ensure proper SEO
+  // Convert koyn.finance tweet links to x.com format and ensure proper SEO
   const convertToXLink = (link: string): string => {
     // Server already handles conversion via Nitter config
     return link;

@@ -1,12 +1,18 @@
+import React from "react";
 import type { Route } from "./+types/home";
 import SearchForm from "../components/SearchForm";
 import SubscriptionModal from "../components/SubscriptionModal";
 import NewsCarousel from "../components/NewsCarousel";
-import { useSubscription } from "../context/SubscriptionContext";
+import { useAuth } from "../context/AuthProvider";
 import { useEffect, useState } from 'react';
 import { useNavigate } from "react-router";
 import { Routes } from "../utils/routes";
-import Nav from "~/components/Nav";
+import Nav from "../components/Nav";
+import Footer from "../components/Footer";
+import "../styles/home.css";
+import "../styles/glowing-input.css";
+import "../styles/news-carousel-solid.css";
+import { performTestLogin, clearTestAuth, isDevelopment } from "../utils/testAuth";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -18,19 +24,40 @@ export function meta({}: Route.MetaArgs) {
 export default function Home() {
   const navigate = useNavigate();
   const [hasStoredResults, setHasStoredResults] = useState(false);
-  // Get subscription context
+  const [isSubscriptionModalOpen, setIsSubscriptionModalOpen] = useState(false);
+  const [isClientMounted, setIsClientMounted] = useState(false);
+  
+  // Get subscription context - updated to use new secure interface
   const { 
-    subscriptionStatus, 
-    isSubscriptionModalOpen, 
-    openSubscriptionModal, 
-    closeSubscriptionModal,
-    handleSubscriptionSuccess,
+    isSubscribed,
+    user,
     userEmail,
-    verifySubscription
-  } = useSubscription();
+    isLoading: contextLoading,
+    login
+  } = useAuth();
+
+  // Test login function for development
+  const handleTestLogin = () => {
+    const authData = performTestLogin();
+    if (authData) {
+      login(authData);
+      console.log('✅ Test login successful! You are now authenticated with subscription data.');
+    }
+  };
+
+  const handleTestLogout = () => {
+    clearTestAuth();
+    window.location.reload(); // Force reload to clear AuthProvider state
+  };
+
+  // Effect to handle client-side mounting
+  useEffect(() => {
+    setIsClientMounted(true);
+  }, []);
 
   // Check if there are any stored results
   useEffect(() => {
+    if (!isClientMounted) return;
     try {
       const storedResults = localStorage.getItem('koyn_analysis_results');
       const hasResults = storedResults ? JSON.parse(storedResults).length > 0 : false;
@@ -40,7 +67,7 @@ export default function Home() {
       console.error('Error checking stored results:', error);
       setHasStoredResults(false);
     }
-  }, []);
+  }, [isClientMounted]);
 
   // Handle back button click - use direct browser navigation instead of React Router
   const handleBackToAnalysis = () => {
@@ -68,30 +95,38 @@ export default function Home() {
     }
   };
 
-  // Force check subscription status on page load 
+  // Subscription modal handlers
+  const openSubscriptionModal = () => {
+    setIsSubscriptionModalOpen(true);
+  };
+
+  const closeSubscriptionModal = () => {
+    setIsSubscriptionModalOpen(false);
+  };
+
+  const handleSubscriptionSuccess = (event: any) => {
+    console.log('Subscription success:', event);
+    closeSubscriptionModal();
+    // The new secure system handles authentication automatically
+  };
+
+  // Check authentication status on mount and clean up legacy data
   useEffect(() => {
-    // Check if user has a saved email in localStorage
-    const savedSubscription = localStorage.getItem('koyn_subscription');
-    if (savedSubscription) {
-      try {
-        const subscription = JSON.parse(savedSubscription);
-        if (subscription.email) {
-          // Verify with backend to ensure subscription is still active
-          // Set a flag to prevent auto-opening modal during initial page load verification
-          const skipModalOpen = true;
-          verifySubscription(subscription.email, skipModalOpen).catch(err => {
-            console.error('Error verifying subscription:', err);
-            // Clear localStorage on verification error
-            localStorage.removeItem('koyn_subscription');
-          });
-        }
-      } catch (err) {
-        console.error('Error parsing saved subscription:', err);
-        // Clear invalid localStorage data
+    if (!isClientMounted) return;
+    // Remove any legacy insecure subscription data
+    try {
+      const legacyData = localStorage.getItem('koyn_subscription');
+      if (legacyData) {
+        console.warn('🚨 SECURITY: Removing legacy insecure subscription data from home page');
         localStorage.removeItem('koyn_subscription');
       }
+    } catch (error) {
+      console.error('Error cleaning up legacy data:', error);
     }
-  }, [verifySubscription]);
+
+    // The new secure context automatically handles authentication verification
+    // No need for manual verification calls here
+  }, [isClientMounted]);
   
   // Load premium test script in development mode
   useEffect(() => {
@@ -219,6 +254,35 @@ export default function Home() {
       <Nav />
       {/* Particles canvas for background effect */}
       <canvas id="particles-canvas" className="fixed top-0 left-0 w-full h-full z-0 pointer-events-none"></canvas>
+      
+      {/* Development test buttons */}
+      {isDevelopment() && isClientMounted && (
+        <div className="fixed top-4 right-4 z-30 space-y-2">
+          {!isSubscribed ? (
+            <button
+              onClick={handleTestLogin}
+              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+              title="Test login with subscription data"
+            >
+              🧪 Test Login
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <div className="bg-green-800 text-white px-3 py-1 rounded text-sm">
+                ✅ {user?.email}
+              </div>
+              <button
+                onClick={handleTestLogout}
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm w-full"
+                title="Clear test authentication"
+              >
+                🧪 Logout
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <main className="flex flex-col items-center justify-center min-h-[calc(100vh-160px)] max-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Back to Analysis button - repositioned to top-right corner as a floating button */}
         {hasStoredResults && (
@@ -265,14 +329,14 @@ export default function Home() {
           <div className="mb-4 text-center">
           </div>
           <SearchForm 
-            onSubscribeClick={() => openSubscriptionModal(false)}
-            isSubscribed={subscriptionStatus === 'active'} 
+            onSubscribeClick={() => openSubscriptionModal()}
+            isSubscribed={isSubscribed} 
           />
         </div>
       </main>
       
       {/* Subscription Modal */}
-      {(subscriptionStatus !== 'active') && (
+      {(isSubscribed === false) && (
         <SubscriptionModal 
           isOpen={isSubscriptionModalOpen} 
           onClose={closeSubscriptionModal} 

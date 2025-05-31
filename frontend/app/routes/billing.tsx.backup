@@ -1,28 +1,18 @@
 "use client"
 
 import type React from "react"
-import type { Route } from "./+types/billing"
 
 import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router"
-import { useAuth } from "../context/AuthProvider"
-import ProtectedPage from "../components/ProtectedPage"
+import { useSubscription } from "../context/SubscriptionContext"
 import Nav from "../components/Nav"
 import Footer from "../components/Footer"
+import Loader from "../components/Loader"
 import "../styles/news-carousel-solid.css"
 import "../styles/glowing-input.css"
 import { HelioCheckout } from "@heliofi/checkout-react"
 // Import the specific types from the Helio library
 import type { HelioEmbedConfig } from "@heliofi/checkout-react"
-
-// Meta function for React Router to set page title and description
-export const meta: Route.MetaFunction = () => {
-  return [
-    { title: "Billing & Subscription - koyn.finance" },
-    { name: "description", content: "Manage your koyn.finance subscription, view billing history, and update your payment information for AI-powered financial market insights." },
-    { name: "robots", content: "noindex, nofollow" }, // Don't index billing pages
-  ];
-};
 
 interface Subscription {
   id: string
@@ -59,12 +49,11 @@ interface Subscription {
   }
 }
 
-// Extract the core billing content into a separate component
-function BillingContent() {
+export default function Billing() {
   const navigate = useNavigate()
-  const { isSubscribed, userEmail, user, isLoading } = useAuth()
+  const { isSubscribed, userEmail, user, isLoading: contextLoading } = useSubscription()
   const [subscriptionDetails, setSubscriptionDetails] = useState<Subscription | null>(null)
-  const [isBillingLoading, setIsBillingLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Flag to prevent subscription modal from opening on this page
   const hasInitialized = useRef(false)
@@ -77,12 +66,12 @@ function BillingContent() {
   const [isClientSide, setIsClientSide] = useState(false)
 
   console.log("Billing page render - state:", {
+    contextLoading,
     isSubscribed,
     userEmail,
     user: user?.email,
     isClientSide,
-    isLoading,
-    isBillingLoading
+    isLoading
   })
 
   // Safe way to detect client-side rendering
@@ -113,29 +102,26 @@ function BillingContent() {
 
   useEffect(() => {
     const initializeBilling = async () => {
-      // IMPORTANT: Wait for authentication initialization to complete
-      // This prevents the SubscriptionModal from briefly appearing
-      if (isLoading) {
-        console.log("Waiting for authentication initialization to complete...")
+      // CRITICAL: Wait for SubscriptionContext to finish its verification process
+      if (contextLoading) {
+        console.log("SubscriptionContext still loading, waiting...")
         return
       }
 
-      console.log("AuthProvider loaded - subscription status:", isSubscribed, "userEmail:", userEmail)
+      console.log("SubscriptionContext loaded - subscription status:", isSubscribed, "userEmail:", userEmail)
 
-      // Only proceed if user is authenticated with a valid email
+      // At this point, SubscriptionContext has finished verification
+      // Now we can trust the isSubscribed and userEmail values
+
       if (isSubscribed && userEmail) {
         try {
           await fetchSubscriptionDetails(userEmail)
         } catch (error) {
-          console.error("Error fetching billing details for authenticated user:", error)
-          setError("Failed to load your billing information")
-          setIsBillingLoading(false)
+          console.error("Error fetching billing details:", error)
         }
-      } 
-      // Handle authenticated user without subscription
-      else if (userEmail && !isSubscribed) {
-        console.log("User authenticated but not subscribed:", userEmail)
-        const fallbackDate = "2024-01-01T00:00:00.000Z"
+      } else if (userEmail && !isSubscribed) {
+        console.log("User email found but not subscribed:", userEmail)
+        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
         setSubscriptionDetails({
           id: "inactive-user",
           email: userEmail,
@@ -147,12 +133,10 @@ function BillingContent() {
           paymentMethod: "none",
         })
         setError("No active subscription found")
-        setIsBillingLoading(false)
-      } 
-      // User not authenticated - should not happen on billing page
-      else {
-        console.log("User not authenticated - billing page access error")
-        setIsBillingLoading(false)
+        setIsLoading(false)
+      } else {
+        console.log("No verified email found, subscription status:", isSubscribed)
+        setIsLoading(false)
         setError("Please log in to access your billing information")
       }
     }
@@ -162,16 +146,34 @@ function BillingContent() {
     } catch (error) {
       console.error("Error in billing initialization:", error)
       setError("Failed to initialize billing page")
-      setIsBillingLoading(false)
+      setIsLoading(false)
     }
-  }, [isLoading, isSubscribed, userEmail, user])
+  }, [isSubscribed, userEmail, user, contextLoading])
 
   const fetchSubscriptionDetails = async (email: string) => {
-    setIsBillingLoading(true)
+    setIsLoading(true)
     setError(null)
 
     try {
-      // Always fetch detailed subscription data from the server first
+      // Since we know the subscription is verified, prioritize context data if available
+      if (user && typeof user === "object" && user.isActive) {
+        console.log("Using verified subscription from context")
+        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
+        const contextSubscription: Subscription = {
+          id: `user-${user.email}`,
+          email: user.email,
+          status: "active",
+          startedAt: fallbackDate,
+          renewalDate: fallbackDate,
+          plan: user.plan || "unknown",
+          paymentMethod: "crypto",
+        }
+        setSubscriptionDetails(contextSubscription)
+        setIsLoading(false)
+        return
+      }
+
+      // Fetch detailed subscription data from webhook handler for billing details
       console.log("Fetching detailed billing information for:", email)
       const accessToken = isClientSide && typeof window !== "undefined" ? localStorage.getItem("koyn_access_token") : null
 
@@ -188,51 +190,10 @@ function BillingContent() {
         headers,
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        console.log("Detailed billing data from server:", data)
-
-        if (data.active && data.subscription) {
-          // Use detailed data from server - this has the real dates!
-          console.log("Using detailed billing data from server")
-          setSubscriptionDetails(data.subscription)
-          setIsBillingLoading(false)
-          return
-        }
-      } else {
-        console.warn(`API call failed with ${response.status}`)
-      }
-
-      // Fallback: Only use context data if API completely fails
-      if (user && typeof user === "object" && user.isActive) {
-        console.log("API failed, using verified subscription from context")
-        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date only as last resort
-        const contextSubscription: Subscription = {
-          id: `user-${user.email}`,
-          email: user.email,
-          status: "active",
-          startedAt: fallbackDate,
-          renewalDate: fallbackDate,
-          plan: user.plan || "unknown",
-          paymentMethod: "crypto",
-        }
-        setSubscriptionDetails(contextSubscription)
-        setIsBillingLoading(false)
-        return
-      }
-
-      // If we get here, no subscription found
-      console.log("No subscription data available from server or context")
-      setError("No active subscription found")
-      setIsBillingLoading(false)
-
-    } catch (err) {
-      console.error("Error fetching detailed billing data:", err)
-      
-      // Last resort fallback to context data
-      if (user && typeof user === "object" && user.isActive) {
-        console.log("Network error, using verified context data as fallback")
-        const fallbackDate = "2024-01-01T00:00:00.000Z"
+      if (!response.ok) {
+        console.warn(`API call failed with ${response.status}, using context data`)
+        // API failed but we know subscription is active from context
+        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
         setSubscriptionDetails({
           id: "context-verified",
           email: email,
@@ -243,10 +204,48 @@ function BillingContent() {
           plan: "verified",
           paymentMethod: "verified",
         })
-      } else {
-        setError("Failed to load subscription information")
+        setIsLoading(false)
+        return
       }
-      setIsBillingLoading(false)
+
+      const data = await response.json()
+      console.log("Detailed billing data from server:", data)
+
+      if (data.active && data.subscription) {
+        // Use detailed data from webhook handler
+        console.log("Using detailed billing data from server")
+        setSubscriptionDetails(data.subscription)
+      } else {
+        // Fallback to verified context data
+        console.log("Server has no detailed data, using verified context data")
+        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
+        setSubscriptionDetails({
+          id: "context-verified",
+          email: email,
+          status: "active",
+          startedAt: fallbackDate,
+          renewalDate: fallbackDate,
+          transactionId: "verified",
+          plan: "verified",
+          paymentMethod: "verified",
+        })
+      }
+    } catch (err) {
+      console.warn("Error fetching detailed billing data, using verified context:", err)
+      // Since subscription is verified by context, show as active even if API fails
+      const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
+      setSubscriptionDetails({
+        id: "context-verified",
+        email: email,
+        status: "active",
+        startedAt: fallbackDate,
+        renewalDate: fallbackDate,
+        transactionId: "verified",
+        plan: "verified",
+        paymentMethod: "verified",
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -276,32 +275,6 @@ function BillingContent() {
     // For now, just show a message
     alert("Upgrade/downgrade functionality is not yet available. Please contact support for assistance.")
   }
-
-  // Handle back button click - navigate to home page
-  const handleBackToHome = () => {
-    try {
-      console.log('Navigating back to home page using direct browser navigation');
-      // Use direct browser navigation instead of React Router
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Error navigating to home:', error);
-      
-      // Try to click the fallback link
-      try {
-        console.log('Trying fallback link navigation');
-        const fallbackLink = document.getElementById('home-fallback-link') as HTMLAnchorElement;
-        if (fallbackLink) {
-          fallbackLink.click();
-        } else {
-          // Last resort
-          window.location.replace('/');
-        }
-      } catch (fallbackError) {
-        console.error('Fallback navigation failed:', fallbackError);
-        window.location.replace('/');
-      }
-    }
-  };
 
   // Format currency amount
   const formatAmount = (amount?: number, currency = "USDC") => {
@@ -753,58 +726,22 @@ function BillingContent() {
       )}
 
       <main className="max-w-[1200px] px-12 relative z-10 min-h-[calc(100vh-240px)] flex flex-col overflow-x-hidden pb-20 mx-0 lg:mx-auto">
-        {/* Back to Home button - positioned in top-left corner as a floating button */}
-        <div className="absolute top-4 left-4 z-20 mb-4">
-          <a
-            href="/"
-            className="flex items-center text-[#ffffff] hover:text-white transition-colors text-sm px-3"
-            aria-label="Return to home page"
-            onClick={(e) => {
-              // Still handle the click event to get logging
-              e.preventDefault();
-              console.log('Home link clicked');
-              handleBackToHome();
-            }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="mr-1"
-            >
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-            Back to Home
-          </a>
-          
-          {/* Hidden anchor tag as fallback */}
-          <a 
-            href="/"
-            className="hidden"
-            id="home-fallback-link"
-            aria-hidden="true"
-          >
-            Back to Home
-          </a>
-        </div>
-
-        <div className="mb-6 mt-16">
+        <div className="mb-6 mt-6">
           <h1 className="text-2xl font-semibold text-white">Billing & Subscription</h1>
           <p className="text-[#ffffff] mt-2">Manage your subscription and payment details</p>
         </div>
 
-        {isBillingLoading ? (
+        {isLoading || contextLoading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="text-white text-sm mt-4">Loading subscription status...</div>
+            <Loader />
+            {contextLoading && (
+              <div className="text-white text-sm mt-4">Loading subscription status...</div>
+            )}
           </div>
         ) : (
           <>
             {/* Only render subscription content after client-side hydration AND context loading */}
-            {isClientSide && !isBillingLoading && (
+            {isClientSide && !contextLoading && (
               <>
                 {subscriptionDetails?.status !== "active" || error ? (
                   renderExpiredSubscription()
@@ -1123,8 +1060,8 @@ function BillingContent() {
 
                     <p className="mt-6 text-sm text-[#ffffff]">
                       Need help? Contact{" "}
-                      <a href="mailto:hi@koyn.finance" className="text-[#ffffff] hover:underline">
-                        hi@koyn.finance
+                      <a href="mailto:support@koyn.ai" className="text-[#ffffff] hover:underline">
+                        hi@koyn.ai
                       </a>
                     </p>
                   </div>
@@ -1194,12 +1131,4 @@ function BillingContent() {
       <Footer />
     </div>
   )
-}
-
-export default function Billing() {
-  return (
-    <ProtectedPage requiresSubscription={true}>
-      <BillingContent />
-    </ProtectedPage>
-  );
 }

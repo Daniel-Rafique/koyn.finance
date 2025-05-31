@@ -1,11 +1,11 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router"
 import { Routes } from "../utils/routes"
+import SubscriptionModal from "./SubscriptionModal"
 import "../styles/glowing-input.css"
+import { useSubscription } from "../context/AuthProvider"
 
 interface SearchFormProps {
   onResultsChange?: (hasResults: boolean) => void
@@ -23,7 +23,7 @@ interface SearchFormProps {
 
 export default function SearchForm({
   onSubscribeClick,
-  isSubscribed = false,
+  isSubscribed: propIsSubscribed,
   waitForResults = false,
   onSearch,
   isLoading: parentIsLoading,
@@ -33,6 +33,19 @@ export default function SearchForm({
   const [placeholderIndex, setPlaceholderIndex] = useState(0)
   const [searchError, setSearchError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Use secure subscription context
+  const { isSubscribed: contextIsSubscribed, user, userEmail, isLoading: contextLoading } = useSubscription()
+
+  // Use context subscription status if available, otherwise fall back to prop
+  const isSubscribed = contextIsSubscribed ?? propIsSubscribed ?? false
+
+  console.log("SearchForm - Current subscription status:", {
+    isSubscribed: contextIsSubscribed,
+    userEmail,
+    user: user?.email,
+    contextLoading
+  })
 
   // Sync loading state with parent component
   useEffect(() => {
@@ -75,44 +88,23 @@ export default function SearchForm({
     return () => clearInterval(interval)
   }, [])
 
-  // Check subscription status immediately when input is clicked/focused
+  // Check subscription status when input is focused
   const handleInputFocus = () => {
-    // Start with the prop value, but then double-check localStorage too
-    let hasActiveSubscription = isSubscribed
-
-    try {
-      const storedSubscription = localStorage.getItem("koyn_subscription")
-      if (storedSubscription) {
-        const parsedSubscription = JSON.parse(storedSubscription)
-        // First check explicit status field - if it's 'active', respect that
-        if (parsedSubscription.status === "active") {
-          hasActiveSubscription = true
-        }
-        // If status is explicitly set to inactive
-        else if (parsedSubscription.status === "inactive") {
-          console.log("Inactive subscription detected from localStorage on input focus")
-          hasActiveSubscription = false
-        }
-        // If no explicit status, check renewal/expiration date
-        else if (parsedSubscription.renewalDate || parsedSubscription.expiresAt) {
-          const expiryDate = new Date(parsedSubscription.renewalDate || parsedSubscription.expiresAt)
-          const now = new Date()
-          hasActiveSubscription = expiryDate > now
-        }
-      }
-    } catch (storageErr) {
-      console.error("Error accessing localStorage:", storageErr)
-    }
-
-    // Log current subscription status for debugging
-    console.log("Current subscription status check result:", {
-      isSubscribedProp: isSubscribed,
-      hasActiveSubscription,
+    console.log("Input focused - subscription check:", {
+      contextLoading,
+      isSubscribed,
+      userEmail,
+      user: user?.email
     })
 
-    // If the user is not subscribed (either from prop or localStorage check),
-    // show subscription modal immediately
-    if (!hasActiveSubscription && onSubscribeClick) {
+    // Don't make subscription decisions while context is still loading
+    if (contextLoading) {
+      console.log("Context still loading, not checking subscription yet")
+      return
+    }
+
+    // If the user is not subscribed, show subscription modal
+    if (!isSubscribed && onSubscribeClick) {
       console.log("No active subscription, showing modal on input focus")
       // Use setTimeout to ensure reliable modal opening
       setTimeout(() => {
@@ -135,38 +127,21 @@ export default function SearchForm({
 
   // Handle the search action directly
   const handleSearch = async () => {
-    // Check subscription status
-    let shouldCheckSubscription = true
+    console.log("Search initiated - subscription check:", {
+      contextLoading,
+      isSubscribed,
+      userEmail,
+      user: user?.email
+    })
 
-    // Get subscription data including ID from localStorage
-    let subscriptionId = null
-    let userEmail = null
-    let subscriptionStatus = null
-
-    try {
-      const storedSubscription = localStorage.getItem("koyn_subscription")
-      if (storedSubscription) {
-        const parsedSubscription = JSON.parse(storedSubscription)
-        subscriptionId = parsedSubscription.id || parsedSubscription.subscriptionId || null
-        userEmail = parsedSubscription.email || null
-        subscriptionStatus = parsedSubscription.status || null
-        console.log("Retrieved subscription data from localStorage:", {
-          id: subscriptionId,
-          email: userEmail,
-          status: subscriptionStatus,
-        })
-      }
-    } catch (err) {
-      console.error("Error retrieving subscription data from localStorage:", err)
+    // Don't make subscription decisions while context is still loading
+    if (contextLoading) {
+      console.log("Context still loading, cannot proceed with search yet")
+      return
     }
 
-    // If isSubscribed is explicitly true, we can trust that
-    if (isSubscribed === true) {
-      shouldCheckSubscription = false
-    }
-
-    // Only show modal if we're sure that the subscription is inactive
-    if (isSubscribed === false && onSubscribeClick) {
+    // Check subscription status using secure context
+    if (!isSubscribed && onSubscribeClick) {
       console.log("User not subscribed, showing modal on search button click")
       setTimeout(() => {
         onSubscribeClick()
@@ -187,48 +162,15 @@ export default function SearchForm({
     setSearchError(null)
 
     try {
-      // Only double-check subscription if necessary
-      let hasActiveSubscription = isSubscribed // Start with the prop value
+      console.log("Starting search with secure authentication:", {
+        isSubscribed,
+        userEmail,
+        plan: user?.plan
+      })
 
-      if (shouldCheckSubscription) {
-        try {
-          const storedSubscription = localStorage.getItem("koyn_subscription")
-          if (storedSubscription) {
-            const parsedSubscription = JSON.parse(storedSubscription)
-
-            // First check explicit status field
-            if (parsedSubscription.status === "active") {
-              hasActiveSubscription = true
-            }
-            // If status is explicitly set to inactive
-            else if (parsedSubscription.status === "inactive") {
-              console.log("Inactive subscription detected from localStorage")
-              hasActiveSubscription = false
-            }
-            // If status not set, check expiration date
-            else if (parsedSubscription.renewalDate || parsedSubscription.expiresAt) {
-              const expiryDate = new Date(parsedSubscription.renewalDate || parsedSubscription.expiresAt)
-              const now = new Date()
-              hasActiveSubscription = expiryDate > now
-              console.log("Subscription expiry check:", {
-                expiryDate,
-                now,
-                isActive: expiryDate > now,
-              })
-            }
-          }
-        } catch (storageErr) {
-          console.error("Error accessing localStorage:", storageErr)
-        }
-      }
-
-      // If we've determined the subscription is not active, show modal
-      if (!hasActiveSubscription && onSubscribeClick) {
-        console.log("No active subscription detected, showing modal")
-        setIsLoading(false)
-        onSubscribeClick()
-        return
-      }
+      // Use the secure subscription data
+      const subscriptionId = user?.email ? `secure-user-${Date.now()}` : null // Generate a session-based ID
+      const searchUserEmail = user?.email || userEmail
 
       const encodedQuery = encodeURIComponent(question)
 
@@ -239,17 +181,16 @@ export default function SearchForm({
       if (isAnalysisPage && onSearch) {
         console.log("User initiated search from form:", question)
         console.log("Passing subscription ID to onSearch:", subscriptionId)
-        console.log("Passing user email to onSearch:", userEmail)
+        console.log("Passing user email to onSearch:", searchUserEmail)
 
         // If we're on the analysis page and have an onSearch prop, use it
         // This will trigger the parent component to handle the search and update the cache
         // The parent component will mark this as a user-initiated search
         // Pass the subscription ID and email to the onSearch function
-        onSearch(question, setIsLoading, subscriptionId, userEmail)
+        onSearch(question, setIsLoading, subscriptionId, searchUserEmail)
         console.log("Passing subscription data to parent:", {
           id: subscriptionId,
-          email: userEmail,
-          status: subscriptionStatus,
+          email: searchUserEmail,
         })
 
         // Update URL without causing a page reload - let the parent component handle this
@@ -258,26 +199,28 @@ export default function SearchForm({
         // save information before navigating
         
         try {
-          // First, make sure we preserve existing results
-          const existingResults = localStorage.getItem("koyn_analysis_results");
-          
-          if (existingResults) {
-            // We have existing results, don't erase them
-            // Just set a marker to indicate this is a new search from home page
-            localStorage.setItem("koyn_new_search_query", question);
-          } else {
-            // No existing results, create a new results array
-            localStorage.setItem("koyn_analysis_results", JSON.stringify([]));
-          }
-          
-          // Add the query to recent queries if not already there
-          const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]");
-          if (!recentQueries.includes(question)) {
-            const updatedQueries = [
-              question,
-              ...recentQueries.filter((q: string) => q !== question).slice(0, 9),
-            ];
-            localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries));
+          // First, make sure we preserve existing results - only access localStorage on client-side
+          if (typeof window !== "undefined") {
+            const existingResults = localStorage.getItem("koyn_analysis_results");
+            
+            if (existingResults) {
+              // We have existing results, don't erase them
+              // Just set a marker to indicate this is a new search from home page
+              localStorage.setItem("koyn_new_search_query", question);
+            } else {
+              // No existing results, create a new results array
+              localStorage.setItem("koyn_analysis_results", JSON.stringify([]));
+            }
+            
+            // Add the query to recent queries if not already there
+            const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]");
+            if (!recentQueries.includes(question)) {
+              const updatedQueries = [
+                question,
+                ...recentQueries.filter((q: string) => q !== question).slice(0, 9),
+              ];
+              localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries));
+            }
           }
         } catch (err) {
           console.error("Error preparing search data:", err);
@@ -290,20 +233,8 @@ export default function SearchForm({
         if (subscriptionId) {
           queryParams.push(`sid=${encodeURIComponent(subscriptionId)}`);
         }
-        if (userEmail) {
-          queryParams.push(`email=${encodeURIComponent(userEmail)}`);
-        }
-        // Add subscription status if we can determine it
-        try {
-          const storedSub = localStorage.getItem("koyn_subscription");
-          if (storedSub) {
-            const parsedSub = JSON.parse(storedSub);
-            if (parsedSub.status) {
-              queryParams.push(`status=${encodeURIComponent(parsedSub.status)}`);
-            }
-          }
-        } catch (err) {
-          console.error("Error adding subscription status to URL:", err);
+        if (searchUserEmail) {
+          queryParams.push(`email=${encodeURIComponent(searchUserEmail)}`);
         }
 
         // Navigate to the analysis page with all parameters

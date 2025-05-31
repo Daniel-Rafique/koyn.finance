@@ -12,9 +12,17 @@ const crypto = require('crypto');
 const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const Redis = require('ioredis');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = 3001;
+
+// JWT configuration for secure authentication
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
+
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️  JWT_SECRET not set in environment. Using generated secret for development only.');
+}
 
 // Initialize Redis client
 let redisClient;
@@ -40,6 +48,74 @@ try {
 } catch (error) {
   console.error('Failed to initialize Redis client:', error);
   redisClient = null;
+}
+
+// JWT Authentication Functions
+function verifyAccessToken(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET, {
+      issuer: 'koyn.finance',
+      audience: 'koyn.finance-users'
+    });
+  } catch (error) {
+    return null;
+  }
+}
+
+// Middleware to extract subscription ID from JWT token or fallback to query param
+function getSubscriptionId(req) {
+  // First try to get from Authorization header (JWT token)
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const decoded = verifyAccessToken(token);
+    
+    if (decoded) {
+      // Check if token already has subscriptionId (new format)
+      if (decoded.subscriptionId) {
+        console.log(`Using JWT subscriptionId: ${decoded.subscriptionId}`);
+        return decoded.subscriptionId;
+      }
+      
+      // Handle legacy token format - look up subscription ID by email
+      const email = decoded.email; // Use only the correct email field
+      if (email) {
+        console.log(`JWT token missing subscriptionId, looking up by email: ${email}`);
+        
+        try {
+          const subscriptionsFilePath = path.join(__dirname, 'data', 'subscriptions.json');
+          if (fs.existsSync(subscriptionsFilePath)) {
+            const data = fs.readFileSync(subscriptionsFilePath, 'utf8');
+            const subscriptions = JSON.parse(data);
+            
+            const subscription = subscriptions.find(sub => 
+              sub.email.toLowerCase() === email.toLowerCase() && sub.status === 'active'
+            );
+            
+            if (subscription) {
+              console.log(`Found subscription ID ${subscription.id} for email ${email}`);
+              return subscription.id;
+            } else {
+              console.log(`No active subscription found for email ${email}`);
+            }
+          }
+        } catch (error) {
+          console.error('Error looking up subscription by email:', error);
+        }
+      } else {
+        console.log('JWT token missing email field');
+      }
+    }
+  }
+  
+  // Fallback to query parameter for backward compatibility (legacy)
+  const legacyId = req.query.id;
+  if (legacyId) {
+    console.warn(`⚠️  Using legacy subscription ID authentication: ${legacyId}`);
+    return legacyId;
+  }
+  
+  return null;
 }
 
 // Rate limiting configuration and functions
@@ -217,13 +293,13 @@ const RATE_LIMITS = {
   
   // Rate limiting middleware function
   function rateLimitMiddleware(req, res, next) {
-    const subscriptionId = req.query.id;
+    const subscriptionId = getSubscriptionId(req);
     
     if (!subscriptionId) {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription ID is required",
+        message: "Valid authentication is required. Please provide a valid JWT token in the Authorization header or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access this feature"
       });
@@ -618,7 +694,7 @@ function formatTweetContent(html) {
       // Handle Twitter/X URLs specially
       if (match.match(/(https?:\/\/)(x\.com|twitter\.com)\//)) {
         const path = match.split('.com/')[1];
-        return `<a href="https://koyn.ai/${path}" class="tweet-link" target="_blank" rel="noopener noreferrer">koyn.ai/${path}</a>`;
+        return `<a href="https://koyn.finance/${path}" class="tweet-link" target="_blank" rel="noopener noreferrer">koyn.finance/${path}</a>`;
       }
       // Handle other URLs
       return `<a href="${match}" class="tweet-link" target="_blank" rel="noopener noreferrer">${match}</a>`;
@@ -634,7 +710,7 @@ function formatTweetContent(html) {
   // Format mentions - only match valid username characters
   decoded = decoded.replace(
     /@([\w]+)/g,
-    '<a href="https://koyn.ai/$1" class="mention" target="_blank" rel="noopener noreferrer">@$1</a>'
+    '<a href="https://koyn.finance/$1" class="mention" target="_blank" rel="noopener noreferrer">@$1</a>'
   );
   
   // Handle line breaks - normalize different types of line breaks first
@@ -732,7 +808,7 @@ const getTwitterSentiment = async (asset) => {
       console.log(`🔍 Using local search for: ${localQueryText}`);
       
       // Use the local endpoint as fallback
-      const localResponse = await axios.post("https://koyn.ai:3001/api/search", {
+      const localResponse = await axios.post("https://koyn.finance:3001/api/search", {
           query: localQueryText,
           limit: 50
       }, {
@@ -1935,15 +2011,38 @@ Use sophisticated language that demonstrates expertise in technical analysis. St
 app.use(express.json());
 
 // Add CORS headers to allow requests from your frontend
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-});
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    // List of allowed origins
+    const allowedOrigins = [
+      'https://koyn.finance',
+      'https://www.koyn.finance',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://167.71.16.134'
+    ];
+    
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      return callback(new Error('Not allowed by CORS policy'), false);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin',
+    'X-Request-Time'
+  ]
+}));
 
 // Set up proxy middleware to forward verification and subscription requests
 const verificationPort = process.env.VERIFICATION_PORT || 3005;
@@ -2064,13 +2163,10 @@ function isSubscribed(email, subscriptionId) {
   }
 }
 
-// Update the API endpoint to handle null asset
-app.post("/api/sentiment", async (req, res) => {
+// Update the API endpoint to handle null asset with JWT authentication
+app.post("/api/sentiment", rateLimitMiddleware, async (req, res) => {
   console.log("Received sentiment request:", req.body);
   const userQuery = req.body.question || "Is now a good time to buy crypto?";
-  const userEmail = req.body.email;
-  const userID = req.body.id;
-  const userStatus = req.body.status;
   const demoToken = req.body.demo_token;
   const explicitAsset = req.body.asset || null; // Allow client to specify asset explicitly
   
@@ -2078,93 +2174,19 @@ app.post("/api/sentiment", async (req, res) => {
   const DEMO_TOKEN = process.env.DEMO_TOKEN || "koyn_demo_2024";
   const isDemoAccess = demoToken && demoToken === DEMO_TOKEN;
   
-  // Skip auth checks for demo access
+  // For demo access, skip all authentication (rateLimitMiddleware already handled JWT auth)
+  let isPaidUser = isDemoAccess;
+  
   if (isDemoAccess) {
     console.log("Demo access granted with valid demo token");
   } else {
-    // Require valid subscription ID in the request payload
-    if (!userID) {
-      console.log("Rejecting request: Missing subscription ID");
-      return res.status(401).json({
-        error: "Unauthorized",
-        message: "Valid subscription ID is required",
-        subscription_required: true,
-        action: "Please subscribe or sign in to access this feature"
-      });
-    }
-    
-    // Validate ID format (basic MongoDB ObjectId validation: 24 hex characters)
-    const validIdFormat = /^[0-9a-fA-F]{24}$/;
-    if (!validIdFormat.test(userID)) {
-      console.log(`Rejecting request: Invalid ID format: ${userID}`);
-      return res.status(401).json({
-        error: "Unauthorized",
-        message: "Invalid subscription ID format",
-        subscription_required: true,
-        action: "Please sign in again to refresh your session"
-      });
-    }
-    
-    // Require email to be provided along with ID
-    if (!userEmail) {
-      console.log("Rejecting request: Missing email");
-      return res.status(401).json({
-        error: "Unauthorized",
-        message: "Email is required with subscription ID",
-        subscription_required: true,
-        action: "Please sign in again to refresh your session"
-      });
-    }
+    // JWT authentication was already handled by rateLimitMiddleware
+    // If we reach here, the user is authenticated and has a valid subscription
+    isPaidUser = true;
+    console.log("JWT authentication successful via rate limit middleware");
   }
-  
+
   try {
-    // Server-side validation of subscription status
-    let isPaidUser = false;
-    let needsRenewal = false;
-    
-    // Skip subscription check for demo access
-    if (isDemoAccess) {
-      isPaidUser = true;
-      console.log("Setting isPaidUser=true for demo access");
-    } 
-    // Check if user has an active subscription in our database
-    else if (userEmail && userID) {
-      // First check if status is explicitly 'ended'
-      if (userStatus === 'ended') {
-        needsRenewal = true;
-        console.log(`Subscription for ${userEmail} has ended and needs renewal`);
-      } else {
-        // Verify with our database regardless of client-side status
-        isPaidUser = isSubscribed(userEmail, userID);
-        
-        if (!isPaidUser) {
-          console.log(`Invalid or inactive subscription for ${userEmail} (ID: ${userID || 'none'})`);
-          return res.status(401).json({
-            error: "Unauthorized",
-            message: "Invalid or inactive subscription",
-            subscription_required: true,
-            subscription_expired: userStatus === 'ended' || userStatus === 'expired',
-            action: userStatus === 'ended' || userStatus === 'expired' ? 
-              "Your subscription has expired. Please renew to continue." : 
-              "Please subscribe to access this feature"
-          });
-        }
-        
-        console.log(`Subscription check for ${userEmail} (ID: ${userID || 'none'}): ${isPaidUser ? 'active' : 'inactive'}`);
-      }
-    }
-    
-    // If subscription has ended, return a special response
-    if (needsRenewal) {
-      return res.json({
-        question: userQuery,
-        subscription_expired: true,
-        message: "Your subscription has expired. Please renew to continue using this feature.",
-        action: "renew_subscription",
-        renewal_url: "/app/billing"
-      });
-    }
-    
     // Clean the query by removing punctuation and special characters
     const cleanedQuery = userQuery.replace(/[^\w\s]/g, '').toLowerCase();
     console.log(`Cleaned query for asset detection: "${cleanedQuery}"`);
@@ -2808,15 +2830,16 @@ app.post("/api/sentiment", async (req, res) => {
 
 app.post('/api/profiles', async (req, res) => {
   const origin = req.get('origin') || req.get('referer') || '';
-  const { profileId, id: subscriptionId, timestamp, hash } = req.body;
+  const { profileId, timestamp, hash } = req.body;
+  const subscriptionId = getSubscriptionId(req);
   console.log('Request origin:', origin);
   
   // List of allowed domains
   const allowedDomains = [
       'https://dipped.me',
       'https://www.dipped.me',
-      'https://koyn.ai',
-      'https://www.koyn.ai',
+      'https://koyn.finance',
+      'https://www.koyn.finance',
       'http://167.71.16.134'
   ];
   
@@ -2848,35 +2871,41 @@ app.post('/api/profiles', async (req, res) => {
       });
     }
 
-    // Validate subscription for profiles access
-    if (!subscriptionId) {
+    // For NewsCarousel and general website display from allowed domains, allow access without subscription
+    // Only require subscription for advanced profile analytics or extensive usage
+    const isGeneralProfileRequest = isAllowedOrigin && profileId;
+    
+    if (!isGeneralProfileRequest && !subscriptionId) {
       return res.status(401).json({
         status: {
           code: 401,
-          message: "Valid subscription is required for profiles access"
+          message: "Valid subscription is required for advanced profile access"
         },
         data: null,
         subscription_required: true,
-        action: "Please subscribe or sign in to access profile data"
+        action: "Please subscribe or sign in to access detailed profile data"
       });
     }
 
-    // Check subscription status in database
-    const hasValidSubscription = isSubscriptionActive(subscriptionId);
-    if (!hasValidSubscription) {
-      console.log(`Profiles access denied for subscription ID: ${subscriptionId} - invalid or inactive subscription`);
-      return res.status(401).json({
-        status: {
-          code: 401,
-          message: "Invalid or inactive subscription"
-        },
-        data: null,
-        subscription_required: true,
-        action: "Please renew your subscription to access profile data"
-      });
+    // Check subscription status in database only if subscription is provided
+    if (subscriptionId) {
+      const hasValidSubscription = isSubscriptionActive(subscriptionId);
+      if (!hasValidSubscription) {
+        console.log(`Profiles access denied for subscription ID: ${subscriptionId} - invalid or inactive subscription`);
+        return res.status(401).json({
+          status: {
+            code: 401,
+            message: "Invalid or inactive subscription"
+          },
+          data: null,
+          subscription_required: true,
+          action: "Please renew your subscription to access profile data"
+        });
+      }
+      console.log(`Profiles access granted for subscription ID: ${subscriptionId}`);
+    } else {
+      console.log(`General profile access granted for domain: ${origin}`);
     }
-
-    console.log(`Profiles access granted for subscription ID: ${subscriptionId}`);
   
     try {
       let result;
@@ -3395,9 +3424,6 @@ app.post('/api/save-result', async (req, res) => {
 });
 
 
-
-
-
 app.get('/api/saved-results', async (req, res) => {
   try {
     const { email } = req.query;
@@ -3490,9 +3516,9 @@ app.delete('/api/saved-result/:resultId', async (req, res) => {
 });
 
 // Endpoint for sharing analysis results
-app.post('/api/share-result', async (req, res) => {
+app.post('/api/share-result', rateLimitMiddleware, async (req, res) => {
   try {
-    const { resultId, result, id: subscriptionId } = req.body;
+    const { resultId, result } = req.body;
     
     if (!resultId || !result) {
       return res.status(400).json({
@@ -3501,30 +3527,8 @@ app.post('/api/share-result', async (req, res) => {
       });
     }
 
-    // Validate subscription for sharing functionality
-    if (!subscriptionId) {
-      return res.status(401).json({
-        success: false,
-        error: "Unauthorized",
-        message: "Valid subscription is required for sharing analysis",
-        subscription_required: true,
-        action: "Please subscribe or sign in to share analysis"
-      });
-    }
-
-    // Check subscription status in database
-    const hasValidSubscription = isSubscriptionActive(subscriptionId);
-    if (!hasValidSubscription) {
-      console.log(`Share result access denied for subscription ID: ${subscriptionId} - invalid or inactive subscription`);
-      return res.status(401).json({
-        success: false,
-        error: "Unauthorized",
-        message: "Invalid or inactive subscription",
-        subscription_required: true,
-        action: "Please renew your subscription to share analysis"
-      });
-    }
-
+    // Authentication is already handled by rateLimitMiddleware
+    const subscriptionId = getSubscriptionId(req);
     console.log(`Share result access granted for subscription ID: ${subscriptionId}`);
     
     // Create shared results directory if it doesn't exist (in frontend public folder)
@@ -3550,7 +3554,7 @@ app.post('/api/share-result', async (req, res) => {
       success: true,
       message: 'Analysis shared successfully',
       shareId,
-      shareUrl: `https://koyn.ai/app/shared/${shareId}`
+      shareUrl: `https://koyn.finance/shared/${shareId}`
     });
   } catch (error) {
     console.error('Error sharing analysis result:', error);
@@ -4588,14 +4592,15 @@ app.get('/api/assets/commodities', async (req, res) => {
 // Insider trading API endpoint
 app.get('/api/insider-trading', async (req, res) => {
   try {
-    const { symbol, limit = 100, id: subscriptionId } = req.query;
+    const { symbol, limit = 100 } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     // Validate subscription for FMP API access
     if (!subscriptionId) {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription is required for insider trading data access",
+        message: "Valid authentication is required for insider trading data access. Please provide a valid JWT token or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access insider trading data"
       });
@@ -4662,7 +4667,8 @@ app.get('/api/insider-trading', async (req, res) => {
 // Historical prices API endpoint
 app.get('/api/historical-prices', async (req, res) => {
   try {
-    const { symbol, timeframe = '1D', id: subscriptionId } = req.query;
+    const { symbol, timeframe = '1D' } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     if (!symbol) {
       return res.status(400).json({ error: 'Symbol parameter is required' });
@@ -4673,7 +4679,7 @@ app.get('/api/historical-prices', async (req, res) => {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription is required for historical price data access",
+        message: "Valid authentication is required for historical price data access. Please provide a valid JWT token or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access historical price data"
       });
@@ -4745,7 +4751,8 @@ app.get('/api/historical-prices', async (req, res) => {
 // Intraday prices API endpoint
 app.get('/api/intraday-prices', async (req, res) => {
   try {
-    const { symbol, interval = '1min', id: subscriptionId } = req.query;
+    const { symbol, interval = '1min' } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     if (!symbol) {
       return res.status(400).json({ error: 'Symbol parameter is required' });
@@ -4756,7 +4763,7 @@ app.get('/api/intraday-prices', async (req, res) => {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription is required for intraday price data access",
+        message: "Valid authentication is required for intraday price data access. Please provide a valid JWT token or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access intraday price data"
       });
@@ -4805,7 +4812,8 @@ app.get('/api/intraday-prices', async (req, res) => {
 // Technical indicators API endpoint
 app.get('/api/technical-indicators', async (req, res) => {
   try {
-    const { symbol, period = 14, type = 'rsi', id: subscriptionId } = req.query;
+    const { symbol, period = 14, type = 'rsi' } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     if (!symbol) {
       return res.status(400).json({ error: 'Symbol parameter is required' });
@@ -4816,7 +4824,7 @@ app.get('/api/technical-indicators', async (req, res) => {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription is required for technical indicators access",
+        message: "Valid authentication is required for technical indicators access. Please provide a valid JWT token or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access technical indicators"
       });
@@ -4961,7 +4969,8 @@ app.get('/api/technical-indicator', async (req, res) => {
 // Chart data API endpoint for different time intervals
 app.get('/api/chart', async (req, res) => {
   try {
-    const { symbol, interval = '1day', contractAddress, isDex, id: subscriptionId } = req.query;
+    const { symbol, interval = '1day', contractAddress, isDex } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     // Allow chart to work with either a symbol or contract address
     if (!symbol && !contractAddress) {
@@ -4977,7 +4986,7 @@ app.get('/api/chart', async (req, res) => {
       return res.status(401).json({
         success: false,
         error: "Unauthorized",
-        message: "Valid subscription is required for chart data access",
+        message: "Valid authentication is required for chart data access. Please provide a valid JWT token or subscription ID.",
         subscription_required: true,
         action: "Please subscribe or sign in to access chart data"
       });
@@ -5464,7 +5473,8 @@ app.get('/api/chart', async (req, res) => {
 // Add a dedicated /api/chart/eod endpoint that respects the dex flag from frontend
 app.get('/api/chart/eod', async (req, res) => {
   try {
-    const { symbol, contractAddress, isDex, id: subscriptionId } = req.query;
+    const { symbol, contractAddress, isDex } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     // Require either symbol or contract address
     if (!symbol && !contractAddress) {
@@ -5484,7 +5494,7 @@ app.get('/api/chart/eod', async (req, res) => {
         return res.status(401).json({
           success: false,
           error: "Unauthorized",
-          message: "Valid subscription is required for EOD data access",
+          message: "Valid authentication is required for EOD data access. Please provide a valid JWT token or subscription ID.",
           subscription_required: true,
           action: "Please subscribe or sign in to access EOD historical data"
         });

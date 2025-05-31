@@ -1,14 +1,15 @@
 "use client"
 
-import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect } from "react"
+import { Routes } from "../utils/routes"
+import SubscriptionModal from "./SubscriptionModal"
+import "../styles/glowing-input.css"
+import { useSubscription } from "../context/AuthProvider"
 import { createPortal } from "react-dom"
 import { useNavigate } from "react-router"
 
 interface SubscribeButtonProps {
-  onClick: () => void
-  isSubscribed?: boolean
-  userEmail?: string | null
+  onClick?: () => void
   text?: string
 }
 
@@ -26,6 +27,7 @@ function DropdownMenu({
 }) {
   const [portalElement, setPortalElement] = useState<HTMLElement | null>(null)
   const navigate = useNavigate()
+  const { logout } = useSubscription()
 
   useEffect(() => {
     // Create and append the portal element to the body
@@ -67,59 +69,14 @@ function DropdownMenu({
     console.log("Account Settings clicked");
 
     try {
-      // Ensure the email is saved to localStorage before navigating
-      if (userEmail) {
-        try {
-          // Either use existing localStorage data or create minimal data with email
-          const savedData = localStorage.getItem("koyn_subscription")
-          let subscriptionData
-
-          if (savedData) {
-            // Update existing data
-            subscriptionData = JSON.parse(savedData)
-            // Ensure email is set correctly
-            subscriptionData.email = userEmail
-          } else {
-            // Create minimal data with just email for billing access
-            subscriptionData = {
-              email: userEmail,
-              verifiedVia: "account_menu",
-              allowBillingAccess: true, // Special flag to indicate this user should have billing access
-            }
-          }
-
-          localStorage.setItem("koyn_subscription", JSON.stringify(subscriptionData))
-          console.log("Email saved to localStorage:", userEmail)
-        } catch (err) {
-          console.error("Error saving email to localStorage:", err)
-        }
-      } else {
-        console.warn("No userEmail available to save")
-      }
-
-      // Check if we need to clear the billing page session flag
-      try {
-        if (typeof window !== "undefined" && window.sessionStorage) {
-          const onBillingPage = sessionStorage.getItem("on_billing_page")
-          if (onBillingPage === "true") {
-            console.log("Clearing billing page flag before navigation")
-            sessionStorage.removeItem("on_billing_page")
-          }
-        }
-      } catch (err) {
-        console.error("Error checking session storage:", err)
-      }
-
-      console.log("About to navigate to billing page");
-      
       // Call the onNavigate callback to close the dropdown
       onNavigate();
       
-      // Use direct window.location navigation which is more reliable
+      // Navigate to billing page
       window.location.href = "/app/billing";
-      console.log("Navigation initiated via window.location");
+      console.log("Navigation initiated to billing page");
     } catch (error) {
-      console.error("Unhandled error in handleAccountClick:", error);
+      console.error("Error navigating to billing:", error);
       // Final fallback to ensure navigation happens
       window.location.href = "/app/billing";
     }
@@ -131,25 +88,15 @@ function DropdownMenu({
     console.log("Logout clicked");
 
     try {
-      // Remove the subscription data from localStorage
-      localStorage.removeItem("koyn_subscription");
-      console.log("Removed koyn_subscription from localStorage");
-
-      // Clear any session storage flags
-      if (typeof window !== "undefined" && window.sessionStorage) {
-        sessionStorage.removeItem("on_billing_page");
-        console.log("Cleared session storage flags");
-      }
-
       // Call the onNavigate callback to close the dropdown
       onNavigate();
 
-      // Refresh the page to reset the application state
-      window.location.reload();
-      console.log("Page refresh initiated for logout");
+      // Use the logout function from subscription context
+      logout();
+      console.log("Logout successful");
     } catch (error) {
       console.error("Error during logout:", error);
-      // Even if there's an error, try to refresh the page
+      // Fallback to page refresh if logout fails
       window.location.reload();
     }
   }
@@ -176,25 +123,15 @@ function DropdownMenu({
             console.log("Logout clicked");
 
             try {
-              // Remove the subscription data from localStorage
-              localStorage.removeItem("koyn_subscription");
-              console.log("Removed koyn_subscription from localStorage");
-
-              // Clear any session storage flags
-              if (typeof window !== "undefined" && window.sessionStorage) {
-                sessionStorage.removeItem("on_billing_page");
-                console.log("Cleared session storage flags");
-              }
-
               // Call the onNavigate callback to close the dropdown
               onNavigate();
 
-              // Refresh the page to reset the application state
-              window.location.reload();
-              console.log("Page refresh initiated for logout");
+              // Use the logout function from subscription context
+              logout();
+              console.log("Logout successful");
             } catch (error) {
               console.error("Error during logout:", error);
-              // Even if there's an error, try to refresh the page
+              // Fallback to page refresh if logout fails
               window.location.reload();
             }
           }}
@@ -208,7 +145,7 @@ function DropdownMenu({
           href="/app/billing"
           className="hidden fallback-account-link" 
           style={{ display: 'none' }}
-          onClick={(e) => {
+          onClick={() => {
             // Still try to handle localStorage operations
             if (userEmail) {
               try {
@@ -236,25 +173,45 @@ function DropdownMenu({
   return createPortal(portalContent, portalElement)
 }
 
-export default function SubscribeButton({ onClick, isSubscribed = false, userEmail, text }: SubscribeButtonProps) {
+export default function SubscribeButton({ onClick, text }: SubscribeButtonProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
   const buttonRef = useRef<HTMLDivElement>(null)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, right: 0 })
+  
+  // Get subscription context
+  const { isSubscribed, userEmail, user } = useSubscription()
 
   // Handle button click to show subscription options
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
-    if (isSubscribed) {
-      // Toggle dropdown menu for subscribed users
+    if (onClick) {
+      // If custom onClick is provided, use that
+      onClick()
+    } else if (isSubscribed && user) {
+      // For logged-in users, show dropdown
       if (!dropdownOpen) {
         updateDropdownPosition()
       }
       setDropdownOpen(!dropdownOpen)
     } else {
-      onClick()
+      // For non-logged-in users, show subscription modal
+      setModalOpen(true)
     }
+  }
+
+  // Handle modal close
+  const handleModalClose = () => {
+    setModalOpen(false)
+  }
+
+  // Handle successful subscription
+  const handleSubscriptionSuccess = (event: any) => {
+    console.log("Subscription successful:", event)
+    setModalOpen(false)
+    // The subscription context will automatically update when user logs in
   }
 
   // Function to close the dropdown
@@ -347,7 +304,7 @@ export default function SubscribeButton({ onClick, isSubscribed = false, userEma
               }}
             >
               {isSubscribed ? (
-                // User icon for subscribed state
+                // User icon for subscribed state (green for active users)
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-5 w-5 text-green-500"
@@ -395,12 +352,21 @@ export default function SubscribeButton({ onClick, isSubscribed = false, userEma
       </div>
 
       {/* Dropdown Menu rendered via portal to document.body */}
-      {isSubscribed && (
+      {isSubscribed && dropdownOpen && (
         <DropdownMenu
           isOpen={dropdownOpen}
           position={dropdownPosition}
           userEmail={userEmail}
           onNavigate={closeDropdown}
+        />
+      )}
+
+      {/* Subscription Modal */}
+      {modalOpen && (
+        <SubscriptionModal
+          isOpen={modalOpen}
+          onClose={handleModalClose}
+          onSuccess={handleSubscriptionSuccess}
         />
       )}
     </>

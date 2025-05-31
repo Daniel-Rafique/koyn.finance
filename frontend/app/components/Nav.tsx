@@ -1,32 +1,8 @@
 import { Routes } from "../utils/routes";
-import { useSubscription } from "../context/SubscriptionContext";
+import { useSubscription } from "../context/AuthProvider";
 import SubscribeButton from "./SubscribeButton";
 
 export default function Nav() {
-  // Handle subscription context gracefully - it might not be available on shared pages
-  let openSubscriptionModal = () => console.log('Subscription modal not available');
-  let subscriptionStatus = 'inactive';
-  let userEmail = null;
-  
-  try {
-    const subscription = useSubscription();
-    openSubscriptionModal = subscription.openSubscriptionModal;
-    subscriptionStatus = subscription.subscriptionStatus;
-    userEmail = subscription.userEmail;
-  } catch (error) {
-    // Subscription context not available (e.g., on shared pages)
-    console.log('Subscription context not available in Nav, using defaults');
-  }
-
-  // Create a direct handler for subscription modal
-  const handleOpenSubscriptionModal = () => {
-    console.log('Nav component triggering subscription modal');
-    // Use setTimeout to ensure it triggers after any React updates
-    setTimeout(() => {
-      openSubscriptionModal();
-    }, 10);
-  };
-
   return (
     <nav className="border-b border-[#f0f0f0]">
       <div className="inner-nav max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -47,11 +23,7 @@ export default function Nav() {
         <div className="nav-right flex items-center gap-2">
           {/* Subscribe button */}
           <div className="nav-item">
-            <SubscribeButton
-              onClick={handleOpenSubscriptionModal}
-              isSubscribed={subscriptionStatus === "active"}
-              userEmail={userEmail}
-            />
+            <SubscribeButton />
           </div>
 
           {/* Social Media buttons with the same styling as SubscribeButton */}
