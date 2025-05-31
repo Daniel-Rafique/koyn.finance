@@ -2008,7 +2008,7 @@ Use sophisticated language that demonstrates expertise in technical analysis. St
                     });
 
                     // Debug: Log the actual response structure to understand Gemini 2.5 format
-                    console.log('Gemini API response structure:', JSON.stringify(response.data, null, 2));
+                    // console.log('Gemini API response structure:', JSON.stringify(response.data, null, 2));
 
                     // Extract content from Gemini response with enhanced error handling
                     let responseText = 'Analysis not available';
@@ -2660,7 +2660,15 @@ app.post("/api/sentiment", rateLimitMiddleware, async (req, res) => {
     
     // Process news source tags
     const newsSources = ['Barron\'s', 'Investor\'s Business Daily', 'MarketWatch', 'Bloomberg', 'CNBC', 
-                          'Wall Street Journal', 'Financial Times', 'Reuters', 'CoinDesk', 'CoinTelegraph'];
+                          'Wall Street Journal', 'Financial Times', 'Reuters', 'CoinDesk', 'CoinTelegraph', 'The Block',
+                          'Forbes', 'Yahoo Finance', 'Bloomberg', 'CNBC', 'MarketWatch', 'Investor\'s Business Daily',
+                          'Barron\'s', 'The Wall Street Journal', 'The New York Times', 'The Washington Post',
+                          'The Guardian', 'The Economist', 'The Financial Times', 'The Wall Street Journal',
+                          'The New York Times', 'The Washington Post', 'The Guardian', 'The Economist', 'The Financial Times',
+                          'The Wall Street Journal', 'The New York Times', 'The Washington Post', 'The Guardian', 'The Economist', 'The Financial Times',
+                          'The Wall Street Journal', 'The New York Times', 'The Washington Post', 'The Guardian', 'The Economist', 'The Financial Times','coinpedia',
+                          'coindesk', 'cointelegraph', 'theblock', 'forbes', 'yahoo finance', 'bloomberg', 'cnbc', 'marketwatch', 'investor\'s business daily','newsbtc'
+                        ];
     
     // Replace all instances of news source tags with properly formatted span elements
     newsSources.forEach(source => {

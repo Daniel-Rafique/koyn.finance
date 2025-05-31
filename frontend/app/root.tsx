@@ -80,37 +80,6 @@ class SafeContextProvider extends React.Component<{
   }
 }
 
-// Simple error boundary component to catch React errors
-interface InternalErrorBoundaryProps {
-  children: React.ReactNode;
-}
-
-interface InternalErrorBoundaryState {
-  hasError: boolean;
-}
-
-class InternalErrorBoundary extends React.Component<InternalErrorBoundaryProps, InternalErrorBoundaryState> {
-  constructor(props: InternalErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: Error): InternalErrorBoundaryState {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("Caught an error:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return <div className="text-white p-4">Something went wrong. Please refresh the page.</div>;
-    }
-    return this.props.children;
-  }
-}
-
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
@@ -168,30 +137,56 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  let message = "Oops!";
-  let details = "An unexpected error occurred.";
-  let stack: string | undefined;
-
-  if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Error";
-    details =
-      error.status === 404
-        ? "The requested page could not be found."
-        : error.statusText || details;
-  } else if (import.meta.env.DEV && error && error instanceof Error) {
-    details = error.message;
-    stack = error.stack;
+  // In development, show detailed error for debugging
+  if (import.meta.env.DEV && error && error instanceof Error) {
+    return (
+      <main className="pt-16 p-4 container mx-auto">
+        <h1 className="text-2xl font-bold text-white mb-4">Development Error</h1>
+        <p className="text-[#a099d8] mb-4">{error.message}</p>
+        <pre className="w-full p-4 overflow-x-auto bg-gray-900 text-green-400 rounded">
+          <code>{error.stack}</code>
+        </pre>
+      </main>
+    );
   }
 
+  // In production, redirect to appropriate error page
+  let redirectPath = "/app/error";
+  
+  if (isRouteErrorResponse(error)) {
+    if (error.status === 404) {
+      redirectPath = "/app/404";
+    } else {
+      redirectPath = `/app/error?code=${error.status}`;
+    }
+  }
+
+  // Use a client-side redirect to our error pages
+  if (typeof window !== 'undefined') {
+    window.location.href = redirectPath;
+  }
+
+  // Fallback for SSR
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
-      {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
-          <code>{stack}</code>
-        </pre>
-      )}
-    </main>
+    <div className="min-h-screen bg-gradient-to-br from-[#0d0a21] to-[#1a1535] flex items-center justify-center px-4">
+      <div className="max-w-md w-full text-center">
+        <div className="mb-8">
+          <div className="text-6xl font-bold text-[#E5484D] mb-4">Error</div>
+          <h1 className="text-2xl font-semibold text-white mb-2">Something went wrong</h1>
+          <p className="text-[#a099d8] text-sm leading-relaxed">
+            Redirecting to error page...
+          </p>
+        </div>
+        
+        <div className="space-y-4">
+          <a 
+            href="/"
+            className="inline-block w-full bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white font-medium py-3 px-6 rounded-lg hover:from-[#7C3AED] hover:to-[#DB2777] transition-all duration-200 transform hover:scale-105"
+          >
+            Go Home
+          </a>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -10,7 +10,6 @@ import ProtectedPage from "../components/ProtectedPage"
 import Nav from "../components/Nav"
 import Footer from "../components/Footer"
 import "../styles/news-carousel-solid.css"
-import "../styles/glowing-input.css"
 import { HelioCheckout } from "@heliofi/checkout-react"
 // Import the specific types from the Helio library
 import type { HelioEmbedConfig } from "@heliofi/checkout-react"
@@ -1040,68 +1039,44 @@ function BillingContent() {
                     {/* Subscription Actions */}
                     <h2 className="text-xl font-semibold text-white mb-4">Subscription Management</h2>
                     <div className="flex flex-col md:flex-row gap-6 mb-4">
-                      <div
-                        className="glowing-input-container button-container md:w-1/2"
-                        style={{ maxWidth: "none", margin: "0" }}
-                      >
-                        <button
-                          onClick={() => {
-                            const paylinkId =
-                              subscriptionDetails?.transactionDetails?.paylinkId || "68229ffa2c8760f1eb3d19d7"
-                            handleRenewSubscription(paylinkId)
-                          }}
-                          disabled={!hasRenewalDatePassed(subscriptionDetails?.renewalDate || "")}
-                          className={`subscribe-button text-white font-bold py-2 px-6 ${!hasRenewalDatePassed(subscriptionDetails?.renewalDate || "") ? "opacity-50 cursor-not-allowed" : ""}`}
-                          style={{
-                            position: "relative",
-                            width: "100%",
-                            height: "40px",
-                            background: !hasRenewalDatePassed(subscriptionDetails?.renewalDate || "")
-                              ? "linear-gradient(180deg, #465370, #363f52, #505e7e)"
-                              : "linear-gradient(180deg, #135c36, #0e4429, #1d6f42)",
-                          }}
-                          title={
-                            !hasRenewalDatePassed(subscriptionDetails?.renewalDate || "")
-                              ? "You can renew once your current subscription period ends"
-                              : "Renew your subscription"
-                          }
-                        >
-                          Renew Subscription
-                        </button>
-                        <div
-                          className="button-border"
-                          style={{ width: "100%", height: "100%", top: 0, right: 0 }}
-                        ></div>
+                      <div className="md:w-1/2">
+                        {hasRenewalDatePassed(subscriptionDetails?.renewalDate || "") ? (
+                          <button
+                            onClick={() => {
+                              const paylinkId =
+                                subscriptionDetails?.transactionDetails?.paylinkId || "68229ffa2c8760f1eb3d19d7"
+                              handleRenewSubscription(paylinkId)
+                            }}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+                          >
+                            Renew Subscription
+                          </button>
+                        ) : (
+                          <div 
+                            className="w-full bg-gray-600 text-gray-300 font-semibold py-3 px-6 rounded-lg cursor-not-allowed"
+                            title="You can renew once your current subscription period ends"
+                          >
+                            Renew Subscription
+                          </div>
+                        )}
                       </div>
 
-                      <div
-                        className="glowing-input-container button-container md:w-1/2"
-                        style={{ maxWidth: "none", margin: "0" }}
-                      >
-                        <button
-                          onClick={handleUpgradeDowngrade}
-                          disabled={isSubscribed}
-                          className={`subscribe-button text-white font-bold py-2 px-6 ${isSubscribed ? "opacity-50 cursor-not-allowed" : ""}`}
-                          style={{
-                            position: "relative",
-                            width: "100%",
-                            height: "40px",
-                            background: isSubscribed
-                              ? "linear-gradient(180deg, #465370, #363f52, #505e7e)"
-                              : "linear-gradient(180deg, #263c87, #1c2d65, #2d4aa6)",
-                          }}
-                          title={
-                            isSubscribed
-                              ? "You can upgrade/downgrade when your current subscription ends"
-                              : "Change your subscription plan"
-                          }
-                        >
-                          Upgrade/Downgrade
-                        </button>
-                        <div
-                          className="button-border"
-                          style={{ width: "100%", height: "100%", top: 0, right: 0 }}
-                        ></div>
+                      <div className="md:w-1/2">
+                        {!isSubscribed ? (
+                          <button
+                            onClick={handleUpgradeDowngrade}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+                          >
+                            Upgrade/Downgrade
+                          </button>
+                        ) : (
+                          <div 
+                            className="w-full bg-gray-600 text-gray-300 font-semibold py-3 px-6 rounded-lg cursor-not-allowed"
+                            title="You can upgrade/downgrade when your current subscription ends"
+                          >
+                            Upgrade/Downgrade
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1132,24 +1107,12 @@ function BillingContent() {
                   <div className="text-center py-4">
                     <p className="text-yellow-200 mb-4">No subscription information available</p>
                     <div className="flex justify-center">
-                      <div className="glowing-input-container button-container" style={{ maxWidth: "200px" }}>
-                        <button
-                          onClick={() => handleRenewSubscription("68229ffa2c8760f1eb3d19d7")}
-                          className="subscribe-button text-white font-bold py-2 px-6"
-                          style={{
-                            position: "relative",
-                            width: "100%",
-                            height: "40px",
-                            background: "linear-gradient(180deg, #135c36, #0e4429, #1d6f42)",
-                          }}
-                        >
-                          Subscribe Now
-                        </button>
-                        <div
-                          className="button-border"
-                          style={{ width: "100%", height: "100%", top: 0, right: 0 }}
-                        ></div>
-                      </div>
+                      <button
+                        onClick={() => handleRenewSubscription("68229ffa2c8760f1eb3d19d7")}
+                        className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors duration-200"
+                      >
+                        Subscribe Now
+                      </button>
                     </div>
                   </div>
                 )}

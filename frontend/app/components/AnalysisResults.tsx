@@ -78,6 +78,12 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
       'From news prop': propsNews.length > 0 ? `${propsNews.length} items` : 'None',
       'Total available': (resultNews.length + propsNews.length) > 0 ? 'Yes' : 'No'
     });
+    
+    // Debug: Log all news sources
+    const allNews = [...resultNews, ...propsNews];
+    if (allNews.length > 0) {
+      console.log('Available news sources:', allNews.map(item => item.source));
+    }
   }, [result, news]);
 
   // Process analysis content to add tooltips to article tags
@@ -101,9 +107,10 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
 
       // Process each news source
       newsSources.forEach(source => {
-        const sourceRegex = new RegExp(`\\[${source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'g');
+        // Pattern 1: [Source] format (bracketed)
+        const bracketSourceRegex = new RegExp(`\\[${source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'g');
 
-        processedAnalysis = processedAnalysis.replace(sourceRegex, (match) => {
+        processedAnalysis = processedAnalysis.replace(bracketSourceRegex, (match) => {
           // Find matching news item for this source
           const matchingNews = newsItems.find(item => 
               item.source.toLowerCase() === source.toLowerCase() ||
@@ -121,6 +128,29 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
 
           // If no matching news, return just the source name without a tooltip
           return `<span class="article-tag">${source}</span>`;
+        });
+
+        // Pattern 2: Plain source name (not in brackets)
+        const plainSourceRegex = new RegExp(`\\b${source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b(?![^<]*</span>)`, 'g');
+        
+        processedAnalysis = processedAnalysis.replace(plainSourceRegex, (match) => {
+          // Find matching news item for this source
+          const matchingNews = newsItems.find(item => 
+              item.source.toLowerCase() === source.toLowerCase() ||
+              source.toLowerCase().includes(item.source.toLowerCase()) ||
+            item.source.toLowerCase().includes(source.toLowerCase())
+          );
+
+          if (matchingNews) {
+            return `<span class="article-tag">${match}<div class="tooltip-content">
+              <h4 class="font-medium text-white mb-1">${matchingNews.title}</h4>
+              <p class="text-xs text-[#a099d8] mb-2">${matchingNews.description || 'No description available'}</p>
+              <a href="${matchingNews.url}" target="_blank" rel="noopener noreferrer" class="text-xs bg-[rgb(13,10,33)] text-[#95D5B2] px-3 py-1 rounded hover:bg-[rgb(19,15,47)] transition-colors inline-block">Read article</a>
+            </div></span>`;
+          }
+
+          // If no matching news, return with just the styling
+          return `<span class="article-tag">${match}</span>`;
         });
       });
 
@@ -297,40 +327,48 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
       try {
         const setupArticleTagTooltips = () => {
           const tagElements = analysisRef.current?.querySelectorAll('.article-tag');
+          console.log(`Setting up tooltips for ${tagElements?.length || 0} article tags`);
           
-          tagElements?.forEach(element => {
-            element.addEventListener('mouseenter', () => {
+          tagElements?.forEach((element, index) => {
+            // Remove any existing event listeners to prevent duplicates
+            const elementWithHandlers = element as any;
+            elementWithHandlers.removeEventListener('mouseenter', elementWithHandlers.__hoverHandler);
+            elementWithHandlers.removeEventListener('mouseleave', elementWithHandlers.__leaveHandler);
+            
+            const hoverHandler = () => {
+              console.log(`Hovering over article tag #${index}:`, element.textContent);
               const tooltip = element.querySelector('.tooltip-content');
+              
               if (tooltip) {
+                console.log('Tooltip found, showing it');
                 const rect = tooltip.getBoundingClientRect();
                 const parentRect = element.getBoundingClientRect();
-
-                // Check viewport dimensions
                 const viewportWidth = window.innerWidth;
 
-                // Default to showing below the element
+                // Make tooltip visible first
+                (tooltip as HTMLElement).style.visibility = 'visible';
+                (tooltip as HTMLElement).style.opacity = '1';
+                (tooltip as HTMLElement).style.transform = 'translateY(0)';
+
+                // Default positioning
                 (tooltip as HTMLElement).style.top = '100%';
                 (tooltip as HTMLElement).style.left = '0';
                 (tooltip as HTMLElement).style.right = 'auto';
 
-                // If tooltip would go off right edge of the screen
+                // Adjust if tooltip goes off screen
                 if (rect.right > viewportWidth) {
                   (tooltip as HTMLElement).style.left = 'auto';
                   (tooltip as HTMLElement).style.right = '0';
                 }
 
-                // If tooltip would go off left edge of the screen
                 if (rect.left < 0) {
                   (tooltip as HTMLElement).style.left = '0';
                   (tooltip as HTMLElement).style.right = 'auto';
                 }
 
-                // On very small screens, center the tooltip
+                // Mobile adjustments
                 if (viewportWidth < 480) {
-                  // Make tooltip wider on small screens but not wider than viewport
                   (tooltip as HTMLElement).style.width = Math.min(320, viewportWidth - 40) + 'px';
-
-                  // Center relative to viewport rather than element
                   const tooltipWidth = (tooltip as HTMLElement).offsetWidth;
                   const parentCenter = parentRect.left + (parentRect.width / 2);
                   const leftPosition = Math.max(10, Math.min(viewportWidth - tooltipWidth - 10, parentCenter - (tooltipWidth / 2)));
@@ -339,8 +377,26 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
                   (tooltip as HTMLElement).style.right = 'auto';
                   (tooltip as HTMLElement).style.position = 'fixed';
                 }
+              } else {
+                console.log('No tooltip content found for this tag');
               }
-            });
+            };
+
+            const leaveHandler = () => {
+              const tooltip = element.querySelector('.tooltip-content');
+              if (tooltip) {
+                (tooltip as HTMLElement).style.visibility = 'hidden';
+                (tooltip as HTMLElement).style.opacity = '0';
+                (tooltip as HTMLElement).style.transform = 'translateY(10px)';
+              }
+            };
+
+            // Store handlers on element for cleanup
+            elementWithHandlers.__hoverHandler = hoverHandler;
+            elementWithHandlers.__leaveHandler = leaveHandler;
+
+            element.addEventListener('mouseenter', hoverHandler);
+            element.addEventListener('mouseleave', leaveHandler);
           });
         };
 

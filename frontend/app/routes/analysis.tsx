@@ -1047,7 +1047,7 @@ function AnalysisContent() {
         }}
       >
         <div className="fixed bottom-20 left-0 w-full flex justify-center px-4 z-20">
-          <div className="w-full max-w-md floating-search-bar py-6">
+          <div className="w-full max-w-3xl floating-search-bar py-6">
             <SearchForm
               onSubscribeClick={() => {
                 console.log("User is already subscribed")

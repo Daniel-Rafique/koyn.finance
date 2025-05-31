@@ -5,7 +5,6 @@ import Nav from "~/components/Nav"
 import NewsCarousel from "~/components/NewsCarousel"
 import "../styles/analysis-results.css"
 import "../styles/news-carousel-solid.css";
-import "../styles/glowing-input.css";
 
 interface SharedAnalysisData {
   resultId: string

@@ -1,16 +1,15 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from 'react';
 import type { Route } from "./+types/home";
 import SearchForm from "../components/SearchForm";
 import SubscriptionModal from "../components/SubscriptionModal";
 import NewsCarousel from "../components/NewsCarousel";
 import { useAuth } from "../context/AuthProvider";
-import { useEffect, useState } from 'react';
+import { useSubscription } from '../context/SubscriptionContext';
 import { useNavigate } from "react-router";
 import { Routes } from "../utils/routes";
 import Nav from "../components/Nav";
 import Footer from "../components/Footer";
 import "../styles/home.css";
-import "../styles/glowing-input.css";
 import "../styles/news-carousel-solid.css";
 import { performTestLogin, clearTestAuth, isDevelopment } from "../utils/testAuth";
 

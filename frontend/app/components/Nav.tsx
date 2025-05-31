@@ -11,10 +11,10 @@ export default function Nav() {
             <img
               className="site-logo h-8 rounded-md object-cover h-8 w-auto mr-2"
               src="/logo.jpg"
-              alt="Koyn.AI"
+              alt="Koyn.Finance"
             />
             <span className="site-name text-lg font-semibold text-white">
-              <span className="text-xs">beta</span>
+              <span className="text-xs">finance</span>
             </span>
           </a>
         </div>
