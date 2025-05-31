@@ -650,6 +650,192 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
           color: white;
         }
         
+        /* Tab styles */
+        .tab-container {
+          display: flex;
+          justify-content: center;
+          gap: 1.5rem;
+          padding: 1.25rem 1rem 0.75rem;
+          animation: contentFade 0.3s ease-out 0.15s forwards;
+          opacity: 0;
+        }
+        
+        .tab-button-container {
+          position: relative;
+          transition: all 0.3s ease;
+        }
+        
+        .tab-button-outer {
+          position: relative;
+          height: 40px;
+          width: 110px;
+        }
+        
+        .tab-button-glow {
+          position: absolute;
+          top: -2px;
+          left: -2px;
+          right: -2px;
+          bottom: -2px;
+          border-radius: 10px;
+          filter: blur(8px);
+          opacity: 0.4;
+          z-index: 0;
+          overflow: hidden;
+        }
+        
+        .tab-button-glow::before {
+          content: "";
+          z-index: -2;
+          text-align: center;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) rotate(60deg);
+          position: absolute;
+          width: 999px;
+          height: 999px;
+          background-repeat: no-repeat;
+          background-position: 0 0;
+          background-image: conic-gradient(
+            #000,
+            #402fb5 5%,
+            #000 38%,
+            #000 50%,
+            #cf30aa 60%,
+            #000 87%
+          );
+          transition: all 2s;
+        }
+        
+        .tab-button-container.active .tab-button-glow {
+          opacity: 0.7;
+          animation: pulse 3s infinite ease-in-out;
+        }
+        
+        .tab-button-container:hover .tab-button-glow {
+          opacity: 0.6;
+        }
+        
+        .tab-button-border {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          border-radius: 10px;
+          z-index: 1;
+          overflow: hidden;
+        }
+        
+        .tab-button-border::before {
+          content: "";
+          text-align: center;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) rotate(90deg);
+          position: absolute;
+          width: 600px;
+          height: 600px;
+          background-repeat: no-repeat;
+          background-position: 0 0;
+          filter: brightness(1.35);
+          background-image: conic-gradient(
+            rgba(0, 0, 0, 0),
+            #fff,
+            rgba(0, 0, 0, 0) 50%,
+            rgba(0, 0, 0, 0) 50%,
+            #fff,
+            rgba(0, 0, 0, 0) 100%
+          );
+        }
+        
+        .tab-button-container.active .tab-button-border::before {
+          animation: rotate 4s linear infinite;
+        }
+        
+        .tab-button {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2;
+          isolation: isolate;
+          overflow: hidden;
+          border-radius: 10px;
+          background: linear-gradient(180deg, #161329, black, #1d1b4b);
+          border: 1px solid transparent;
+          cursor: pointer;
+          font-weight: 500;
+          color: white;
+          padding: 0.5rem 1rem;
+          gap: 0.5rem;
+          transition: background 0.3s ease, transform 0.15s ease;
+        }
+        
+        .tab-button:hover {
+          background: linear-gradient(180deg, #1c1833, #0d0d0d, #242057);
+        }
+        
+        .tab-button:active {
+          transform: scale(0.97);
+        }
+        
+        .tab-button-container.active .tab-button {
+          background: linear-gradient(180deg, #1a1636, #0a0a1a, #28256b);
+        }
+        
+        .tab-icon {
+          opacity: 0.9;
+          transition: opacity 0.2s;
+        }
+        
+        .tab-button:hover .tab-icon {
+          opacity: 1;
+        }
+        
+        /* Highlight for subscribe tab */
+        .tab-button-container.highlight .tab-button-glow {
+          animation: pulseHighlight 1.5s infinite ease-in-out;
+          opacity: 0.9;
+        }
+        
+        @keyframes pulseHighlight {
+          0% {
+            opacity: 0.6;
+            filter: blur(8px);
+          }
+          50% {
+            opacity: 1;
+            filter: blur(12px);
+          }
+          100% {
+            opacity: 0.6;
+            filter: blur(8px);
+          }
+        }
+        
+        @keyframes pulse {
+          0% {
+            opacity: 0.4;
+          }
+          50% {
+            opacity: 0.7;
+          }
+          100% {
+            opacity: 0.4;
+          }
+        }
+        
+        @keyframes rotate {
+          100% {
+            transform: translate(-50%, -50%) rotate(450deg);
+          }
+        }
+        
         .result-message {
           margin: 1rem 0;
           padding: 0.75rem;
@@ -791,48 +977,51 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
           </button>
           
           {/* Tabs navigation */}
-          <div className="flex justify-center gap-6 p-5 pb-3">
-            <button
-              onClick={() => setVerificationMode(true)}
-              className={`relative px-6 py-2 rounded-lg font-medium transition-all ${
-                verificationMode 
-                  ? 'bg-indigo-600 text-white' 
-                  : 'bg-gray-800 text-gray-300 hover:text-white'
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Login
-              </span>
-            </button>
-            
-            <button
-              onClick={() => setVerificationMode(false)}
-              className={`relative px-6 py-2 rounded-lg font-medium transition-all ${
-                !verificationMode 
-                  ? 'bg-indigo-600 text-white' 
-                  : 'bg-gray-800 text-gray-300 hover:text-white'
-              } ${highlightSubscribeTab ? 'animate-pulse' : ''}`}
-            >
-              <span className="flex items-center gap-2">
-                {!verificationMode && checkoutLoading ? (
-                  <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M16 2v8h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M15 9L9 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                )}
-                Subscribe
-              </span>
-            </button>
+          <div className="tab-container">
+            <div className={`tab-button-container ${verificationMode ? 'active' : ''}`}>
+              <div className="tab-button-outer">
+                <div className="tab-button-glow"></div>
+                <div className="tab-button-border"></div>
+                <button
+                  onClick={() => setVerificationMode(true)}
+                  className="tab-button"
+                >
+                  <span className="tab-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </span>
+                  Login
+                </button>
+              </div>
+            </div>
+            <div className={`tab-button-container ${!verificationMode ? 'active' : ''} ${highlightSubscribeTab ? 'highlight' : ''}`}>
+              <div className="tab-button-outer">
+                <div className="tab-button-glow"></div>
+                <div className="tab-button-border"></div>
+                <button
+                  onClick={() => setVerificationMode(false)}
+                  className="tab-button"
+                >
+                  <span className="tab-icon">
+                    {!verificationMode && checkoutLoading ? (
+                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M16 2v8h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M15 9L9 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </span>
+                  Subscribe
+                </button>
+              </div>
+            </div>
           </div>
           
           {/* Content area */}
