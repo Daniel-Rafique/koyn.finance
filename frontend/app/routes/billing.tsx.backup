@@ -4,8 +4,7 @@ import type React from "react"
 
 import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router"
-import { useAuth } from "../context/AuthProvider"
-import ProtectedPage from "../components/ProtectedPage"
+import { useSubscription } from "../context/SubscriptionContext"
 import Nav from "../components/Nav"
 import Footer from "../components/Footer"
 import Loader from "../components/Loader"
@@ -50,10 +49,9 @@ interface Subscription {
   }
 }
 
-// Extract the core billing content into a separate component
-function BillingContent() {
+export default function Billing() {
   const navigate = useNavigate()
-  const { isSubscribed, userEmail, user } = useAuth()
+  const { isSubscribed, userEmail, user, isLoading: contextLoading } = useSubscription()
   const [subscriptionDetails, setSubscriptionDetails] = useState<Subscription | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -68,6 +66,7 @@ function BillingContent() {
   const [isClientSide, setIsClientSide] = useState(false)
 
   console.log("Billing page render - state:", {
+    contextLoading,
     isSubscribed,
     userEmail,
     user: user?.email,
@@ -103,9 +102,16 @@ function BillingContent() {
 
   useEffect(() => {
     const initializeBilling = async () => {
-      console.log("AuthProvider loaded - subscription status:", isSubscribed, "userEmail:", userEmail)
+      // CRITICAL: Wait for SubscriptionContext to finish its verification process
+      if (contextLoading) {
+        console.log("SubscriptionContext still loading, waiting...")
+        return
+      }
 
-      // Now we can trust the isSubscribed and userEmail values from AuthProvider
+      console.log("SubscriptionContext loaded - subscription status:", isSubscribed, "userEmail:", userEmail)
+
+      // At this point, SubscriptionContext has finished verification
+      // Now we can trust the isSubscribed and userEmail values
 
       if (isSubscribed && userEmail) {
         try {
@@ -142,7 +148,7 @@ function BillingContent() {
       setError("Failed to initialize billing page")
       setIsLoading(false)
     }
-  }, [isSubscribed, userEmail, user])
+  }, [isSubscribed, userEmail, user, contextLoading])
 
   const fetchSubscriptionDetails = async (email: string) => {
     setIsLoading(true)
@@ -725,17 +731,17 @@ function BillingContent() {
           <p className="text-[#ffffff] mt-2">Manage your subscription and payment details</p>
         </div>
 
-        {isLoading || !isSubscribed ? (
+        {isLoading || contextLoading ? (
           <div className="flex justify-center items-center h-64">
             <Loader />
-            {isLoading && (
+            {contextLoading && (
               <div className="text-white text-sm mt-4">Loading subscription status...</div>
             )}
           </div>
         ) : (
           <>
             {/* Only render subscription content after client-side hydration AND context loading */}
-            {isClientSide && !isLoading && (
+            {isClientSide && !contextLoading && (
               <>
                 {subscriptionDetails?.status !== "active" || error ? (
                   renderExpiredSubscription()
@@ -1125,12 +1131,4 @@ function BillingContent() {
       <Footer />
     </div>
   )
-}
-
-export default function Billing() {
-  return (
-    <ProtectedPage requiresSubscription={true}>
-      <BillingContent />
-    </ProtectedPage>
-  );
 }

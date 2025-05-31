@@ -1,12 +1,17 @@
+import React from "react";
 import type { Route } from "./+types/home";
 import SearchForm from "../components/SearchForm";
 import SubscriptionModal from "../components/SubscriptionModal";
 import NewsCarousel from "../components/NewsCarousel";
-import { useSubscription } from "../context/SubscriptionContext";
+import { useSubscription } from "../context/AuthProvider";
 import { useEffect, useState } from 'react';
 import { useNavigate } from "react-router";
 import { Routes } from "../utils/routes";
-import Nav from "~/components/Nav";
+import Nav from "../components/Nav";
+import Footer from "../components/Footer";
+import "../styles/home.css";
+import "../styles/glowing-input.css";
+import "../styles/news-carousel-solid.css";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -26,8 +31,7 @@ export default function Home() {
     isSubscribed,
     user,
     userEmail,
-    isLoading: contextLoading,
-    verifySubscription
+    isLoading: contextLoading
   } = useSubscription();
 
   // Effect to handle client-side mounting

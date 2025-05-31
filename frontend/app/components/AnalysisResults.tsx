@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { useSubscription } from '../context/SubscriptionContext';
+import { useSubscription } from '../context/AuthProvider';
 import LightweightChart from './LightweightChart';
 
 interface NewsItem {

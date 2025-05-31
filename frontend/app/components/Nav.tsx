@@ -1,5 +1,5 @@
 import { Routes } from "../utils/routes";
-import { useSubscription } from "../context/SubscriptionContext";
+import { useSubscription } from "../context/AuthProvider";
 import SubscribeButton from "./SubscribeButton";
 
 export default function Nav() {

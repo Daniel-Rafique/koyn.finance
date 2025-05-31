@@ -1,12 +1,11 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router"
 import { Routes } from "../utils/routes"
-import { useSubscription } from "../context/SubscriptionContext"
+import SubscriptionModal from "./SubscriptionModal"
 import "../styles/glowing-input.css"
+import { useSubscription } from "../context/AuthProvider"
 
 interface SearchFormProps {
   onResultsChange?: (hasResults: boolean) => void

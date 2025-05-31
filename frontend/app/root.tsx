@@ -10,7 +10,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import { SubscriptionProvider } from "./context/SubscriptionContext";
+import { AuthProvider } from "./context/AuthProvider";
 // import Tracking from "./components/Tracking";
 import "~/app.css";
 import "./styles/glowing-input.css";
@@ -150,11 +150,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <SafeContextProvider>
-          <SubscriptionProvider>
+          <AuthProvider>
             <RouteChangeHandler />
             {/* <Tracking /> */}
             {children}
-          </SubscriptionProvider>
+          </AuthProvider>
         </SafeContextProvider>
         <ScrollRestoration />
         <Scripts />
