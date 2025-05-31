@@ -3515,8 +3515,8 @@ app.delete('/api/saved-result/:resultId', async (req, res) => {
   }
 });
 
-// Endpoint for sharing analysis results
-app.post('/api/share-result', rateLimitMiddleware, async (req, res) => {
+// Endpoint for sharing analysis results - No rate limiting for sharing
+app.post('/api/share-result', async (req, res) => {
   try {
     const { resultId, result } = req.body;
     
@@ -3527,9 +3527,9 @@ app.post('/api/share-result', rateLimitMiddleware, async (req, res) => {
       });
     }
 
-    // Authentication is already handled by rateLimitMiddleware
-    const subscriptionId = getSubscriptionId(req);
-    console.log(`Share result access granted for subscription ID: ${subscriptionId}`);
+    // Optional: Basic verification that user has access to this result
+    // But don't rate limit sharing - let users share freely
+    console.log(`Share result request for result ID: ${resultId}`);
     
     // Create shared results directory if it doesn't exist (in frontend public folder)
     const sharedResultsDir = path.join(__dirname, 'frontend', 'public', 'shared');
