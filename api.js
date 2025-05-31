@@ -1940,6 +1940,12 @@ IMPORTANT: When analyzing prices, understand that financial markets have evolved
 - Always treat the current price data provided as accurate and realistic market conditions
 - Do not label legitimate market prices as "hypothetical" or "unrealistic" unless there's clear evidence of data error
 
+CRITICAL PRICE DISTINCTION:
+- ETF Prices vs. Actual Asset Prices: Be aware that cryptocurrency ETFs (like Bitcoin ETFs) trade at much lower prices (~$46) compared to actual cryptocurrencies (~$104,000)
+- When analyzing Bitcoin or other crypto assets, always clarify whether you're analyzing the ETF or the actual cryptocurrency
+- If the price seems low for a cryptocurrency (~$46), it's likely an ETF; if high (~$104K), it's the actual cryptocurrency
+- Provide context about both when relevant to help users understand which asset they're analyzing
+
 FORMATTING REQUIREMENTS:
 - Use clear section headers (e.g., "## Key Support Levels:", "## Technical Indicators:")
 - Create proper paragraph breaks between different topics
