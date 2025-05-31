@@ -2,10 +2,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { HelioCheckout } from '@heliofi/checkout-react';
 import type { EmbedThemeMode } from '@heliofi/checkout-react';
-import { useSubscription } from '../context/AuthProvider';
+import { useSubscription } from '../context/SubscriptionContext';
 import { trackTwitterConversion } from './Tracking';
-import { useAuth } from '../context/AuthProvider';
-// CSS styles moved to root.tsx to prevent duplication
 
 interface SubscriptionModalProps {
   isOpen: boolean;
@@ -120,8 +118,8 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   
-  // Get the login function from context
-  const { userEmail, login } = useSubscription();
+  // Get the verifySubscription function from context
+  const { verifySubscription, userEmail, login } = useSubscription();
   
   // Reset the checkout loading state when plan changes
   useEffect(() => {
@@ -195,10 +193,12 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
   // Check current subscription status when modal is opened
   useEffect(() => {
     if (isOpen && userEmail) {
-      // The new AuthProvider automatically handles subscription verification
-      console.log('Modal opened for user:', userEmail);
+      // Check if current stored email subscription is still valid
+      verifySubscription(userEmail).catch(err => {
+        console.error('Error verifying current subscription:', err);
+      });
     }
-  }, [isOpen, userEmail]);
+  }, [isOpen, userEmail, verifySubscription]);
 
   // Get the active plan configuration
   const getActivePlanConfig = () => {
@@ -330,6 +330,752 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
     
     return config;
   };
+
+  // Custom styles for the modal and Helio widget
+  const customStyle = `
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+    
+    .modal-container {
+      position: relative;
+      background: rgb(7, 4, 23);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 420px;
+      overflow: hidden;
+      margin: 1rem;
+      z-index: 100000;
+      animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      max-height: 90vh; /* Limit height on mobile devices */
+      overflow-y: auto; /* Add scrolling for overflow content */
+    }
+    
+    /* Entrance animations */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideUp {
+      from { 
+        transform: translateY(30px);
+        opacity: 0;
+      }
+      to { 
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+    
+    /* Exit animations */
+    .modal-overlay.closing {
+      animation: fadeOut 0.3s ease-out forwards;
+    }
+    
+    .modal-container.closing {
+      animation: slideDown 0.3s ease-out forwards;
+    }
+    
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+    
+    @keyframes slideDown {
+      from { 
+        transform: translateY(0);
+        opacity: 1;
+      }
+      to { 
+        transform: translateY(20px);
+        opacity: 0;
+      }
+    }
+    
+    .modal-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      z-index: 100001;
+      background: none;
+      border: none;
+      padding: 0.5rem;
+      animation: fadeIn 0.3s ease-out 0.2s forwards;
+      opacity: 0;
+    }
+    
+    .modal-close:hover {
+      color: white;
+    }
+    
+    /* Tab styles */
+    .tab-container {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      padding: 1.25rem 1rem 0.75rem; /* Reduced padding */
+    }
+    
+    .tab-button-outer {
+      position: relative;
+      height: 40px; /* Reduced height */
+      width: 110px; /* Slightly narrower */
+    }
+    
+    .tab-button-glow {
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      border-radius: 10px;
+      filter: blur(8px);
+      opacity: 0.4;
+      z-index: 0;
+      overflow: hidden;
+    }
+    
+    .tab-button-glow::before {
+      content: "";
+      z-index: -2;
+      text-align: center;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(60deg);
+      position: absolute;
+      width: 999px;
+      height: 999px;
+      background-repeat: no-repeat;
+      background-position: 0 0;
+      background-image: conic-gradient(
+        #000,
+        #402fb5 5%,
+        #000 38%,
+        #000 50%,
+        #cf30aa 60%,
+        #000 87%
+      );
+      transition: all 2s;
+    }
+    
+    .tab-button-container.active .tab-button-glow {
+      opacity: 0.7;
+    }
+    
+    .tab-button-container:hover .tab-button-glow {
+      opacity: 0.6;
+    }
+    
+    .tab-button-border {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 10px;
+      z-index: 1;
+      overflow: hidden;
+    }
+    
+    .tab-button-border::before {
+      content: "";
+      text-align: center;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(90deg);
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background-repeat: no-repeat;
+      background-position: 0 0;
+      filter: brightness(1.35);
+      background-image: conic-gradient(
+        rgba(0, 0, 0, 0),
+        #fff,
+        rgba(0, 0, 0, 0) 50%,
+        rgba(0, 0, 0, 0) 50%,
+        #fff,
+        rgba(0, 0, 0, 0) 100%
+      );
+    }
+    
+    .tab-button-container.active .tab-button-border::before {
+      animation: rotate 4s linear infinite;
+    }
+    
+    .tab-button {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      isolation: isolate;
+      overflow: hidden;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #161329, black, #1d1b4b);
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-weight: 500;
+      color: white;
+      padding: 0.5rem 1rem;
+      gap: 0.5rem;
+    }
+    
+    .tab-button:hover {
+      background: linear-gradient(180deg, #1c1833, #0d0d0d, #242057);
+    }
+    
+    .tab-button:active {
+      transform: scale(0.97);
+    }
+    
+    .tab-button-container.active .tab-button {
+      background: linear-gradient(180deg, #1a1636, #0a0a1a, #28256b);
+    }
+    
+    .tab-icon {
+      opacity: 0.9;
+      transition: opacity 0.2s;
+    }
+    
+    .tab-button:hover .tab-icon {
+      opacity: 1;
+    }
+    
+    /* Result message styles */
+    .result-message {
+      margin: 1rem 0;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+    }
+    
+    .result-message.success {
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.5);
+      color: #10b981;
+    }
+    
+    .result-message.error {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      color: #ef4444;
+    }
+    
+    .helio-modal {
+      z-index: 100000 !important;
+    }
+    
+    /* Content container styles */
+    .content-container {
+      padding: 0 1.5rem 1.25rem; /* Reduced bottom padding */
+      animation: contentFade 0.3s ease-out 0.25s forwards;
+      opacity: 0;
+    }
+    
+    .login-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: white;
+      margin-bottom: 1rem;
+    }
+    
+    .login-description {
+      color: rgba(64, 47, 181, 0.3)
+      margin-bottom: 1.5rem;
+    }
+    
+    .login-note {
+      font-size: 0.75rem;
+      color: #FFFFFF;
+      margin-top: 1rem;
+    }
+    
+    /* Verification code styling */
+    .verification-info {
+      margin-top: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    
+    .code-timer {
+      font-weight: 500;
+      color: #6366f1;
+    }
+    
+    .resend-code-button,
+    .change-email-button {
+      background: none;
+      border: none;
+      color: #6366f1;
+      font-size: 0.8rem;
+      text-align: left;
+      padding: 0;
+      cursor: pointer;
+      transition: color 0.2s ease;
+    }
+    
+    .resend-code-button:hover,
+    .change-email-button:hover {
+      color: #818cf8;
+      text-decoration: underline;
+    }
+    
+    .resend-code-button:disabled {
+      color: rgba(255, 255, 255, 0.4);
+      cursor: not-allowed;
+      text-decoration: none;
+    }
+    
+    /* Animation for code input */
+    @keyframes highlightField {
+      0% {
+        border-color: rgba(99, 102, 241, 0.3);
+        box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.1);
+      }
+      50% {
+        border-color: rgba(99, 102, 241, 0.8);
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2);
+      }
+      100% {
+        border-color: rgba(99, 102, 241, 0.3);
+        box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.1);
+      }
+    }
+    
+    /* Checkout widget container styles */
+    .checkout-container {
+      padding: 0 1rem 0.75rem; /* Reduced padding */
+      margin: 0 auto;
+      animation: contentFade 0.3s ease-out 0.25s forwards;
+      opacity: 0;
+      position: relative;
+      min-height: 200px; /* Reduced min-height */
+    }
+    
+    /* Override Helio checkout widget styles for better visibility */
+    :global(.helio-widget) {
+      color: white !important;
+    }
+    
+    :global(.helio-widget-container) {
+      background: transparent !important;
+    }
+    
+    :global(.helio-dropdown-root),
+    :global(.helio-dropdown-control) {
+      background: rgba(15, 10, 40, 0.8) !important;
+      border-color: rgba(64, 47, 181, 0.6) !important;
+    }
+    
+    :global(.helio-dropdown-menu) {
+      background: rgba(15, 10, 40, 0.95) !important;
+      border-color: rgba(64, 47, 181, 0.6) !important;
+    }
+    
+    :global(.helio-dropdown-option) {
+      background: transparent !important;
+      color: white !important;
+    }
+    
+    :global(.helio-dropdown-option:hover) {
+      background-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    :global(.helio-widget button.helio-primary-button) {
+      background-color: #111827 !important;
+      color: white !important;
+      border: 1px solid rgba(64, 47, 181, 0.3) !important;
+    }
+    
+    :global(.helio-widget button.helio-primary-button:hover) {
+      background-color: #1a2132 !important;
+      box-shadow: 0 0 10px rgba(64, 47, 181, 0.3) !important;
+    }
+    
+    :global(.helio-widget button.helio-secondary-button) {
+      color: white !important;
+      border-color: rgba(64, 47, 181, 0.3) !important;
+    }
+    
+    :global(.helio-widget svg) {
+      color: white !important;
+    }
+    
+    :global(.helio-widget p),
+    :global(.helio-widget span),
+    :global(.helio-widget h1),
+    :global(.helio-widget h2),
+    :global(.helio-widget h3),
+    :global(.helio-widget h4) {
+      color: white !important;
+    }
+    
+    /* Fix Discord and Telegram icons */
+    :global(.helio-feature-item) {
+      background-color: #111827 !important;
+    }
+    
+    :global(.helio-feature-item svg path) {
+      fill: white !important;
+    }
+    
+    :global(.helio-feature-item svg) {
+      color: white !important;
+      fill: white !important;
+    }
+    
+    /* Fix Pay with card button */
+    :global(.helio-section-button) {
+      color: white !important;
+      background-color: #111827 !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }
+    
+    :global(.helio-section-button:hover) {
+      background-color: #1a2132 !important;
+    }
+    
+    :global(.helio-section-button svg) {
+      color: white !important;
+    }
+    
+    /* Fix QR button */
+    :global(.helio-button-qr) {
+      color: white !important;
+      background-color: #111827 !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }
+    
+    :global(.helio-button-qr:hover) {
+      background-color: #1a2132 !important;
+    }
+    
+    :global(.helio-button-qr svg) {
+      color: white !important;
+    }
+    
+    /* Fix currency dropdown and other elements */
+    :global(.helio-widget select),
+    :global(.helio-dropdown-root),
+    :global(.helio-dropdown-control) {
+      background-color: #1e293b !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+      color: white !important;
+    }
+    
+    :global(.helio-dropdown-placeholder),
+    :global(.helio-dropdown-single-value) {
+      color: white !important;
+    }
+    
+    :global(.helio-dropdown-indicator) {
+      color: white !important;
+    }
+    
+    :global(.helio-dropdown-menu) {
+      background-color: #1e293b !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+      color: white !important;
+      z-index: 100002 !important;
+    }
+    
+    :global(.helio-dropdown-option) {
+      background-color: transparent !important;
+      color: white !important;
+    }
+    
+    :global(.helio-dropdown-option:hover) {
+      background-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    :global(.helio-widget .helio-connect-btn),
+    :global(.helio-widget button.helio-primary-button) {
+      background-color: #111827 !important;
+      color: white !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }
+    
+    :global(.helio-widget .helio-connect-btn:hover),
+    :global(.helio-widget button.helio-primary-button:hover) {
+      background-color: #1e293b !important;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.2) !important;
+    }
+    
+    /* Make labels and values more visible */
+    :global(.helio-widget p),
+    :global(.helio-widget span),
+    :global(.helio-widget label),
+    :global(.helio-widget h1),
+    :global(.helio-widget h2),
+    :global(.helio-widget h3),
+    :global(.helio-widget h4) {
+      color: white !important;
+    }
+    
+    /* Fix the semi-transparent backgrounds and cards */
+    :global(.helio-feature-card),
+    :global(.helio-widget .helio-card),
+    :global(.helio-widget .helio-bg-gray),
+    :global(.helio-widget .helio-bg-grey) {
+      background-color: #1e293b !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    }
+    
+    /* Improve dropdown indicators */
+    :global(.helio-dropdown-arrow-zone),
+    :global(.helio-dropdown-clear-zone) {
+      color: white !important;
+    }
+    
+    :global(.helio-dropdown-menu-list) {
+      padding: 8px !important;
+    }
+    
+    :global(.helio-dropdown-input) {
+      color: white !important;
+    }
+    
+    /* Fix active selected option */
+    :global(.helio-dropdown-option.helio-dropdown-option--is-selected) {
+      background-color: rgba(99, 102, 241, 0.3) !important;
+    }
+    
+    /* Fix the currency amount display */
+    :global(.helio-widget .helio-amount) {
+      color: white !important;
+      font-weight: bold !important;
+    }
+    
+    /* Ensure all interactive elements have good contrast */
+    :global(.helio-widget input),
+    :global(.helio-widget textarea) {
+      background-color: #1e293b !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
+      color: white !important;
+    }
+    
+    :global(.helio-widget input:focus),
+    :global(.helio-widget textarea:focus) {
+      border-color: #6366f1 !important;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3) !important;
+    }
+    
+    /* Fix toggle buttons and switches */
+    :global(.helio-widget .helio-toggle-active) {
+      background-color: #6366f1 !important;
+    }
+    
+    /* Fix dividers and separators */
+    :global(.helio-widget .helio-divider),
+    :global(.helio-widget hr) {
+      border-color: rgba(255, 255, 255, 0.2) !important;
+    }
+    
+    /* Content fade animation for tab switching */
+    @keyframes contentFade {
+      0% {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .content-container, .checkout-container {
+      animation: contentFade 0.3s ease-out forwards;
+    }
+    
+    /* Tab animations */
+    .tab-container {
+      animation: contentFade 0.3s ease-out 0.15s forwards;
+      opacity: 0;
+    }
+    
+    .modal-close {
+      animation: fadeIn 0.3s ease-out 0.2s forwards;
+      opacity: 0;
+    }
+    
+    /* Animated tab transitions */
+    .tab-button-container {
+      transition: all 0.3s ease;
+    }
+    
+    .tab-button {
+      transition: background 0.3s ease, transform 0.15s ease;
+    }
+    
+    .tab-button:active {
+      transform: scale(0.97);
+    }
+    
+    /* Glowing effect animation */
+    @keyframes pulse {
+      0% {
+        opacity: 0.4;
+      }
+      50% {
+        opacity: 0.7;
+      }
+      100% {
+        opacity: 0.4;
+      }
+    }
+    
+    .tab-button-container.active .tab-button-glow {
+      animation: pulse 3s infinite ease-in-out;
+    }
+    
+    /* Animated border for active tab */
+    @keyframes rotate {
+      100% {
+        transform: translate(-50%, -50%) rotate(450deg);
+      }
+    }
+    
+    /* Highlight for subscribe tab */
+    .tab-button-container.highlight .tab-button-glow {
+      animation: pulseHighlight 1.5s infinite ease-in-out;
+      opacity: 0.9;
+    }
+    
+    @keyframes pulseHighlight {
+      0% {
+        opacity: 0.6;
+        filter: blur(8px);
+      }
+      50% {
+        opacity: 1;
+        filter: blur(12px);
+      }
+      100% {
+        opacity: 0.6;
+        filter: blur(8px);
+      }
+    }
+    
+    /* Plan selection styles */
+    .plan-selector {
+      margin: 0.5rem 1rem 1rem; /* Reduced bottom margin */
+      display: flex;
+      background: rgba(15, 10, 40, 0.6);
+      border-radius: 10px;
+      padding: 0.25rem;
+      position: relative;
+      z-index: 1;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .plan-option {
+      flex: 1;
+      padding: 0.5rem 0.25rem;
+      text-align: center;
+      cursor: pointer;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.7);
+      transition: all 0.2s ease;
+      position: relative;
+      z-index: 2;
+    }
+    
+    .plan-option:hover {
+      color: white;
+    }
+    
+    .plan-option.active {
+      background: #111827;
+      color: white;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    }
+    
+    .plan-option .plan-name {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 0.15rem;
+    }
+    
+    .plan-option .plan-description {
+      font-size: 0.7rem;
+      opacity: 0.8;
+    }
+    
+    /* Animation for plan switching */
+    .checkout-container.switch-plan {
+      animation: fadeScale 0.3s ease-out forwards;
+    }
+    
+    @keyframes fadeScale {
+      0% {
+        opacity: 0.5;
+        transform: scale(0.98);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+    
+    /* Responsive styles for mobile */
+    @media (max-width: 480px) {
+      .glowing-input {
+        height: 50px;
+        font-size: 16px;
+      }
+      
+      .search-button {
+        top: 5px !important;
+      }
+      
+      .button-border {
+        top: 4px;
+      }
+      
+      .tab-button-outer {
+        height: 38px;
+      }
+      
+      .tab-button {
+        font-size: 0.9rem;
+      }
+      
+      .plan-option {
+        padding: 0.4rem 0.2rem;
+      }
+      
+      .result-message {
+        font-size: 0.8rem;
+        padding: 0.6rem;
+      }
+      
+      .verification-info {
+        margin-top: 0.75rem;
+        gap: 0.5rem;
+      }
+    }
+  `;
 
   // Function to send verification code to email
   const sendVerificationCode = async () => {
@@ -562,6 +1308,7 @@ export default function SubscriptionModal({ isOpen, onClose, onSuccess }: Subscr
 
   return (
     <>
+      <style>{customStyle}</style>
       <div className={`modal-overlay ${isClosing ? 'closing' : ''}`}>
         <div className={`modal-container ${isClosing ? 'closing' : ''}`}>
           {/* Close button */}

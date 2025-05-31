@@ -2,7 +2,11 @@ import { Routes } from "../utils/routes";
 import { useSubscription } from "../context/AuthProvider";
 import SubscribeButton from "./SubscribeButton";
 
-export default function Nav() {
+interface NavProps {
+  onSubscribeClick?: () => void;
+}
+
+export default function Nav({ onSubscribeClick }: NavProps) {
   return (
     <nav className="border-b border-[#f0f0f0]">
       <div className="inner-nav max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
@@ -23,7 +27,7 @@ export default function Nav() {
         <div className="nav-right flex items-center gap-2">
           {/* Subscribe button */}
           <div className="nav-item">
-            <SubscribeButton />
+            <SubscribeButton onSubscribeClick={onSubscribeClick} />
           </div>
 
           {/* Social Media buttons with the same styling as SubscribeButton */}

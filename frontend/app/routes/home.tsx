@@ -4,11 +4,9 @@ import SearchForm from "../components/SearchForm";
 import SubscriptionModal from "../components/SubscriptionModal";
 import NewsCarousel from "../components/NewsCarousel";
 import { useAuth } from "../context/AuthProvider";
-import { useSubscription } from '../context/SubscriptionContext';
 import { useNavigate } from "react-router";
 import { Routes } from "../utils/routes";
 import Nav from "../components/Nav";
-import Footer from "../components/Footer";
 import "../styles/home.css";
 import "../styles/news-carousel-solid.css";
 import { performTestLogin, clearTestAuth, isDevelopment } from "../utils/testAuth";
@@ -250,7 +248,7 @@ export default function Home() {
   
   return (
     <div className="min-h-screen bg-[rgb(0,0,0)] overflow-x-hidden">
-      <Nav />
+      <Nav onSubscribeClick={() => openSubscriptionModal()} />
       {/* Particles canvas for background effect */}
       <canvas id="particles-canvas" className="fixed top-0 left-0 w-full h-full z-0 pointer-events-none"></canvas>
       
@@ -335,13 +333,11 @@ export default function Home() {
       </main>
       
       {/* Subscription Modal */}
-      {(isSubscribed === false) && (
-        <SubscriptionModal 
-          isOpen={isSubscriptionModalOpen} 
-          onClose={closeSubscriptionModal} 
-          onSuccess={handleSubscriptionSuccess}
-        />
-      )}
+      <SubscriptionModal 
+        isOpen={isSubscriptionModalOpen && !isSubscribed} 
+        onClose={closeSubscriptionModal} 
+        onSuccess={handleSubscriptionSuccess}
+      />
       
       {/* News Ticker at the bottom */}
       <div className="fixed bottom-0 left-0 w-full z-10">
