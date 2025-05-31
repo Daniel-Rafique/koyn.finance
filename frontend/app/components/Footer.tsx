@@ -7,11 +7,6 @@ export default function Footer() {
       <div className="text-center text-[#a099d8] text-sm">
         &copy; {new Date().getFullYear()} koyn.finance - All rights reserved
       </div>
-      <div className="text-center mt-2">
-        <a href="mailto:hi@koyn.finance" className="text-[#a099d8] hover:text-white text-sm transition-colors">
-          Contact Us
-        </a>
-      </div>
     </div>
     <div className="flex flex-wrap space-x-4 md:space-x-6">
       <a href="#" className="text-[#a099d8] hover:text-white text-sm transition-colors">

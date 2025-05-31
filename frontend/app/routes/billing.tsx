@@ -8,7 +8,6 @@ import { useAuth } from "../context/AuthProvider"
 import ProtectedPage from "../components/ProtectedPage"
 import Nav from "../components/Nav"
 import Footer from "../components/Footer"
-import Loader from "../components/Loader"
 import "../styles/news-carousel-solid.css"
 import "../styles/glowing-input.css"
 import { HelioCheckout } from "@heliofi/checkout-react"
@@ -717,7 +716,6 @@ function BillingContent() {
 
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
-            <Loader />
             <div className="text-white text-sm mt-4">Loading subscription status...</div>
           </div>
         ) : (
