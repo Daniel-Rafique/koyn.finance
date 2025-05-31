@@ -2001,7 +2001,7 @@ Use sophisticated language that demonstrates expertise in technical analysis. St
                     });
 
                     // Debug: Log the actual response structure to understand Gemini 2.5 format
-                    console.log('Gemini API response structure:', JSON.stringify(response.data, null, 2));
+                    // console.log('Gemini API response structure:', JSON.stringify(response.data, null, 2));
 
                     // Extract content from Gemini response with enhanced error handling
                     let responseText = 'Analysis not available';
