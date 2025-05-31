@@ -70,15 +70,13 @@ class AuthStore {
 
   private initializeFromStorage() {
     try {
-      // SECURITY: Don't read access token from localStorage
-      // const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY); // REMOVED
-      const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-      const expiryTime = localStorage.getItem(TOKEN_EXPIRY_KEY);
+      // SECURITY: Don't read refresh token from localStorage anymore
+      // Refresh tokens are now stored as httpOnly cookies
       const userData = localStorage.getItem(USER_DATA_KEY);
 
-      // Only restore state if we have refresh token and user data
+      // Only restore state if we have user data
       // Access token will be refreshed on first API call
-      if (refreshToken && userData) {
+      if (userData) {
         const user = JSON.parse(userData);
         
         this.state = {
@@ -86,7 +84,7 @@ class AuthStore {
           user,
           tokens: {
             accessToken: '', // Will be refreshed
-            refreshToken,
+            refreshToken: '', // Not stored in localStorage anymore
             expiresIn: 0, // Will be set after refresh
             tokenType: 'Bearer'
           }
@@ -125,13 +123,15 @@ class AuthStore {
 
   private updateStorage() {
     if (typeof window !== 'undefined' && this.state.tokens && this.state.user) {
-      // SECURITY: Only store refresh token and user data in localStorage
-      // Access token stays in memory only
-      localStorage.setItem(REFRESH_TOKEN_KEY, this.state.tokens.refreshToken);
+      // SECURITY: Only store user data in localStorage
+      // Access token stays in memory only, refresh token in httpOnly cookies
       localStorage.setItem(USER_DATA_KEY, JSON.stringify(this.state.user));
       
       const expiryTime = Date.now() + (this.state.tokens.expiresIn * 1000);
       localStorage.setItem(TOKEN_EXPIRY_KEY, expiryTime.toString());
+      
+      // Remove any existing refresh token from localStorage for cleanup
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
     }
   }
 
@@ -152,7 +152,12 @@ class AuthStore {
     this.state = {
       isAuthenticated: true,
       user: authData.user,
-      tokens: authData.auth,
+      tokens: {
+        accessToken: authData.auth.accessToken,
+        refreshToken: '', // Refresh token is in httpOnly cookie, not in response
+        expiresIn: authData.auth.expiresIn,
+        tokenType: authData.auth.tokenType
+      },
     };
     
     // Store access token in memory only
@@ -210,7 +215,9 @@ class AuthStore {
   };
 
   getRefreshToken = (): string | null => {
-    return this.state.tokens?.refreshToken || null;
+    // SECURITY: Refresh tokens are now in httpOnly cookies and not accessible to JavaScript
+    // This method is kept for backward compatibility but always returns null
+    return null;
   };
 
   isTokenExpired = (): boolean => {

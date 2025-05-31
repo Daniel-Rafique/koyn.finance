@@ -2163,13 +2163,10 @@ function isSubscribed(email, subscriptionId) {
   }
 }
 
-// Update the API endpoint to handle null asset
-app.post("/api/sentiment", async (req, res) => {
+// Update the API endpoint to handle null asset with JWT authentication
+app.post("/api/sentiment", rateLimitMiddleware, async (req, res) => {
   console.log("Received sentiment request:", req.body);
   const userQuery = req.body.question || "Is now a good time to buy crypto?";
-  const userEmail = req.body.email;
-  const userID = req.body.id;
-  const userStatus = req.body.status;
   const demoToken = req.body.demo_token;
   const explicitAsset = req.body.asset || null; // Allow client to specify asset explicitly
   
@@ -2177,93 +2174,19 @@ app.post("/api/sentiment", async (req, res) => {
   const DEMO_TOKEN = process.env.DEMO_TOKEN || "koyn_demo_2024";
   const isDemoAccess = demoToken && demoToken === DEMO_TOKEN;
   
-  // Skip auth checks for demo access
+  // For demo access, skip all authentication (rateLimitMiddleware already handled JWT auth)
+  let isPaidUser = isDemoAccess;
+  
   if (isDemoAccess) {
     console.log("Demo access granted with valid demo token");
   } else {
-    // Require valid subscription ID in the request payload
-    if (!userID) {
-      console.log("Rejecting request: Missing subscription ID");
-      return res.status(401).json({
-        error: "Unauthorized",
-        message: "Valid subscription ID is required",
-        subscription_required: true,
-        action: "Please subscribe or sign in to access this feature"
-      });
-    }
-    
-    // Validate ID format (basic MongoDB ObjectId validation: 24 hex characters)
-    const validIdFormat = /^[0-9a-fA-F]{24}$/;
-    if (!validIdFormat.test(userID)) {
-      console.log(`Rejecting request: Invalid ID format: ${userID}`);
-      return res.status(401).json({
-        error: "Unauthorized",
-        message: "Invalid subscription ID format",
-        subscription_required: true,
-        action: "Please sign in again to refresh your session"
-      });
-    }
-    
-    // Require email to be provided along with ID
-    if (!userEmail) {
-      console.log("Rejecting request: Missing email");
-      return res.status(401).json({
-        error: "Unauthorized",
-        message: "Email is required with subscription ID",
-        subscription_required: true,
-        action: "Please sign in again to refresh your session"
-      });
-    }
+    // JWT authentication was already handled by rateLimitMiddleware
+    // If we reach here, the user is authenticated and has a valid subscription
+    isPaidUser = true;
+    console.log("JWT authentication successful via rate limit middleware");
   }
-  
+
   try {
-    // Server-side validation of subscription status
-    let isPaidUser = false;
-    let needsRenewal = false;
-    
-    // Skip subscription check for demo access
-    if (isDemoAccess) {
-      isPaidUser = true;
-      console.log("Setting isPaidUser=true for demo access");
-    } 
-    // Check if user has an active subscription in our database
-    else if (userEmail && userID) {
-      // First check if status is explicitly 'ended'
-      if (userStatus === 'ended') {
-        needsRenewal = true;
-        console.log(`Subscription for ${userEmail} has ended and needs renewal`);
-      } else {
-        // Verify with our database regardless of client-side status
-        isPaidUser = isSubscribed(userEmail, userID);
-        
-        if (!isPaidUser) {
-          console.log(`Invalid or inactive subscription for ${userEmail} (ID: ${userID || 'none'})`);
-          return res.status(401).json({
-            error: "Unauthorized",
-            message: "Invalid or inactive subscription",
-            subscription_required: true,
-            subscription_expired: userStatus === 'ended' || userStatus === 'expired',
-            action: userStatus === 'ended' || userStatus === 'expired' ? 
-              "Your subscription has expired. Please renew to continue." : 
-              "Please subscribe to access this feature"
-          });
-        }
-        
-        console.log(`Subscription check for ${userEmail} (ID: ${userID || 'none'}): ${isPaidUser ? 'active' : 'inactive'}`);
-      }
-    }
-    
-    // If subscription has ended, return a special response
-    if (needsRenewal) {
-      return res.json({
-        question: userQuery,
-        subscription_expired: true,
-        message: "Your subscription has expired. Please renew to continue using this feature.",
-        action: "renew_subscription",
-        renewal_url: "/app/billing"
-      });
-    }
-    
     // Clean the query by removing punctuation and special characters
     const cleanedQuery = userQuery.replace(/[^\w\s]/g, '').toLowerCase();
     console.log(`Cleaned query for asset detection: "${cleanedQuery}"`);
