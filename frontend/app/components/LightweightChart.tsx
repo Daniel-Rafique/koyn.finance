@@ -235,15 +235,19 @@ function LightweightChart({
       const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.finance:3001"
       
       // Get JWT token for authentication using secure method
+      console.log('🔄 Attempting to get secure access token...')
       const accessToken = await getSecureAccessToken()
+      console.log('🎫 getSecureAccessToken result:', accessToken ? `${accessToken.substring(0, 20)}...` : 'null')
+      
       const headers: any = {}
       
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`
-        console.log('Using secure JWT token authentication')
+        console.log('✅ Set Authorization header with JWT token')
       } else {
         // Fallback to legacy subscription ID for backward compatibility
         const subscriptionId = getSubscriptionId()
+        console.log('⚠️ No JWT token, checking legacy subscription ID:', subscriptionId)
         if (subscriptionId) {
           console.warn('⚠️  Using legacy subscription ID authentication')
         } else {
@@ -255,6 +259,7 @@ function LightweightChart({
       const apiInterval = getApiSafeInterval(tf)
 
       console.log(`Fetching chart data for ${symbol} with timeframe ${tf} (API interval: ${apiInterval})`)
+      console.log('🌐 Request headers:', headers)
 
       if (tf === "1D") {
         // Use EOD endpoint for daily data
@@ -269,6 +274,7 @@ function LightweightChart({
           }
         }
         
+        console.log('📡 Making request to:', url.toString())
         response = await fetch(url.toString(), { headers })
       } else {
         // Use regular chart endpoint for intraday data
@@ -284,6 +290,7 @@ function LightweightChart({
           }
         }
         
+        console.log('📡 Making request to:', url.toString())
         response = await fetch(url.toString(), { headers })
       }
 
