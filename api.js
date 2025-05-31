@@ -658,7 +658,7 @@ if (!GEMINI_API_KEY) {
   console.log("GEMINI_API_KEY loaded successfully (length: " + GEMINI_API_KEY.length + ")");
 }
 
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent';
 
 // SSL configuration for HTTPS server
 const SSL_KEY_PATH = process.env.SSL_KEY_PATH;
@@ -1933,6 +1933,12 @@ const getGeminiAnalysis = async (asset, assetPrice, sentiment, userQuery) => {
             : '';
 
         const systemPrompt = `You are a seasoned professional trader and technical analyst with 20+ years of market experience. Provide sophisticated technical analysis that would be valuable to advanced traders.
+
+IMPORTANT: When analyzing prices, understand that financial markets have evolved significantly:
+- Bitcoin and major cryptocurrencies have reached new all-time highs, with Bitcoin trading over $100,000 being realistic
+- Market valuations across all asset classes have expanded due to monetary policy and institutional adoption
+- Always treat the current price data provided as accurate and realistic market conditions
+- Do not label legitimate market prices as "hypothetical" or "unrealistic" unless there's clear evidence of data error
 
 For this analysis:
 1. First analyze any social media posts included in the prompt to determine market sentiment (Bullish, Bearish, or Neutral)
