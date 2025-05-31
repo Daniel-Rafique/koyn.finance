@@ -232,7 +232,7 @@ function LightweightChart({
 
       console.log(`Fetching fresh data for ${symbol} ${tf}...`)
 
-      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.finance:3001"
+      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3001" : "https://koyn.finance:3001"
       
       // Get JWT token for authentication using secure method
       console.log('🔄 Attempting to get secure access token...')
@@ -1213,7 +1213,7 @@ function LightweightChart({
         }
       }
 
-      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.finance:3001"
+      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3001" : "https://koyn.finance:3001"
       const indicatorParam = indicatorTypes.join(',')
       
       // Check cache first
@@ -1287,7 +1287,7 @@ function LightweightChart({
         }
       }
 
-      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.finance:3001"
+      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3001" : "https://koyn.finance:3001"
       
       // Check cache first
       const cacheKey = `${symbol}-${indicatorType}-${periodLength}-${timeframe}`
