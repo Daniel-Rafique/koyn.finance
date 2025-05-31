@@ -1978,7 +1978,7 @@ Use sophisticated language that demonstrates expertise in technical analysis. St
                 temperature: 0.7,
                 topK: 40,
                 topP: 0.8,
-                maxOutputTokens: 4096
+                maxOutputTokens: 1024
             }
         };
 
