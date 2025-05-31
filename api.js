@@ -4906,6 +4906,32 @@ app.get('/api/technical-indicator', async (req, res) => {
         message: 'Both indicator and symbol parameters are required'
       });
     }
+
+    // Validate subscription for FMP API access
+    if (!subscriptionId) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+        message: "Valid authentication is required for technical indicator access. Please provide a valid JWT token or subscription ID.",
+        subscription_required: true,
+        action: "Please subscribe or sign in to access technical indicators"
+      });
+    }
+
+    // Check subscription status in database
+    const hasValidSubscription = isSubscriptionActive(subscriptionId);
+    if (!hasValidSubscription) {
+      console.log(`Technical indicator access denied for subscription ID: ${subscriptionId} - invalid or inactive subscription`);
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+        message: "Invalid or inactive subscription",
+        subscription_required: true,
+        action: "Please renew your subscription to access technical indicators"
+      });
+    }
+
+    console.log(`Technical indicator access granted for subscription ID: ${subscriptionId}`);
     
     // Validate indicator type
     const validIndicators = [
