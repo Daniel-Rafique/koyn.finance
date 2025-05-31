@@ -474,4 +474,27 @@
 .glowing-input-container:hover .subscribe-button + .button-border::before,
 .glowing-input-container:focus-within .subscribe-button + .button-border::before {
   animation: rotate 3s linear infinite;
+}
+
+/* Disabled state - prevent animations */
+.glowing-input-container.disabled .glow::before,
+.glowing-input-container.disabled .white::before,
+.glowing-input-container.disabled .border::before,
+.glowing-input-container.disabled .darkBorderBg::before {
+  animation: none !important;
+  transform: none !important;
+}
+
+.glowing-input-container.disabled:hover .glow::before,
+.glowing-input-container.disabled:hover .white::before,
+.glowing-input-container.disabled:hover .border::before,
+.glowing-input-container.disabled:hover .darkBorderBg::before {
+  transform: none !important;
+}
+
+.glowing-input-container.disabled:focus-within .glow::before,
+.glowing-input-container.disabled:focus-within .white::before,
+.glowing-input-container.disabled:focus-within .border::before,
+.glowing-input-container.disabled:focus-within .darkBorderBg::before {
+  transform: none !important;
 } 
