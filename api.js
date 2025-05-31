@@ -1267,12 +1267,57 @@ const detectAsset = async (query) => {
             const cryptoData = fs.readFileSync('data/crypto.json', 'utf8');
             const cryptoList = JSON.parse(cryptoData);
             
-            // Look for exact symbol matches in crypto.json (case-insensitive)
-            const cryptoMatch = cryptoList.find(crypto => {
+            // Enhanced crypto matching with common abbreviation support
+            let cryptoMatch = null;
+            const queryLower = query.toLowerCase();
+            
+            // First try exact matches
+            cryptoMatch = cryptoList.find(crypto => {
                 const cleanSymbol = crypto.symbol.replace('USD', '').toLowerCase();
-                const queryLower = query.toLowerCase();
                 return cleanSymbol === queryLower || crypto.symbol.toLowerCase() === queryLower;
             });
+            
+            // If no exact match, try common cryptocurrency abbreviations
+            if (!cryptoMatch) {
+                const cryptoAbbreviations = {
+                    'btc': 'BTCUSD',
+                    'bitcoin': 'BTCUSD',
+                    'eth': 'ETHUSD', 
+                    'ethereum': 'ETHUSD',
+                    'ada': 'ADAUSD',
+                    'cardano': 'ADAUSD',
+                    'dot': 'DOTUSD',
+                    'polkadot': 'DOTUSD',
+                    'bnb': 'BNBUSD',
+                    'binance coin': 'BNBUSD',
+                    'sol': 'SOLUSD',
+                    'solana': 'SOLUSD',
+                    'matic': 'MATICUSD',
+                    'polygon': 'MATICUSD',
+                    'avax': 'AVAXUSD',
+                    'avalanche': 'AVAXUSD',
+                    'link': 'LINKUSD',
+                    'chainlink': 'LINKUSD',
+                    'uni': 'UNIUSD',
+                    'uniswap': 'UNIUSD',
+                    'ltc': 'LTCUSD',
+                    'litecoin': 'LTCUSD',
+                    'bch': 'BCHUSD',
+                    'bitcoin cash': 'BCHUSD',
+                    'xrp': 'XRPUSD',
+                    'ripple': 'XRPUSD',
+                    'doge': 'DOGEUSD',
+                    'dogecoin': 'DOGEUSD'
+                };
+                
+                const targetSymbol = cryptoAbbreviations[queryLower];
+                if (targetSymbol) {
+                    console.log(`Converting crypto abbreviation "${query}" to "${targetSymbol}"`);
+                    cryptoMatch = cryptoList.find(crypto => 
+                        crypto.symbol.toLowerCase() === targetSymbol.toLowerCase()
+                    );
+                }
+            }
             
             if (cryptoMatch) {
                 console.log(`Found crypto asset in crypto.json: ${cryptoMatch.symbol} (${cryptoMatch.name})`);
