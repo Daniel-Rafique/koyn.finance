@@ -101,7 +101,7 @@ function findEntryIndexByQuery(arr: ResultEntry[], query: string): number {
 function AnalysisContent() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { isSubscribed, userEmail, user } = useAuth()
+  const { isSubscribed, userEmail, user, getSecureAccessToken } = useAuth()
 
   const [isLoading, setIsLoading] = useState(true)
   const [searchFormLoading, setSearchFormLoading] = useState(false)
@@ -225,30 +225,43 @@ function AnalysisContent() {
       }
 
       try {
-        // Use current auth data
-        let email = providedUserEmail || userEmail
-        let status = isSubscribed ? "active" : "inactive"
-        let subId = providedSubscriptionId || user?.email
+        // SECURITY: Get access token securely with automatic refresh
+        const accessToken = await getSecureAccessToken();
+        
+        if (!accessToken) {
+          console.log('❌ No valid access token available');
+          setError("Authentication failed. Please sign in again.");
+          setIsLoading(false);
+          if (setSearchLoadingCallback) {
+            setSearchLoadingCallback(false);
+            setSearchFormLoading(false);
+          }
+          return;
+        }
+        
+        // Prepare headers with JWT authentication
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`
+        }
+
+        // Prepare request body - only need the question now since auth is via JWT
+        const requestBody = {
+          question: questionQuery,
+        }
 
         // Log the request details for debugging
-        console.log("Sending API request with payload:", {
+        console.log("Sending API request with secure JWT authentication:", {
           question: questionQuery,
-          email,
-          status,
-          id: subId,
+          hasToken: true,
+          tokenSource: 'memory-secure',
+          userEmail: user?.email || userEmail
         })
 
         const response = await fetch("https://koyn.finance:3001/api/sentiment", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            question: questionQuery,
-            email,
-            status,
-            id: subId, // Ensure we use 'id' as the key for subscription ID
-          }),
+          headers,
+          body: JSON.stringify(requestBody),
         })
 
         if (!response.ok) {
@@ -375,7 +388,7 @@ function AnalysisContent() {
         }
       }
     },
-    [resultsArray, userEmail, isSubscribed, user],
+    [resultsArray, userEmail, isSubscribed, user, getSecureAccessToken],
   )
 
   // Handle search from the SearchForm component

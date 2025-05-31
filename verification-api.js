@@ -7,6 +7,7 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const https = require('https');
+const cookieParser = require('cookie-parser');
 
 // Create Express app
 const app = express();
@@ -78,6 +79,7 @@ app.use(cors({
   ]
 }));
 app.use(bodyParser.json({ limit: '10mb' }));
+app.use(cookieParser());
 
 // Add OPTIONS handling for preflight requests
 app.options('*', cors());
@@ -669,21 +671,30 @@ app.post('/api/verification/verify', async (req, res) => {
     // Log successful authentication
     console.log(`🔐 Secure session created for ${email}`);
 
-    // Return secure tokens instead of subscription data
+    // SECURITY: Set refresh token as httpOnly cookie
+    res.cookie('refreshToken', sessionData.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: '/api/auth' // Limit cookie scope
+    });
+
+    // Return only access token in response body (for memory storage)
     return res.json({
       success: true,
       message: 'Verification successful',
       verifiedAt: new Date().toISOString(),
       auth: {
         accessToken: sessionData.accessToken,
-        refreshToken: sessionData.refreshToken,
         expiresIn: sessionData.expiresIn,
         tokenType: sessionData.tokenType
       },
       user: {
         email: email.toLowerCase(),
         plan: subscription.plan,
-        isActive: true
+        isActive: true,
+        subscriptionId: subscription.id // Include subscription ID
       }
     });
   } catch (error) {
@@ -697,7 +708,16 @@ app.post('/api/verification/verify', async (req, res) => {
 
 // Token refresh endpoint
 app.post('/api/auth/refresh', (req, res) => {
-  const { refreshToken } = req.body;
+  // SECURITY: Try to get refresh token from httpOnly cookie first
+  let refreshToken = req.cookies?.refreshToken;
+  
+  // Fallback to request body for backward compatibility
+  if (!refreshToken) {
+    refreshToken = req.body.refreshToken;
+    console.log('⚠️ Using refresh token from request body (legacy method)');
+  } else {
+    console.log('🔐 Using refresh token from secure httpOnly cookie');
+  }
 
   if (!refreshToken) {
     return res.status(401).json({
@@ -804,12 +824,21 @@ app.get('/api/auth/subscription', authenticateToken, (req, res) => {
 
 // Logout endpoint (invalidates refresh token)
 app.post('/api/auth/logout', (req, res) => {
-  const { refreshToken } = req.body;
+  // Get refresh token from cookie or request body
+  const refreshToken = req.cookies?.refreshToken || req.body.refreshToken;
 
   if (refreshToken && refreshTokenStore.has(refreshToken)) {
     refreshTokenStore.delete(refreshToken);
     console.log(`🚪 User logged out and refresh token invalidated`);
   }
+
+  // SECURITY: Clear httpOnly cookie
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/api/auth'
+  });
 
   res.json({
     success: true,

@@ -70,9 +70,41 @@ function getSubscriptionId(req) {
     const token = authHeader.split(' ')[1];
     const decoded = verifyAccessToken(token);
     
-    if (decoded && decoded.subscriptionId) {
-      console.log(`Using secure JWT authentication for subscription: ${decoded.subscriptionId}`);
-      return decoded.subscriptionId;
+    if (decoded) {
+      // Check if token already has subscriptionId (new format)
+      if (decoded.subscriptionId) {
+        console.log(`Using JWT subscriptionId: ${decoded.subscriptionId}`);
+        return decoded.subscriptionId;
+      }
+      
+      // Handle legacy token format - look up subscription ID by email
+      const email = decoded.email; // Use only the correct email field
+      if (email) {
+        console.log(`JWT token missing subscriptionId, looking up by email: ${email}`);
+        
+        try {
+          const subscriptionsFilePath = path.join(__dirname, 'data', 'subscriptions.json');
+          if (fs.existsSync(subscriptionsFilePath)) {
+            const data = fs.readFileSync(subscriptionsFilePath, 'utf8');
+            const subscriptions = JSON.parse(data);
+            
+            const subscription = subscriptions.find(sub => 
+              sub.email.toLowerCase() === email.toLowerCase() && sub.status === 'active'
+            );
+            
+            if (subscription) {
+              console.log(`Found subscription ID ${subscription.id} for email ${email}`);
+              return subscription.id;
+            } else {
+              console.log(`No active subscription found for email ${email}`);
+            }
+          }
+        } catch (error) {
+          console.error('Error looking up subscription by email:', error);
+        }
+      } else {
+        console.log('JWT token missing email field');
+      }
     }
   }
   

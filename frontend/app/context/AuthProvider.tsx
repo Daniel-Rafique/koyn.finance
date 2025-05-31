@@ -5,6 +5,7 @@ interface User {
   email: string;
   plan: string;
   isActive: boolean;
+  subscriptionId?: string;
 }
 
 interface AuthTokens {
@@ -30,13 +31,16 @@ interface AuthContextType {
   logout: () => void;
   refreshAuth: () => Promise<boolean>;
   verifySubscription: (email?: string) => Promise<void>;
+  getSecureAccessToken: () => Promise<string | null>;
 }
 
-// Secure token storage keys
-const ACCESS_TOKEN_KEY = 'koyn_access_token';
+// Secure token storage keys - only refresh token in localStorage as fallback
 const REFRESH_TOKEN_KEY = 'koyn_refresh_token';
-const TOKEN_EXPIRY_KEY = 'koyn_token_expiry';
 const USER_DATA_KEY = 'koyn_user_data';
+
+// Remove access token from localStorage - it should only be in memory
+// const ACCESS_TOKEN_KEY = 'koyn_access_token'; // REMOVED for security
+const TOKEN_EXPIRY_KEY = 'koyn_token_expiry';
 
 // Simple external store for auth state
 class AuthStore {
@@ -45,6 +49,9 @@ class AuthStore {
     user: null,
     tokens: null,
   };
+  
+  // Keep access token in memory only for security
+  private accessTokenInMemory: string | null = null;
   
   private listeners = new Set<() => void>();
 
@@ -57,31 +64,29 @@ class AuthStore {
 
   private initializeFromStorage() {
     try {
-      const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+      // SECURITY: Don't read access token from localStorage
+      // const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY); // REMOVED
       const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
       const expiryTime = localStorage.getItem(TOKEN_EXPIRY_KEY);
       const userData = localStorage.getItem(USER_DATA_KEY);
 
-      if (accessToken && refreshToken && userData && expiryTime) {
+      // Only restore state if we have refresh token and user data
+      // Access token will be refreshed on first API call
+      if (refreshToken && userData) {
         const user = JSON.parse(userData);
-        const expiry = parseInt(expiryTime);
         
-        // Check if token is still valid (with 1 minute buffer)
-        if (Date.now() < expiry - 60000) {
-          this.state = {
-            isAuthenticated: true,
-            user,
-            tokens: {
-              accessToken,
-              refreshToken,
-              expiresIn: Math.floor((expiry - Date.now()) / 1000),
-              tokenType: 'Bearer'
-            }
-          };
-        } else {
-          // Token expired, clear storage
-          this.clearStorage();
-        }
+        this.state = {
+          isAuthenticated: true,
+          user,
+          tokens: {
+            accessToken: '', // Will be refreshed
+            refreshToken,
+            expiresIn: 0, // Will be set after refresh
+            tokenType: 'Bearer'
+          }
+        };
+        
+        console.log('🔄 Auth state restored from storage - access token will be refreshed');
       }
     } catch (error) {
       console.error('Failed to initialize auth from storage:', error);
@@ -91,19 +96,25 @@ class AuthStore {
 
   private clearStorage() {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(ACCESS_TOKEN_KEY);
+      // Clear access token from memory
+      this.accessTokenInMemory = null;
+      
+      // Clear localStorage
       localStorage.removeItem(REFRESH_TOKEN_KEY);
       localStorage.removeItem(TOKEN_EXPIRY_KEY);
       localStorage.removeItem(USER_DATA_KEY);
+      
       // Clear legacy items
       localStorage.removeItem('koyn_subscription');
       localStorage.removeItem('koyn_sbscripton');
+      localStorage.removeItem('koyn_access_token'); // Clear legacy access token
     }
   }
 
   private updateStorage() {
     if (typeof window !== 'undefined' && this.state.tokens && this.state.user) {
-      localStorage.setItem(ACCESS_TOKEN_KEY, this.state.tokens.accessToken);
+      // SECURITY: Only store refresh token and user data in localStorage
+      // Access token stays in memory only
       localStorage.setItem(REFRESH_TOKEN_KEY, this.state.tokens.refreshToken);
       localStorage.setItem(USER_DATA_KEY, JSON.stringify(this.state.user));
       
@@ -131,9 +142,13 @@ class AuthStore {
       user: authData.user,
       tokens: authData.auth,
     };
+    
+    // Store access token in memory only
+    this.accessTokenInMemory = authData.auth.accessToken;
+    
     this.updateStorage();
     this.notifyListeners();
-    console.log('✅ User logged in:', authData.user.email);
+    console.log('✅ User logged in securely:', authData.user.email);
   };
 
   logout = () => {
@@ -142,9 +157,13 @@ class AuthStore {
       user: null,
       tokens: null,
     };
+    
+    // Clear access token from memory
+    this.accessTokenInMemory = null;
+    
     this.clearStorage();
     this.notifyListeners();
-    console.log('✅ User logged out');
+    console.log('✅ User logged out securely');
   };
 
   updateTokens = (tokens: AuthTokens) => {
@@ -153,6 +172,10 @@ class AuthStore {
         ...this.state,
         tokens,
       };
+      
+      // Update access token in memory
+      this.accessTokenInMemory = tokens.accessToken;
+      
       this.updateStorage();
       this.notifyListeners();
     }
@@ -170,7 +193,8 @@ class AuthStore {
   };
 
   getAccessToken = (): string | null => {
-    return this.state.tokens?.accessToken || null;
+    // SECURITY: Return access token from memory, not localStorage
+    return this.accessTokenInMemory;
   };
 
   getRefreshToken = (): string | null => {
@@ -178,7 +202,8 @@ class AuthStore {
   };
 
   isTokenExpired = (): boolean => {
-    if (!this.state.tokens) return true;
+    // If no access token in memory, consider it expired
+    if (!this.accessTokenInMemory) return true;
     
     try {
       const expiryTime = localStorage.getItem(TOKEN_EXPIRY_KEY);
@@ -198,6 +223,11 @@ class AuthStore {
 // Create a singleton store
 const authStore = new AuthStore();
 
+// SECURITY: Expose auth store globally for secure token access
+if (typeof window !== 'undefined') {
+  (window as any).__authStore = authStore;
+}
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -211,17 +241,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const refreshAuth = useCallback(async (): Promise<boolean> => {
-    const refreshToken = authStore.getRefreshToken();
-    if (!refreshToken) {
-      console.log('❌ No refresh token available');
-      authStore.logout();
-      return false;
+  // SECURITY: Function to get access token with automatic refresh
+  const getSecureAccessToken = useCallback(async (): Promise<string | null> => {
+    // First, try to get token from memory
+    let accessToken = authStore.getAccessToken();
+    
+    if (accessToken && !authStore.isTokenExpired()) {
+      console.log('🔐 Using valid in-memory access token');
+      return accessToken;
     }
+    
+    // Token expired or missing, try to refresh
+    console.log('🔄 Access token expired or missing, attempting refresh...');
+    const refreshed = await refreshAuth();
+    
+    if (refreshed) {
+      accessToken = authStore.getAccessToken();
+      console.log('✅ Access token refreshed successfully');
+      return accessToken;
+    }
+    
+    console.log('❌ Failed to refresh access token');
+    return null;
+  }, []);
+
+  const refreshAuth = useCallback(async (): Promise<boolean> => {
+    // Note: Refresh token is now in httpOnly cookie, no need to get it from storage
+    console.log('🔄 Refreshing access token using httpOnly cookie...');
 
     try {
-      console.log('🔄 Refreshing access token...');
-
       const hostname = window.location.hostname;
       const protocol = window.location.protocol;
       const port = hostname === 'localhost' || hostname === '127.0.0.1' ? ':3005' : ':3005';
@@ -232,7 +280,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refreshToken }),
+        credentials: 'include', // SECURITY: Include httpOnly cookies
+        // No body needed - refresh token is in httpOnly cookie
       });
 
       if (!response.ok) {
@@ -244,8 +293,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
       
       if (data.success && data.auth) {
-        // Update tokens
-        authStore.updateTokens(data.auth);
+        // Update tokens (only access token since refresh token is in cookie)
+        authStore.updateTokens({
+          accessToken: data.auth.accessToken,
+          refreshToken: '', // Not stored anymore
+          expiresIn: data.auth.expiresIn,
+          tokenType: data.auth.tokenType
+        });
         
         // Update user data if provided
         if (data.user) {
@@ -299,28 +353,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    const refreshToken = authStore.getRefreshToken();
-    
-    // Try to invalidate refresh token on server
-    if (refreshToken) {
-      try {
-        const hostname = window.location.hostname;
-        const protocol = window.location.protocol;
-        const port = hostname === 'localhost' || hostname === '127.0.0.1' ? ':3005' : ':3005';
-        const logoutUrl = `${protocol}//${hostname}${port}/api/auth/logout`;
-        
-        await fetch(logoutUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ refreshToken }),
-        });
-      } catch (error) {
-        console.error('Error during server logout:', error);
-      }
+    // Call server logout to clear httpOnly cookies
+    try {
+      const hostname = window.location.hostname;
+      const protocol = window.location.protocol;
+      const port = hostname === 'localhost' || hostname === '127.0.0.1' ? ':3005' : ':3005';
+      const logoutUrl = `${protocol}//${hostname}${port}/api/auth/logout`;
+      
+      await fetch(logoutUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // SECURITY: Include httpOnly cookies for clearing
+      });
+      
+      console.log('✅ Server logout completed');
+    } catch (error) {
+      console.error('Error during server logout:', error);
     }
 
+    // Clear local state
     authStore.logout();
   }, []);
 
@@ -334,6 +387,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     refreshAuth,
     verifySubscription,
+    getSecureAccessToken,
   };
 
   return (
