@@ -316,7 +316,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        console.log('❌ Token refresh failed:', response.status);
+        const errorData = await response.json().catch(() => ({}));
+        console.log('❌ Token refresh failed:', response.status, errorData);
+        
+        // Handle specific error cases
+        if (response.status === 401 && errorData.code === 'REFRESH_TOKEN_REQUIRED') {
+          console.log('🔄 No refresh token found - user needs to log in again');
+        } else if (response.status === 403 && errorData.code === 'REFRESH_TOKEN_NOT_FOUND') {
+          console.log('🔄 Refresh token not found in server store - server may have restarted');
+        } else if (response.status === 403 && errorData.code === 'REFRESH_TOKEN_INVALID') {
+          console.log('🔄 Refresh token is invalid or expired');
+        } else if (response.status === 403 && errorData.code === 'SUBSCRIPTION_INACTIVE') {
+          console.log('🔄 Subscription is no longer active');
+        }
+        
+        // Clear auth state for any refresh failure
         authStore.logout();
         return false;
       }
@@ -340,12 +354,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('✅ Access token refreshed successfully');
         return true;
       } else {
-        console.log('❌ Refresh response invalid');
+        console.log('❌ Refresh response invalid:', data);
         authStore.logout();
         return false;
       }
     } catch (error) {
       console.error('❌ Error refreshing token:', error);
+      
+      // Only logout on network errors if we're sure the user isn't authenticated
+      // This prevents logging out users due to temporary network issues
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.log('🌐 Network error during token refresh - keeping user logged in for now');
+        return false;
+      }
+      
       authStore.logout();
       return false;
     }

@@ -708,6 +708,10 @@ app.post('/api/verification/verify', async (req, res) => {
 
 // Token refresh endpoint
 app.post('/api/auth/refresh', (req, res) => {
+  console.log('🔄 Refresh token request received');
+  console.log('Request cookies:', req.cookies ? Object.keys(req.cookies) : 'No cookies');
+  console.log('Request body keys:', req.body ? Object.keys(req.body) : 'No body');
+  
   // SECURITY: Try to get refresh token from httpOnly cookie first
   let refreshToken = req.cookies?.refreshToken;
   
@@ -720,6 +724,7 @@ app.post('/api/auth/refresh', (req, res) => {
   }
 
   if (!refreshToken) {
+    console.log('❌ No refresh token found in cookies or body');
     return res.status(401).json({
       success: false,
       error: 'Refresh token required',
@@ -727,9 +732,12 @@ app.post('/api/auth/refresh', (req, res) => {
     });
   }
 
+  console.log('🔍 Attempting to verify refresh token...');
+  
   // Verify refresh token
   const decoded = verifyRefreshToken(refreshToken);
   if (!decoded) {
+    console.log('❌ Refresh token verification failed - token is invalid or expired');
     return res.status(403).json({
       success: false,
       error: 'Invalid or expired refresh token',
@@ -737,15 +745,21 @@ app.post('/api/auth/refresh', (req, res) => {
     });
   }
 
+  console.log(`✅ Refresh token verified for email: ${decoded.email}`);
+
   // Check if refresh token exists in our store
   const storedTokenData = refreshTokenStore.get(refreshToken);
   if (!storedTokenData) {
+    console.log('❌ Refresh token not found in server store - may have been cleared');
+    console.log('📊 Current tokens in store:', refreshTokenStore.size);
     return res.status(403).json({
       success: false,
-      error: 'Refresh token not found',
+      error: 'Refresh token not found in server store',
       code: 'REFRESH_TOKEN_NOT_FOUND'
     });
   }
+
+  console.log(`✅ Token found in store for ${decoded.email}, last used: ${storedTokenData.lastUsed}`);
 
   // Verify the subscription is still active
   const subscriptions = readSubscriptions();
@@ -755,6 +769,7 @@ app.post('/api/auth/refresh', (req, res) => {
   );
 
   if (!subscription) {
+    console.log(`❌ No active subscription found for ${decoded.email}`);
     // Remove invalid refresh token
     refreshTokenStore.delete(refreshToken);
     return res.status(403).json({
@@ -763,6 +778,8 @@ app.post('/api/auth/refresh', (req, res) => {
       code: 'SUBSCRIPTION_INACTIVE'
     });
   }
+
+  console.log(`✅ Active subscription confirmed for ${decoded.email}, plan: ${subscription.plan}`);
 
   // Update last used timestamp
   storedTokenData.lastUsed = new Date().toISOString();
@@ -779,7 +796,7 @@ app.post('/api/auth/refresh', (req, res) => {
 
   const newAccessToken = generateAccessToken(newTokenPayload);
 
-  console.log(`🔄 Access token refreshed for ${decoded.email}`);
+  console.log(`🔄 Access token refreshed successfully for ${decoded.email}`);
 
   res.json({
     success: true,
