@@ -1940,6 +1940,14 @@ IMPORTANT: When analyzing prices, understand that financial markets have evolved
 - Always treat the current price data provided as accurate and realistic market conditions
 - Do not label legitimate market prices as "hypothetical" or "unrealistic" unless there's clear evidence of data error
 
+FORMATTING REQUIREMENTS:
+- Use clear section headers (e.g., "## Key Support Levels:", "## Technical Indicators:")
+- Create proper paragraph breaks between different topics
+- Use bullet points and numbered lists for better readability
+- Ensure each major concept has its own paragraph
+- Add blank lines between sections for visual separation
+- Structure content logically with subsections where appropriate
+
 For this analysis:
 1. First analyze any social media posts included in the prompt to determine market sentiment (Bullish, Bearish, or Neutral)
 2. Examine current price action, trend status, support/resistance levels, and key technical indicators
@@ -1950,7 +1958,7 @@ For this analysis:
 7. Include both bullish and bearish scenarios to present a balanced perspective
 8. Conclude with actionable insights for traders
 
-Use sophisticated language that demonstrates expertise in technical analysis. Structure your response with clear sections and bullet points where helpful. Tag news sources appropriately when referenced - e.g. [Bloomberg], [Wall Street Journal].`;
+Use sophisticated language that demonstrates expertise in technical analysis. Structure your response with clear sections, proper paragraph breaks, and bullet points where helpful. Tag news sources appropriately when referenced - e.g. [Bloomberg], [Wall Street Journal].`;
 
         const userPrompt = `${userQuery}\n\n${asset.name || asset.symbol} is currently priced at $${assetPrice}.` +
                          `${tweetSentimentPrompt}` +
