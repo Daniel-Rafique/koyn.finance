@@ -54,6 +54,23 @@ interface AnalysisResultsProps {
   news?: NewsItem[];
 }
 
+// Helper function to safely get auth context
+const useAuthSafely = () => {
+  try {
+    // Check if we're in a context where auth should be available
+    if (typeof window !== 'undefined' && window.location.pathname.includes('/shared/')) {
+      // We're on a shared page, return null instead of using hook
+      return null;
+    }
+    // Try to use auth context
+    return useAuth();
+  } catch (error) {
+    // Auth context not available
+    console.log('Auth context not available:', error);
+    return null;
+  }
+};
+
 const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeClick, news }) => {
   // Handle subscription context safely - it might not be available on shared pages
   let subscriptionStatus = 'inactive';
@@ -65,6 +82,9 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
   } catch (error) {
     console.log('Subscription context not available, using defaults');
   }
+  
+  // Safely get auth context
+  const authContext = useAuthSafely();
   
   const isSubscribed = subscriptionStatus === 'active';
   const analysisRef = useRef<HTMLDivElement>(null);
@@ -411,11 +431,13 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
       // Get the secure access token from the auth context (if available)
       let accessToken = null;
       try {
-        // Try to get auth context if we're in a protected page
-        const { getSecureAccessToken } = useAuth();
-        accessToken = await getSecureAccessToken();
+        // Use the safely obtained auth context
+        if (authContext && authContext.getSecureAccessToken) {
+          accessToken = await authContext.getSecureAccessToken();
+        }
       } catch (error) {
-        console.log('Auth context not available or token fetch failed:', error);
+        console.log('Token fetch failed:', error);
+        // This is expected on shared pages or when not authenticated
       }
 
       // Prepare headers for the request
