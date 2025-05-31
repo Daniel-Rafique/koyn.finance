@@ -746,9 +746,9 @@ function BillingContent() {
 
       <main className="max-w-[1200px] px-12 relative z-10 min-h-[calc(100vh-240px)] flex flex-col overflow-x-hidden pb-20 mx-0 lg:mx-auto">
         {/* Back to Home button - positioned in top-left corner as a floating button */}
-        <div className="absolute top-4 left-4 z-20">
+        <div className="absolute top-4 left-4 z-20 mb-4">
           <a
-            href="/app"
+            href="/"
             className="flex items-center text-[#ffffff] hover:text-white transition-colors text-sm px-3"
             aria-label="Return to home page"
             onClick={(e) => {
@@ -775,7 +775,7 @@ function BillingContent() {
           
           {/* Hidden anchor tag as fallback */}
           <a 
-            href="/app"
+            href="/"
             className="hidden"
             id="home-fallback-link"
             aria-hidden="true"
