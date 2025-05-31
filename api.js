@@ -18,10 +18,11 @@ const app = express();
 const PORT = 3001;
 
 // JWT configuration for secure authentication
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
+const JWT_SECRET = process.env.JWT_SECRET || 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6k7l8m9n0o1p2q3r4s5t6u7v8w9x0y1z2';
 
 if (!process.env.JWT_SECRET) {
-  console.warn('⚠️  JWT_SECRET not set in environment. Using generated secret for development only.');
+  console.warn('⚠️  JWT_SECRET not set in environment. Using fixed development secret.');
+  console.warn('⚠️  For production, set JWT_SECRET environment variable.');
 }
 
 // Initialize Redis client
@@ -53,34 +54,44 @@ try {
 // JWT Authentication Functions
 function verifyAccessToken(token) {
   try {
-    return jwt.verify(token, JWT_SECRET, {
+    console.log('🔐 Verifying JWT token...');
+    const decoded = jwt.verify(token, JWT_SECRET, {
       issuer: 'koyn.finance',
       audience: 'koyn.finance-users'
     });
+    console.log('✅ JWT token verified successfully:', { email: decoded.email, subscriptionId: decoded.subscriptionId, plan: decoded.plan });
+    return decoded;
   } catch (error) {
+    console.error('❌ JWT verification failed:', error.message);
     return null;
   }
 }
 
 // Middleware to extract subscription ID from JWT token or fallback to query param
 function getSubscriptionId(req) {
+  console.log('🔍 Getting subscription ID from request...');
+  
   // First try to get from Authorization header (JWT token)
   const authHeader = req.headers['authorization'];
+  console.log('📋 Authorization header:', authHeader ? 'Present' : 'Missing');
+  
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
+    console.log('🎫 Extracted JWT token (first 20 chars):', token.substring(0, 20) + '...');
+    
     const decoded = verifyAccessToken(token);
     
     if (decoded) {
       // Check if token already has subscriptionId (new format)
       if (decoded.subscriptionId) {
-        console.log(`Using JWT subscriptionId: ${decoded.subscriptionId}`);
-        return decoded.subscriptionId;
+        console.log(`✅ Using JWT subscriptionId: ${decoded.subscriptionId}`);
+      return decoded.subscriptionId;
       }
       
       // Handle legacy token format - look up subscription ID by email
       const email = decoded.email; // Use only the correct email field
       if (email) {
-        console.log(`JWT token missing subscriptionId, looking up by email: ${email}`);
+        console.log(`🔄 JWT token missing subscriptionId, looking up by email: ${email}`);
         
         try {
           const subscriptionsFilePath = path.join(__dirname, 'data', 'subscriptions.json');
@@ -93,17 +104,17 @@ function getSubscriptionId(req) {
             );
             
             if (subscription) {
-              console.log(`Found subscription ID ${subscription.id} for email ${email}`);
+              console.log(`✅ Found subscription ID ${subscription.id} for email ${email}`);
               return subscription.id;
             } else {
-              console.log(`No active subscription found for email ${email}`);
+              console.log(`❌ No active subscription found for email ${email}`);
             }
           }
         } catch (error) {
-          console.error('Error looking up subscription by email:', error);
+          console.error('❌ Error looking up subscription by email:', error);
         }
       } else {
-        console.log('JWT token missing email field');
+        console.log('❌ JWT token missing email field');
       }
     }
   }
@@ -115,6 +126,7 @@ function getSubscriptionId(req) {
     return legacyId;
   }
   
+  console.log('❌ No subscription ID found in request');
   return null;
 }
 
@@ -1255,12 +1267,57 @@ const detectAsset = async (query) => {
             const cryptoData = fs.readFileSync('data/crypto.json', 'utf8');
             const cryptoList = JSON.parse(cryptoData);
             
-            // Look for exact symbol matches in crypto.json (case-insensitive)
-            const cryptoMatch = cryptoList.find(crypto => {
-                const cleanSymbol = crypto.symbol.replace('USD', '').toLowerCase();
+            // Enhanced crypto matching with common abbreviation support
+            let cryptoMatch = null;
                 const queryLower = query.toLowerCase();
+            
+            // First try exact matches
+            cryptoMatch = cryptoList.find(crypto => {
+                const cleanSymbol = crypto.symbol.replace('USD', '').toLowerCase();
                 return cleanSymbol === queryLower || crypto.symbol.toLowerCase() === queryLower;
             });
+            
+            // If no exact match, try common cryptocurrency abbreviations
+            if (!cryptoMatch) {
+                const cryptoAbbreviations = {
+                    'btc': 'BTCUSD',
+                    'bitcoin': 'BTCUSD',
+                    'eth': 'ETHUSD', 
+                    'ethereum': 'ETHUSD',
+                    'ada': 'ADAUSD',
+                    'cardano': 'ADAUSD',
+                    'dot': 'DOTUSD',
+                    'polkadot': 'DOTUSD',
+                    'bnb': 'BNBUSD',
+                    'binance coin': 'BNBUSD',
+                    'sol': 'SOLUSD',
+                    'solana': 'SOLUSD',
+                    'matic': 'MATICUSD',
+                    'polygon': 'MATICUSD',
+                    'avax': 'AVAXUSD',
+                    'avalanche': 'AVAXUSD',
+                    'link': 'LINKUSD',
+                    'chainlink': 'LINKUSD',
+                    'uni': 'UNIUSD',
+                    'uniswap': 'UNIUSD',
+                    'ltc': 'LTCUSD',
+                    'litecoin': 'LTCUSD',
+                    'bch': 'BCHUSD',
+                    'bitcoin cash': 'BCHUSD',
+                    'xrp': 'XRPUSD',
+                    'ripple': 'XRPUSD',
+                    'doge': 'DOGEUSD',
+                    'dogecoin': 'DOGEUSD'
+                };
+                
+                const targetSymbol = cryptoAbbreviations[queryLower];
+                if (targetSymbol) {
+                    console.log(`Converting crypto abbreviation "${query}" to "${targetSymbol}"`);
+                    cryptoMatch = cryptoList.find(crypto => 
+                        crypto.symbol.toLowerCase() === targetSymbol.toLowerCase()
+                    );
+                }
+            }
             
             if (cryptoMatch) {
                 console.log(`Found crypto asset in crypto.json: ${cryptoMatch.symbol} (${cryptoMatch.name})`);
@@ -1661,7 +1718,7 @@ const detectAsset = async (query) => {
                     temperature: 0.1,
                     topK: 1,
                     topP: 0.8,
-                    maxOutputTokens: 200
+                    maxOutputTokens: 2048
                 }
             };
 
@@ -1875,7 +1932,28 @@ const getGeminiAnalysis = async (asset, assetPrice, sentiment, userQuery) => {
             ? `\n\nHere are some social media posts about ${asset.name || asset.symbol} for sentiment analysis (determine if Bullish, Bearish, or Neutral):\n${tweetSamplesForAnalysis}`
             : '';
 
-        const systemPrompt = `You are a seasoned professional trader and technical analyst with 20+ years of market experience. Provide sophisticated technical analysis that would be valuable to advanced traders.
+        const systemPrompt = `You are a seasoned professional trader and technical analyst with 20+ years of market experience. Provide sophisticated but CONCISE technical analysis that would be valuable to advanced traders.
+
+IMPORTANT: When analyzing prices, understand that financial markets have evolved significantly:
+- Bitcoin and major cryptocurrencies have reached new all-time highs, with Bitcoin trading over $100,000 being realistic
+- Market valuations across all asset classes have expanded due to monetary policy and institutional adoption
+- Always treat the current price data provided as accurate and realistic market conditions
+- Do not label legitimate market prices as "hypothetical" or "unrealistic" unless there's clear evidence of data error
+
+CRITICAL PRICE DISTINCTION:
+- ETF Prices vs. Actual Asset Prices: Be aware that cryptocurrency ETFs (like Bitcoin ETFs) trade at much lower prices (~$46) compared to actual cryptocurrencies (~$104,000)
+- When analyzing Bitcoin or other crypto assets, always clarify whether you're analyzing the ETF or the actual cryptocurrency
+- If the price seems low for a cryptocurrency (~$46), it's likely an ETF; if high (~$104K), it's the actual cryptocurrency
+- Provide context about both when relevant to help users understand which asset they're analyzing and recommend using USD after the asset name if they want market prices.
+
+FORMATTING REQUIREMENTS:
+- Use clear section headers (e.g., "## Key Support Levels:", "## Technical Indicators:")
+- Create proper paragraph breaks between different topics
+- Use bullet points and numbered lists for better readability
+- Ensure each major concept has its own paragraph
+- Add blank lines between sections for visual separation
+- Structure content logically with subsections where appropriate
+- KEEP ANALYSIS COMPACT AND CONCISE - focus on the most critical points only
 
 For this analysis:
 1. First analyze any social media posts included in the prompt to determine market sentiment (Bullish, Bearish, or Neutral)
@@ -1887,7 +1965,7 @@ For this analysis:
 7. Include both bullish and bearish scenarios to present a balanced perspective
 8. Conclude with actionable insights for traders
 
-Use sophisticated language that demonstrates expertise in technical analysis. Structure your response with clear sections and bullet points where helpful. Tag news sources appropriately when referenced - e.g. [Bloomberg], [Wall Street Journal].`;
+Use sophisticated language that demonstrates expertise in technical analysis. Structure your response with clear sections, proper paragraph breaks, and bullet points where helpful. Keep responses CONCISE and focused on the most important insights. Tag news sources appropriately when referenced - e.g. [Bloomberg], [Wall Street Journal].`;
 
         const userPrompt = `${userQuery}\n\n${asset.name || asset.symbol} is currently priced at $${assetPrice}.` +
                          `${tweetSentimentPrompt}` +
@@ -1907,7 +1985,7 @@ Use sophisticated language that demonstrates expertise in technical analysis. St
                 temperature: 0.7,
                 topK: 40,
                 topP: 0.8,
-                maxOutputTokens: 2000
+                maxOutputTokens: 2048
             }
         };
 
@@ -1929,8 +2007,61 @@ Use sophisticated language that demonstrates expertise in technical analysis. St
                         timeout: timeout
                     });
 
-                    // Extract content from Gemini response
-                    const responseText = response.data.candidates[0]?.content?.parts[0]?.text || 'Analysis not available';
+                    // Debug: Log the actual response structure to understand Gemini 2.5 format
+                    console.log('Gemini API response structure:', JSON.stringify(response.data, null, 2));
+
+                    // Extract content from Gemini response with enhanced error handling
+                    let responseText = 'Analysis not available';
+                    
+                    try {
+                        // Check if response has the expected structure
+                        if (response.data && response.data.candidates && Array.isArray(response.data.candidates) && response.data.candidates.length > 0) {
+                            const candidate = response.data.candidates[0];
+                            
+                            // Check for proper content structure with parts
+                            if (candidate && candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts) && candidate.content.parts.length > 0) {
+                                responseText = candidate.content.parts[0].text || 'Analysis not available';
+                                console.log('Successfully extracted text from parts array');
+                            } 
+                            // Handle case where content exists but no parts (often when MAX_TOKENS reached)
+                            else if (candidate && candidate.content && candidate.finishReason === 'MAX_TOKENS') {
+                                console.warn('Response truncated due to MAX_TOKENS limit. Content structure:', candidate.content);
+                                responseText = 'Analysis was truncated due to length limits. The market analysis is partially available but may be incomplete.';
+                            }
+                            // Handle other unexpected candidate structures
+                            else {
+                                console.warn('Unexpected candidate structure:', candidate);
+                                if (candidate.finishReason) {
+                                    responseText = `Analysis not available due to ${candidate.finishReason}. Please try again.`;
+                                }
+                            }
+                        } 
+                        // Check for alternative response structures (other possible Gemini formats)
+                        else if (response.data && response.data.text) {
+                            // Direct text response
+                            responseText = response.data.text;
+                        }
+                        else if (response.data && response.data.content) {
+                            // Content-based response
+                            responseText = response.data.content;
+                        }
+                        else if (response.data && response.data.response) {
+                            // Response wrapper
+                            responseText = response.data.response;
+                        }
+                        else {
+                            console.error('Unrecognized Gemini API response structure:', {
+                                hasData: !!response.data,
+                                dataKeys: response.data ? Object.keys(response.data) : [],
+                                dataType: typeof response.data
+                            });
+                            throw new Error('Unrecognized response structure from Gemini API');
+                        }
+                    } catch (parseError) {
+                        console.error('Error parsing Gemini response:', parseError);
+                        console.error('Raw response data:', response.data);
+                        throw new Error(`Failed to parse Gemini response: ${parseError.message}`);
+                    }
 
                     // Extract sentiment from the Gemini response using a pattern-matching approach
                     const sentimentRegex = /(bullish|bearish|neutral)/i;
@@ -2182,7 +2313,7 @@ app.post("/api/sentiment", rateLimitMiddleware, async (req, res) => {
   } else {
     // JWT authentication was already handled by rateLimitMiddleware
     // If we reach here, the user is authenticated and has a valid subscription
-    isPaidUser = true;
+      isPaidUser = true;
     console.log("JWT authentication successful via rate limit middleware");
   }
 
@@ -3515,8 +3646,8 @@ app.delete('/api/saved-result/:resultId', async (req, res) => {
   }
 });
 
-// Endpoint for sharing analysis results
-app.post('/api/share-result', rateLimitMiddleware, async (req, res) => {
+// Endpoint for sharing analysis results - No rate limiting for sharing
+app.post('/api/share-result', async (req, res) => {
   try {
     const { resultId, result } = req.body;
     
@@ -3527,9 +3658,9 @@ app.post('/api/share-result', rateLimitMiddleware, async (req, res) => {
       });
     }
 
-    // Authentication is already handled by rateLimitMiddleware
-    const subscriptionId = getSubscriptionId(req);
-    console.log(`Share result access granted for subscription ID: ${subscriptionId}`);
+    // Optional: Basic verification that user has access to this result
+    // But don't rate limit sharing - let users share freely
+    console.log(`Share result request for result ID: ${resultId}`);
     
     // Create shared results directory if it doesn't exist (in frontend public folder)
     const sharedResultsDir = path.join(__dirname, 'frontend', 'public', 'shared');
@@ -3554,7 +3685,7 @@ app.post('/api/share-result', rateLimitMiddleware, async (req, res) => {
       success: true,
       message: 'Analysis shared successfully',
       shareId,
-      shareUrl: `https://koyn.finance/shared/${shareId}`
+      shareUrl: `https://koyn.finance/app/shared/${shareId}`
     });
   } catch (error) {
     console.error('Error sharing analysis result:', error);
@@ -4898,6 +5029,7 @@ app.get('/api/technical-indicators', async (req, res) => {
 app.get('/api/technical-indicator', async (req, res) => {
   try {
     const { indicator, symbol, periodLength = 10, timeframe = '1day' } = req.query;
+    const subscriptionId = getSubscriptionId(req);
     
     if (!indicator || !symbol) {
       return res.status(400).json({
@@ -4906,6 +5038,32 @@ app.get('/api/technical-indicator', async (req, res) => {
         message: 'Both indicator and symbol parameters are required'
       });
     }
+
+    // Validate subscription for FMP API access
+    if (!subscriptionId) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+        message: "Valid authentication is required for technical indicator access. Please provide a valid JWT token or subscription ID.",
+        subscription_required: true,
+        action: "Please subscribe or sign in to access technical indicators"
+      });
+    }
+
+    // Check subscription status in database
+    const hasValidSubscription = isSubscriptionActive(subscriptionId);
+    if (!hasValidSubscription) {
+      console.log(`Technical indicator access denied for subscription ID: ${subscriptionId} - invalid or inactive subscription`);
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+        message: "Invalid or inactive subscription",
+        subscription_required: true,
+        action: "Please renew your subscription to access technical indicators"
+      });
+    }
+
+    console.log(`Technical indicator access granted for subscription ID: ${subscriptionId}`);
     
     // Validate indicator type
     const validIndicators = [

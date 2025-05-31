@@ -277,14 +277,83 @@ function AnalysisContent() {
           userEmail: user?.email || userEmail
         })
 
-        const response = await fetch("https://koyn.finance:3001/api/sentiment", {
-          method: "POST",
-          headers,
-          body: JSON.stringify(requestBody),
-        })
+        let response;
+        try {
+          response = await fetch("https://koyn.finance:3001/api/sentiment", {
+            method: "POST",
+            headers,
+            body: JSON.stringify(requestBody),
+          })
+        } catch (fetchError) {
+          // Handle network-level errors including 429s that don't return a response
+          console.error("Network error during fetch:", fetchError)
+          
+          if (fetchError instanceof Error && 
+              (fetchError.message.includes('429') || 
+               fetchError.message.includes('Too Many Requests') ||
+               fetchError.message.includes('Daily API limit exceeded') ||
+               fetchError.message.includes('Rate Limit Exceeded') ||
+               fetchError.message.includes('rate limit'))) {
+            setError("You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!")
+          } else if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
+            setError("Unable to connect to our servers. Please check your internet connection and try again.")
+          } else {
+            setError("Network error occurred. Please try again or contact support if this persists.")
+          }
+          
+          setIsLoading(false)
+          if (setSearchLoadingCallback) {
+            setSearchLoadingCallback(false)
+            setSearchFormLoading(false)
+          }
+          return
+        }
 
         if (!response.ok) {
-          throw new Error(`API request failed with status ${response.status}`)
+          // Handle rate limiting (429) with user-friendly message
+          if (response.status === 429) {
+            try {
+              const errorData = await response.json()
+              
+              // Use the API's error message if available, or provide a fallback
+              if (errorData.message) {
+                setError(errorData.message)
+              } else {
+                setError(`You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!`)
+              }
+            } catch (parseError) {
+              // Fallback if we can't parse the error response
+              setError(`You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!`)
+            }
+          } 
+          // Handle authentication errors
+          else if (response.status === 401) {
+            setError("Your session has expired. Please sign in again to continue.")
+          }
+          // Handle subscription issues
+          else if (response.status === 403) {
+            try {
+              const errorData = await response.json()
+              setError(errorData.message || "Access denied. Please check your subscription status.")
+            } catch (parseError) {
+              setError("Access denied. Please check your subscription status.")
+            }
+          }
+          // Handle other server errors
+          else if (response.status >= 500) {
+            setError("Our servers are experiencing issues. Please try again in a few minutes.")
+          }
+          // Generic error for other status codes
+          else {
+            setError(`Request failed (${response.status}). Please try again or contact support if this persists.`)
+          }
+          
+          setIsLoading(false)
+          if (setSearchLoadingCallback) {
+            setSearchLoadingCallback(false)
+            setSearchFormLoading(false)
+          }
+          return
         }
 
         const data = await response.json()
@@ -396,7 +465,20 @@ function AnalysisContent() {
         }
       } catch (err) {
         console.error("Error fetching results:", err)
-        setError("An error occurred while fetching results. Please try again.")
+        
+        // Provide more user-friendly error messages based on error type
+        if (err instanceof TypeError && err.message.includes('fetch')) {
+          setError("Unable to connect to our servers. Please check your internet connection and try again.")
+        } else if (err instanceof Error && err.message.includes('Authentication failed')) {
+          setError("Authentication failed. Please sign in again.")
+        } else if (err instanceof Error && (err.message.includes('429') || err.message.includes('Too Many Requests') || err.message.includes('Daily API limit exceeded') || err.message.includes('Rate Limit Exceeded'))) {
+          setError("You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!")
+        } else if (err instanceof Error && err.message.includes('Failed to fetch')) {
+          // This could be a network-level error including 429 that didn't get caught above
+          setError("Unable to connect to our servers. This could be due to rate limiting or connection issues. Please try again later.")
+        } else {
+          setError("An unexpected error occurred. Please try again or contact support if this persists.")
+        }
       } finally {
         setIsLoading(false)
 
@@ -592,8 +674,62 @@ function AnalysisContent() {
           </div>
         ) : error ? (
           <div className="flex-grow flex flex-col items-center justify-center">
-            <div className="text-center max-w-md">
-              <p className="text-[#a099d8] mb-4">{error}</p>
+            <div className="text-center max-w-md mx-auto p-6 bg-[rgba(13,10,33,0.6)]">
+              {/* Different styling based on error type */}
+              {error.includes('Daily API limit exceeded') || error.includes('daily search limit') || error.includes('rate limit') || error.includes('Rate Limit Exceeded') || error.includes('requests today') ? (
+                <>
+                  <div className="text-yellow-400 text-3xl mb-4">⏰</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Daily Limit Reached</h3>
+                  <p className="text-[#a099d8] mb-4 leading-relaxed">{error}</p>
+                  <div className="space-y-3">
+                    <button 
+                      onClick={() => navigate('/app/billing')}
+                      className="w-full px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors font-medium"
+                    >
+                      Account
+                    </button>
+                    <p className="text-xs text-gray-400">
+                      Your searches reset daily at midnight UTC
+                    </p>
+                  </div>
+                </>
+              ) : error.includes('session has expired') || error.includes('Authentication failed') ? (
+                <>
+                  <div className="text-red-400 text-3xl mb-4">🔐</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Authentication Required</h3>
+                  <p className="text-[#a099d8] mb-4">{error}</p>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors"
+                  >
+                    Sign In Again
+                  </button>
+                </>
+              ) : error.includes('servers are experiencing') ? (
+                <>
+                  <div className="text-orange-400 text-3xl mb-4">🔧</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Server Maintenance</h3>
+                  <p className="text-[#a099d8] mb-4">{error}</p>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="text-red-400 text-3xl mb-4">⚠️</div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Something Went Wrong</h3>
+                  <p className="text-[#a099d8] mb-4">{error}</p>
+                  <button 
+                    onClick={() => setError(null)}
+                    className="px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ) : currentEntry && currentEntry.results ? (

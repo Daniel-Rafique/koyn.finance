@@ -711,7 +711,7 @@ app.post('/api/auth/refresh', (req, res) => {
   console.log('🔄 Refresh token request received');
   console.log('Request cookies:', req.cookies ? Object.keys(req.cookies) : 'No cookies');
   console.log('Request body keys:', req.body ? Object.keys(req.body) : 'No body');
-  
+
   // SECURITY: Try to get refresh token from httpOnly cookie first
   let refreshToken = req.cookies?.refreshToken;
   
@@ -733,7 +733,7 @@ app.post('/api/auth/refresh', (req, res) => {
   }
 
   console.log('🔍 Attempting to verify refresh token...');
-  
+
   // Verify refresh token
   const decoded = verifyRefreshToken(refreshToken);
   if (!decoded) {

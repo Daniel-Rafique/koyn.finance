@@ -1,8 +1,18 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { createChart, CandlestickSeries, LineSeries, HistogramSeries, ColorType } from "lightweight-charts"
-import type { IChartApi, ISeriesApi, Time } from "lightweight-charts"
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
+import { 
+  ColorType, 
+  createChart, 
+  CandlestickSeries,
+  LineSeries,
+  HistogramSeries,
+  type Time, 
+  type IChartApi, 
+  type ISeriesApi, 
+  type SeriesType 
+} from "lightweight-charts"
+import { useAuth } from "../context/AuthProvider"
 import { Loader } from "./Loader"
 
 interface LightweightChartProps {
@@ -34,24 +44,23 @@ interface LineData {
 
 type Timeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D"
 
-// Secure helper function to get subscription ID from JWT tokens
 const getSubscriptionId = () => {
   try {
-    const accessToken = localStorage.getItem("koyn_access_token")
-    if (accessToken && accessToken.startsWith('mock.jwt.token.')) {
-      // Parse mock JWT payload for development
-      const payloadPart = accessToken.split('.')[3]
-      if (payloadPart) {
-        const payload = JSON.parse(atob(payloadPart))
-        if (payload.email && payload.plan) {
-          return `secure-user-${payload.email}-${payload.sessionId}`
-        }
-      }
+    // Legacy fallback for non-JWT authentication
+    const subscription = localStorage.getItem("koyn_subscription")
+    if (subscription) {
+      const parsed = JSON.parse(subscription)
+      return parsed.id || parsed.subscriptionId
     }
-    // For production JWT tokens, you would verify and decode them properly
-    // This is a simplified version for development
+    
+    // Check for legacy typo-ed key as well
+    const subscriptionTypo = localStorage.getItem("koyn_sbscripton")
+    if (subscriptionTypo) {
+      const parsed = JSON.parse(subscriptionTypo)
+      return parsed.id || parsed.subscriptionId
+    }
   } catch (error) {
-    console.warn('Error reading secure subscription data:', error)
+    console.warn("Error reading legacy subscription data:", error)
   }
   return null
 }
@@ -95,37 +104,15 @@ function LightweightChart({
   const chartRef = useRef<IChartApi | null>(null)
   const candlestickSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null)
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null)
+  const indicatorSeriesRef = useRef<{ [key: string]: ISeriesApi<"Line"> }>({})
+
+  // Individual series refs for indicators
   const sma20SeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const sma50SeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [timeframe, setTimeframe] = useState<Timeframe>("1D")
-  const [showVolume, setShowVolume] = useState(false)
-  const [showSMA20, setShowSMA20] = useState(true)
-  const [showSMA50, setShowSMA50] = useState(true)
-  const [currentData, setCurrentData] = useState<any>(null)
-  const [dataCache, setDataCache] = useState<Map<string, { data: any; timestamp: number; expiresAt: number }>>(
-    new Map(),
-  )
-  const [showRSI, setShowRSI] = useState(false)
-  const [showMACD, setShowMACD] = useState(false)
-
-  // Additional indicators
-  const [showEMA20, setShowEMA20] = useState(false)
-  const [showEMA50, setShowEMA50] = useState(false)
-  const [showWMA20, setShowWMA20] = useState(false)
-  const [showDEMA20, setShowDEMA20] = useState(false)
-  const [showTEMA20, setShowTEMA20] = useState(false)
-  const [showStdDev, setShowStdDev] = useState(false)
-  const [showWilliams, setShowWilliams] = useState(false)
-  const [showADX, setShowADX] = useState(false)
-
   const rsiSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const macdLineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const macdSignalSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const macdHistogramSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null)
-
-  // Additional indicator series references
   const ema20SeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const ema50SeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const wma20SeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
@@ -135,93 +122,106 @@ function LightweightChart({
   const williamsSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const adxSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
 
-  // Cache for technical indicators
-  const [indicatorCache, setIndicatorCache] = useState<Map<string, { data: any; timestamp: number; expiresAt: number }>>(
-    new Map(),
-  )
+  // Get auth context for secure token access
+  const { getSecureAccessToken } = useAuth()
 
-  // State for indicators dropdown
+  // Chart state
+  const [timeframe, setTimeframe] = useState<Timeframe>("1D")
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [hasInitialized, setHasInitialized] = useState(false)
+  const [currentData, setCurrentData] = useState<any>(null)
+
+  // Indicator state variables
+  const [showVolume, setShowVolume] = useState(false)
+  const [showSMA20, setShowSMA20] = useState(true)
+  const [showSMA50, setShowSMA50] = useState(true)
+  const [showRSI, setShowRSI] = useState(false)
+  const [showMACD, setShowMACD] = useState(false)
+  const [showEMA20, setShowEMA20] = useState(false)
+  const [showEMA50, setShowEMA50] = useState(false)
+  const [showWMA20, setShowWMA20] = useState(false)
+  const [showDEMA20, setShowDEMA20] = useState(false)
+  const [showTEMA20, setShowTEMA20] = useState(false)
+  const [showStdDev, setShowStdDev] = useState(false)
+  const [showWilliams, setShowWilliams] = useState(false)
+  const [showADX, setShowADX] = useState(false)
   const [showIndicatorsDropdown, setShowIndicatorsDropdown] = useState(false)
 
-  // Get cache expiration time based on timeframe
+  // Data cache state
+  const [dataCache, setDataCache] = useState<Map<Timeframe, any>>(new Map())
+  
+  // Indicator cache state (separate from main data cache)
+  const [indicatorCache, setIndicatorCache] = useState<Map<string, { data: any; timestamp: number; expiresAt: number }>>(new Map())
+  
+  // Technical indicators state
+  const [activeIndicators, setActiveIndicators] = useState<string[]>([])
+  const [showIndicators, setShowIndicators] = useState(false)
+  const [indicatorPanelPosition, setIndicatorPanelPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // Memoized values for cache management
   const getCacheExpirationMs = (tf: Timeframe): number => {
     switch (tf) {
       case "1m":
-        return 60 * 1000 // 1 minute
       case "5m":
-        return 5 * 60 * 1000 // 5 minutes
+        return 60 * 1000 // 1 minute for very short timeframes
       case "15m":
-        return 15 * 60 * 1000 // 15 minutes
       case "30m":
-        return 30 * 60 * 1000 // 30 minutes
+        return 5 * 60 * 1000 // 5 minutes for short timeframes
       case "1H":
-        return 60 * 60 * 1000 // 1 hour
       case "4H":
-        return 4 * 60 * 60 * 1000 // 4 hours
+        return 15 * 60 * 1000 // 15 minutes for hourly timeframes
       case "1D":
-        return 24 * 60 * 60 * 1000 // 24 hours
+        return 60 * 60 * 1000 // 1 hour for daily timeframe
       default:
-        return 60 * 60 * 1000 // 1 hour default
+        return 5 * 60 * 1000
     }
   }
 
-  // Get cached data if still valid
   const getCachedData = (tf: Timeframe): any | null => {
-    const cacheKey = `${symbol}-${tf}`
-    const cached = dataCache.get(cacheKey)
-    if (cached && Date.now() < cached.expiresAt) {
-      console.log(
-        `Using cached data for ${symbol} ${tf}, expires in ${Math.round((cached.expiresAt - Date.now()) / 1000)}s`,
-      )
-      return cached.data
+    const cached = dataCache.get(tf)
+    if (cached && cached.timestamp) {
+      const expirationMs = getCacheExpirationMs(tf)
+      const isExpired = Date.now() - cached.timestamp > expirationMs
+      if (!isExpired) {
+        console.log(`Using cached data for ${symbol} ${tf} (${Math.round((expirationMs - (Date.now() - cached.timestamp)) / 1000)}s remaining)`)
+        return cached.data
+      } else {
+        console.log(`Cache expired for ${symbol} ${tf}, will fetch fresh data`)
+        // Remove expired cache entry
+        const newCache = new Map(dataCache)
+        newCache.delete(tf)
+        setDataCache(newCache)
+      }
     }
     return null
   }
 
-  // Set cached data with expiration
   const setCachedData = (tf: Timeframe, data: any): void => {
-    const cacheKey = `${symbol}-${tf}`
-    const expirationMs = getCacheExpirationMs(tf)
-    const expiresAt = Date.now() + expirationMs
-
-    setDataCache(
-      (prev) =>
-        new Map(
-          prev.set(cacheKey, {
-            data,
-            timestamp: Date.now(),
-            expiresAt,
-          }),
-        ),
-    )
-
-    console.log(`Cached data for ${symbol} ${tf}, expires in ${Math.round(expirationMs / 1000)}s`)
+    const newCache = new Map(dataCache)
+    newCache.set(tf, {
+      data,
+      timestamp: Date.now(),
+    })
+    setDataCache(newCache)
+    console.log(`Cached data for ${symbol} ${tf}`)
   }
 
-  // Helper to get API-safe interval
+  // Map timeframe to API-safe intervals
   const getApiSafeInterval = (interval: string): string => {
-    // Map frontend timeframe formats to API-expected formats
-    switch (interval) {
-      case "1m":
-        return "1min"
-      case "5m":
-        return "5min"
-      case "15m":
-        return "15min"
-      case "30m":
-        return "30min"
-      case "1H":
-        return "1hour"
-      case "4H":
-        return "4hour"
-      case "1D":
-        return "1day"
-      default:
-        return interval
+    const mapping: { [key: string]: string } = {
+      "1m": "1min",
+      "5m": "5min",
+      "15m": "15min",
+      "30m": "30min",
+      "1H": "1hour",
+      "4H": "4hour",
+      "1D": "1day",
     }
+    return mapping[interval] || interval
   }
 
-  // Fetch data from API for specific timeframes
+  // Main function to fetch chart data from API
   const fetchChartData = async (tf: Timeframe): Promise<any> => {
     try {
       // Check cache first
@@ -232,20 +232,26 @@ function LightweightChart({
 
       console.log(`Fetching fresh data for ${symbol} ${tf}...`)
 
-      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.finance:3001"
+      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3001" : "https://koyn.finance:3001"
       
-      // Get JWT token for authentication
-      const accessToken = localStorage.getItem("koyn_access_token")
+      // Get JWT token for authentication using secure method
+      console.log('🔄 Attempting to get secure access token...')
+      const accessToken = await getSecureAccessToken()
+      console.log('🎫 getSecureAccessToken result:', accessToken ? `${accessToken.substring(0, 20)}...` : 'null')
+      
       const headers: any = {}
       
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`
-        console.log('Using JWT token authentication')
+        console.log('✅ Set Authorization header with JWT token')
       } else {
         // Fallback to legacy subscription ID for backward compatibility
         const subscriptionId = getSubscriptionId()
+        console.log('⚠️ No JWT token, checking legacy subscription ID:', subscriptionId)
         if (subscriptionId) {
           console.warn('⚠️  Using legacy subscription ID authentication')
+        } else {
+          console.warn('⚠️  No authentication available')
         }
       }
 
@@ -253,6 +259,7 @@ function LightweightChart({
       const apiInterval = getApiSafeInterval(tf)
 
       console.log(`Fetching chart data for ${symbol} with timeframe ${tf} (API interval: ${apiInterval})`)
+      console.log('🌐 Request headers:', headers)
 
       if (tf === "1D") {
         // Use EOD endpoint for daily data
@@ -267,6 +274,7 @@ function LightweightChart({
           }
         }
         
+        console.log('📡 Making request to:', url.toString())
         response = await fetch(url.toString(), { headers })
       } else {
         // Use regular chart endpoint for intraday data
@@ -282,6 +290,7 @@ function LightweightChart({
           }
         }
         
+        console.log('📡 Making request to:', url.toString())
         response = await fetch(url.toString(), { headers })
       }
 
@@ -1189,12 +1198,13 @@ function LightweightChart({
   // Fetch technical indicators from API
   const fetchTechnicalIndicators = async (indicatorTypes: string[]): Promise<any> => {
     try {
-      // Get authentication
-      const accessToken = localStorage.getItem("koyn_access_token")
+      // Get authentication using secure method
+      const accessToken = await getSecureAccessToken()
       const headers: any = {}
       
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`
+        console.log('Using secure JWT token authentication for indicators')
       } else {
         const subscriptionId = getSubscriptionId()
         if (!subscriptionId) {
@@ -1203,7 +1213,7 @@ function LightweightChart({
         }
       }
 
-      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.finance:3001"
+      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3001" : "https://koyn.finance:3001"
       const indicatorParam = indicatorTypes.join(',')
       
       // Check cache first
@@ -1262,12 +1272,13 @@ function LightweightChart({
   // Fetch specific technical indicator with detailed data
   const fetchSpecificIndicator = async (indicatorType: string, periodLength: number = 14): Promise<any> => {
     try {
-      // Get authentication
-      const accessToken = localStorage.getItem("koyn_access_token")
+      // Get authentication using secure method
+      const accessToken = await getSecureAccessToken()
       const headers: any = {}
       
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`
+        console.log('Using secure JWT token authentication for specific indicator')
       } else {
         const subscriptionId = getSubscriptionId()
         if (!subscriptionId) {
@@ -1276,7 +1287,7 @@ function LightweightChart({
         }
       }
 
-      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3000" : "https://koyn.finance:3001"
+      const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3001" : "https://koyn.finance:3001"
       
       // Check cache first
       const cacheKey = `${symbol}-${indicatorType}-${periodLength}-${timeframe}`
