@@ -680,12 +680,13 @@ function AnalysisContent() {
                     {/* History Dropdown */}
                     {showHistoryDropdown && (
                       <div
-                        className="fixed right-auto mt-2 w-64 bg-[rgb(13,10,33)] rounded-md shadow-lg z-[9999] transition-all duration-200 ease-out history-dropdown"
+                        className="fixed right-auto mt-2 w-64 bg-[rgb(13,10,33)] rounded-md shadow-lg z-[99999] transition-all duration-200 ease-out history-dropdown"
                         style={{
                           top: "auto",
                           position: "absolute",
                           right: 0,
                           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.8)",
+                          zIndex: 99999,
                           ...dropdownAnimation,
                         }}
                         onClick={(e) => e.stopPropagation()}
