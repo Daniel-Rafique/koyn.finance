@@ -80,37 +80,6 @@ class SafeContextProvider extends React.Component<{
   }
 }
 
-// Simple error boundary component to catch React errors
-interface InternalErrorBoundaryProps {
-  children: React.ReactNode;
-}
-
-interface InternalErrorBoundaryState {
-  hasError: boolean;
-}
-
-class InternalErrorBoundary extends React.Component<InternalErrorBoundaryProps, InternalErrorBoundaryState> {
-  constructor(props: InternalErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(error: Error): InternalErrorBoundaryState {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("Caught an error:", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return <div className="text-white p-4">Something went wrong. Please refresh the page.</div>;
-    }
-    return this.props.children;
-  }
-}
-
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
@@ -168,45 +137,44 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  let message = "Oops!";
-  let details = "An unexpected error occurred.";
-  let stack: string | undefined;
-  let errorCode = "500";
-
-  if (isRouteErrorResponse(error)) {
-    errorCode = error.status.toString();
-    message = error.status === 404 ? "404" : "Error";
-    details =
-      error.status === 404
-        ? "The requested page could not be found."
-        : error.statusText || details;
-  } else if (import.meta.env.DEV && error && error instanceof Error) {
-    details = error.message;
-    stack = error.stack;
-  }
-
-  // In development, show the detailed error
-  if (import.meta.env.DEV && stack) {
+  // In development, show detailed error for debugging
+  if (import.meta.env.DEV && error && error instanceof Error) {
     return (
       <main className="pt-16 p-4 container mx-auto">
-        <h1 className="text-2xl font-bold text-white mb-4">{message}</h1>
-        <p className="text-[#a099d8] mb-4">{details}</p>
+        <h1 className="text-2xl font-bold text-white mb-4">Development Error</h1>
+        <p className="text-[#a099d8] mb-4">{error.message}</p>
         <pre className="w-full p-4 overflow-x-auto bg-gray-900 text-green-400 rounded">
-          <code>{stack}</code>
+          <code>{error.stack}</code>
         </pre>
       </main>
     );
   }
 
-  // In production, show the custom error page
+  // In production, redirect to appropriate error page
+  let redirectPath = "/app/error";
+  
+  if (isRouteErrorResponse(error)) {
+    if (error.status === 404) {
+      redirectPath = "/app/404";
+    } else {
+      redirectPath = `/app/error?code=${error.status}`;
+    }
+  }
+
+  // Use a client-side redirect to our error pages
+  if (typeof window !== 'undefined') {
+    window.location.href = redirectPath;
+  }
+
+  // Fallback for SSR
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0d0a21] to-[#1a1535] flex items-center justify-center px-4">
       <div className="max-w-md w-full text-center">
         <div className="mb-8">
-          <div className="text-6xl font-bold text-[#E5484D] mb-4">{errorCode}</div>
-          <h1 className="text-2xl font-semibold text-white mb-2">{message}</h1>
+          <div className="text-6xl font-bold text-[#E5484D] mb-4">Error</div>
+          <h1 className="text-2xl font-semibold text-white mb-2">Something went wrong</h1>
           <p className="text-[#a099d8] text-sm leading-relaxed">
-            {details}
+            Redirecting to error page...
           </p>
         </div>
         
@@ -216,23 +184,6 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
             className="inline-block w-full bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white font-medium py-3 px-6 rounded-lg hover:from-[#7C3AED] hover:to-[#DB2777] transition-all duration-200 transform hover:scale-105"
           >
             Go Home
-          </a>
-          
-          <button 
-            onClick={() => window.location.reload()}
-            className="inline-block w-full bg-[rgba(139,92,246,0.1)] text-[#8B5CF6] font-medium py-3 px-6 rounded-lg border border-[#8B5CF6] hover:bg-[rgba(139,92,246,0.2)] transition-all duration-200"
-          >
-            Try Again
-          </button>
-        </div>
-        
-        <div className="mt-8 text-xs text-[#6b7280]">
-          If this problem persists, please{' '}
-          <a 
-            href="mailto:support@koyn.finance" 
-            className="text-[#8B5CF6] hover:text-[#7C3AED] underline"
-          >
-            contact support
           </a>
         </div>
       </div>

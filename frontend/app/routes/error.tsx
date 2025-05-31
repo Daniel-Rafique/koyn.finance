@@ -70,14 +70,14 @@ export default function ErrorPage() {
           
           <button 
             onClick={() => window.location.reload()}
-            className="inline-block w-full bg-[rgba(139,92,246,0.1)] text-[#8B5CF6] font-medium py-3 px-6 rounded-lg border border-[#8B5CF6] hover:bg-[rgba(139,92,246,0.2)] transition-all duration-200"
+            className="inline-block w-full bg-[rgba(139,92,246,0.1)] text-[#8B5CF6] font-medium py-3 px-6 rounded-lg hover:bg-[rgba(139,92,246,0.2)] transition-all duration-200"
           >
             Try Again
           </button>
           
           <button 
             onClick={() => window.history.back()}
-            className="inline-block w-full bg-[rgba(64,47,181,0.1)] text-[#a099d8] font-medium py-3 px-6 rounded-lg border border-[#a099d8] hover:bg-[rgba(64,47,181,0.2)] transition-all duration-200"
+            className="inline-block w-full bg-[rgba(64,47,181,0.1)] text-[#a099d8] font-medium py-3 px-6 rounded-lg hover:bg-[rgba(64,47,181,0.2)] transition-all duration-200"
           >
             Go Back
           </button>
