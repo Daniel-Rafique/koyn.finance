@@ -543,19 +543,6 @@ function AnalysisContent() {
     }
   }
 
-  const jumpToResult = (index: number) => {
-    if (index >= 0 && index < resultsArray.length) {
-      setCurrentIndex(index)
-      
-      // Update URL to reflect the new query
-      const newQuery = resultsArray[index].query
-      const newUrl = `${Routes.ANALYSIS}?q=${encodeURIComponent(newQuery)}`
-      window.history.pushState({}, "", newUrl)
-      
-      console.log(`Jumped to result: "${newQuery}" (${index + 1}/${resultsArray.length})`)
-    }
-  }
-
   return (
     <div className="min-h-screen bg-[rgb(0,0,0)] overflow-y-auto">
       <Nav />
@@ -587,90 +574,241 @@ function AnalysisContent() {
           <div className={isLoading ? "opacity-50 relative" : ""} key={`results-container-${resultsVersion}`}>
             <div className="results-container">
               <div className="query-container mb-6">
-                <h1 className="text-xl font-medium text-white">
-                  Results for: <span className="font-bold break-words" title={currentEntry.query}>{truncateQuery(currentEntry.query, 60)}</span>
-                </h1>
-              </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    {/* Navigation Controls */}
+                    <div className="flex items-center mr-4">
+                      {/* Back Button */}
+                      {currentIndex > 0 ? (
+                        <button
+                          onClick={goToPrevious}
+                          className="mr-2 text-[#a099d8] hover:text-white transition-colors flex items-center"
+                          aria-label="Go back to previous search"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M19 12H5M12 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                      ) : (
+                        <button disabled className="mr-2 text-gray-600 opacity-50 cursor-not-allowed">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M19 12H5M12 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+                      )}
 
-              {/* Navigation Controls */}
-              {resultsArray.length > 1 && (
-                <div className="navigation-controls mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[rgba(13,10,33,0.4)] rounded-lg p-4 border border-[rgba(255,255,255,0.1)] gap-4 sm:gap-0">
-                  <div className="flex items-center space-x-3 w-full sm:w-auto">
-                    <button
-                      onClick={goToPrevious}
-                      disabled={currentIndex === 0}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
-                        currentIndex === 0
-                          ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                          : 'bg-[#46A758] text-white hover:bg-[#3d9049] cursor-pointer'
-                      }`}
-                      title="Previous result (← arrow key)"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                      <span className="hidden sm:inline">Previous</span>
-                    </button>
+                      {/* Forward Button */}
+                      {currentIndex < resultsArray.length - 1 ? (
+                        <button
+                          onClick={goToNext}
+                          className="mr-2 text-[#a099d8] hover:text-white transition-colors flex items-center"
+                          aria-label="Go forward to more recent search"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M5 12h14M12 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      ) : (
+                        <button disabled className="mr-2 text-gray-600 opacity-50 cursor-not-allowed">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path d="M5 12h14M12 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
 
-                    <button
-                      onClick={goToNext}
-                      disabled={currentIndex === resultsArray.length - 1}
-                      className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
-                        currentIndex === resultsArray.length - 1
-                          ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                          : 'bg-[#46A758] text-white hover:bg-[#3d9049] cursor-pointer'
-                      }`}
-                      title="Next result (→ arrow key)"
-                    >
-                      <span className="hidden sm:inline">Next</span>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
+                    <h1 className="text-xl font-medium text-white">
+                      Results for: <span className="font-bold break-words" title={currentEntry.query}>{truncateQuery(currentEntry.query, 60)}</span>
+                    </h1>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
-                    {/* Results Counter */}
-                    <span className="text-sm text-[#a099d8] whitespace-nowrap">
-                      {currentIndex + 1} of {resultsArray.length}
-                    </span>
-
-                    <div className="flex items-center space-x-3 w-full sm:w-auto">
-                      {/* Results Dropdown */}
-                      <select
-                        value={currentIndex}
-                        onChange={(e) => jumpToResult(parseInt(e.target.value))}
-                        className="bg-[rgba(13,10,33,0.8)] text-white border border-[rgba(255,255,255,0.2)] rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#46A758] focus:border-transparent flex-grow sm:flex-grow-0 min-w-0"
-                        title="Jump to result"
+                  {/* History Controls */}
+                  <div className="relative" style={{ zIndex: 500 }}>
+                    <button
+                      data-history-button="true"
+                      onClick={() => setShowHistoryDropdown(!showHistoryDropdown)}
+                      className="text-[#a099d8] hover:text-white transition-colors flex items-center text-sm"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="mr-1"
                       >
-                        {resultsArray.map((entry, index) => (
-                          <option key={index} value={index}>
-                            {truncateQuery(entry.query, 30)}
-                          </option>
-                        ))}
-                      </select>
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      History
+                    </button>
 
-                      {/* Clear All Results Button */}
-                      <button
-                        onClick={() => {
-                          if (confirm('Clear all analysis history? This cannot be undone.')) {
-                            localStorage.removeItem('koyn_analysis_results')
-                            setResultsArray([])
-                            setCurrentIndex(-1)
-                            // Navigate to analysis page without query
-                            window.history.pushState({}, "", Routes.ANALYSIS)
-                            setResultsVersion(prev => prev + 1)
-                          }
+                    {/* History Dropdown */}
+                    {showHistoryDropdown && (
+                      <div
+                        className="fixed right-auto mt-2 w-64 bg-[rgb(13,10,33)] rounded-md shadow-lg z-[9999] transition-all duration-200 ease-out history-dropdown"
+                        style={{
+                          top: "auto",
+                          position: "absolute",
+                          right: 0,
+                          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.8)",
+                          ...dropdownAnimation,
                         }}
-                        className="text-red-400 hover:text-red-300 text-sm px-2 py-1 rounded transition-colors whitespace-nowrap"
-                        title="Clear all analysis history"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        Clear All
-                      </button>
-                    </div>
+                        <div className="p-2 border-b border-[rgba(64,47,181,0.3)] flex justify-between items-center">
+                          <span className="text-white text-sm font-medium">Search History</span>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log("Clear All button clicked");
+                              if (confirm('Clear all search history? This cannot be undone.')) {
+                                localStorage.removeItem('koyn_analysis_results')
+                                localStorage.removeItem('koyn_recent_queries')
+                                setResultsArray([])
+                                setCurrentIndex(-1)
+                                searchHistoryRef.current = []
+                                setShowHistoryDropdown(false)
+                                // Navigate to analysis page without query
+                                window.history.pushState({}, "", Routes.ANALYSIS)
+                                setResultsVersion(prev => prev + 1)
+                                setHistoryVersion(prev => prev + 1)
+                              }
+                            }}
+                            type="button"
+                            className="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded hover:bg-[rgba(255,0,0,0.1)] clear-all-button"
+                          >
+                            Clear All
+                          </button>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto">
+                          {searchHistoryRef.current.length > 0 ? (
+                            <ul key={historyVersion}>
+                              {searchHistoryRef.current.map((historyItem, index) => (
+                                <li
+                                  key={`${index}-${historyVersion}`}
+                                  className="border-b border-[rgba(64,47,181,0.2)] last:border-b-0"
+                                >
+                                  <div className="flex items-center justify-between p-2 hover:bg-[rgba(64,47,181,0.1)]">
+                                    <button
+                                      onClick={() => {
+                                        const newUrl = `${Routes.ANALYSIS}?q=${encodeURIComponent(historyItem)}`
+                                        navigate(newUrl)
+                                        setShowHistoryDropdown(false)
+                                      }}
+                                      className={`text-sm truncate flex-grow text-left ${
+                                        currentEntry && historyItem === currentEntry.query
+                                          ? "text-[#cf30aa] font-medium"
+                                          : "text-[#a099d8]"
+                                      }`}
+                                      title={historyItem}
+                                    >
+                                      {truncateQuery(historyItem, 50)}
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault()
+                                        e.stopPropagation()
+                                        try {
+                                          // Remove from history
+                                          const newHistory = searchHistoryRef.current.filter(q => q !== historyItem)
+                                          searchHistoryRef.current = newHistory
+                                          localStorage.setItem("koyn_recent_queries", JSON.stringify(newHistory))
+                                          
+                                          // Remove from results
+                                          const newResults = resultsArray.filter(entry => entry.query !== historyItem)
+                                          setResultsArray(newResults)
+                                          localStorage.setItem("koyn_analysis_results", JSON.stringify(newResults))
+                                          
+                                          // Update current index if needed
+                                          if (currentIndex >= newResults.length) {
+                                            setCurrentIndex(newResults.length > 0 ? newResults.length - 1 : -1)
+                                          }
+                                          
+                                          setHistoryVersion(prev => prev + 1)
+                                          setResultsVersion(prev => prev + 1)
+                                        } catch (err) {
+                                          console.error("Failed to clear item:", err)
+                                        }
+                                      }}
+                                      className="text-gray-400 hover:text-red-400 ml-2"
+                                      aria-label={`Remove ${historyItem} from history`}
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="14"
+                                        height="14"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2"
+                                      >
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <div className="p-3 text-center text-gray-400 text-sm">No search history</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
+
+                {/* Navigation Hints */}
+                <div className="flex text-xs text-gray-500 mt-1 overflow-hidden">
+                  {currentIndex > 0 && (
+                    <span className="mr-4 flex-shrink-0">
+                      ← <span className="text-[#a099d8] truncate inline-block max-w-[120px] sm:max-w-[200px] lg:max-w-none" title={resultsArray[currentIndex - 1].query}>{truncateQuery(resultsArray[currentIndex - 1].query, 30)}</span>
+                    </span>
+                  )}
+                  {currentIndex < resultsArray.length - 1 && (
+                    <span className="flex-shrink-0">
+                      <span className="text-[#a099d8] truncate inline-block max-w-[120px] sm:max-w-[200px] lg:max-w-none" title={resultsArray[currentIndex + 1].query}>{truncateQuery(resultsArray[currentIndex + 1].query, 30)}</span> →
+                    </span>
+                  )}
+                </div>
+              </div>
 
               {/* Display analysis results with news data */}
               {currentEntry.results.map((result, index) => (
