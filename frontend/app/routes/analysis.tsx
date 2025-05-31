@@ -543,6 +543,32 @@ function AnalysisContent() {
     }
   }
 
+  // Add effect for dropdown animation
+  useEffect(() => {
+    if (showHistoryDropdown) {
+      // Start with invisible state, then animate to visible
+      setDropdownAnimation({
+        opacity: 0,
+        transform: "translateY(-10px)",
+      })
+      
+      // Small delay to allow for animation
+      const timer = setTimeout(() => {
+        setDropdownAnimation({
+          opacity: 1,
+          transform: "translateY(0)",
+        })
+      }, 10)
+      
+      return () => clearTimeout(timer)
+    } else {
+      setDropdownAnimation({
+        opacity: 0,
+        transform: "translateY(-10px)",
+      })
+    }
+  }, [showHistoryDropdown])
+
   return (
     <div className="min-h-screen bg-[rgb(0,0,0)] overflow-y-auto">
       <Nav />
@@ -687,7 +713,8 @@ function AnalysisContent() {
                           right: 0,
                           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.8)",
                           zIndex: 99999,
-                          ...dropdownAnimation,
+                          opacity: dropdownAnimation.opacity,
+                          transform: dropdownAnimation.transform,
                         }}
                         onClick={(e) => e.stopPropagation()}
                       >
