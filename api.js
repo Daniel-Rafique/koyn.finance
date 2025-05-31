@@ -1718,7 +1718,7 @@ const detectAsset = async (query) => {
                     temperature: 0.1,
                     topK: 1,
                     topP: 0.8,
-                    maxOutputTokens: 200
+                    maxOutputTokens: 2048
                 }
             };
 
@@ -1932,7 +1932,7 @@ const getGeminiAnalysis = async (asset, assetPrice, sentiment, userQuery) => {
             ? `\n\nHere are some social media posts about ${asset.name || asset.symbol} for sentiment analysis (determine if Bullish, Bearish, or Neutral):\n${tweetSamplesForAnalysis}`
             : '';
 
-        const systemPrompt = `You are a seasoned professional trader and technical analyst with 20+ years of market experience. Provide sophisticated technical analysis that would be valuable to advanced traders.
+        const systemPrompt = `You are a seasoned professional trader and technical analyst with 20+ years of market experience. Provide sophisticated but CONCISE technical analysis that would be valuable to advanced traders.
 
 IMPORTANT: When analyzing prices, understand that financial markets have evolved significantly:
 - Bitcoin and major cryptocurrencies have reached new all-time highs, with Bitcoin trading over $100,000 being realistic
@@ -1947,6 +1947,7 @@ FORMATTING REQUIREMENTS:
 - Ensure each major concept has its own paragraph
 - Add blank lines between sections for visual separation
 - Structure content logically with subsections where appropriate
+- KEEP ANALYSIS COMPACT AND CONCISE - focus on the most critical points only
 
 For this analysis:
 1. First analyze any social media posts included in the prompt to determine market sentiment (Bullish, Bearish, or Neutral)
@@ -1958,7 +1959,7 @@ For this analysis:
 7. Include both bullish and bearish scenarios to present a balanced perspective
 8. Conclude with actionable insights for traders
 
-Use sophisticated language that demonstrates expertise in technical analysis. Structure your response with clear sections, proper paragraph breaks, and bullet points where helpful. Tag news sources appropriately when referenced - e.g. [Bloomberg], [Wall Street Journal].`;
+Use sophisticated language that demonstrates expertise in technical analysis. Structure your response with clear sections, proper paragraph breaks, and bullet points where helpful. Keep responses CONCISE and focused on the most important insights. Tag news sources appropriately when referenced - e.g. [Bloomberg], [Wall Street Journal].`;
 
         const userPrompt = `${userQuery}\n\n${asset.name || asset.symbol} is currently priced at $${assetPrice}.` +
                          `${tweetSentimentPrompt}` +
@@ -1978,7 +1979,7 @@ Use sophisticated language that demonstrates expertise in technical analysis. St
                 temperature: 0.7,
                 topK: 40,
                 topP: 0.8,
-                maxOutputTokens: 1024
+                maxOutputTokens: 2048
             }
         };
 
@@ -2001,7 +2002,7 @@ Use sophisticated language that demonstrates expertise in technical analysis. St
                     });
 
                     // Debug: Log the actual response structure to understand Gemini 2.5 format
-                    // console.log('Gemini API response structure:', JSON.stringify(response.data, null, 2));
+                    console.log('Gemini API response structure:', JSON.stringify(response.data, null, 2));
 
                     // Extract content from Gemini response with enhanced error handling
                     let responseText = 'Analysis not available';
