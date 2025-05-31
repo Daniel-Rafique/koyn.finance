@@ -1992,8 +1992,49 @@ Use sophisticated language that demonstrates expertise in technical analysis. St
                         timeout: timeout
                     });
 
-                    // Extract content from Gemini response
-                    const responseText = response.data.candidates[0]?.content?.parts[0]?.text || 'Analysis not available';
+                    // Debug: Log the actual response structure to understand Gemini 2.5 format
+                    console.log('Gemini API response structure:', JSON.stringify(response.data, null, 2));
+
+                    // Extract content from Gemini response with enhanced error handling
+                    let responseText = 'Analysis not available';
+                    
+                    try {
+                        // Check if response has the expected structure
+                        if (response.data && response.data.candidates && Array.isArray(response.data.candidates) && response.data.candidates.length > 0) {
+                            // Standard Gemini 1.5 structure
+                            const candidate = response.data.candidates[0];
+                            if (candidate && candidate.content && candidate.content.parts && Array.isArray(candidate.content.parts) && candidate.content.parts.length > 0) {
+                                responseText = candidate.content.parts[0].text || 'Analysis not available';
+                            } else {
+                                console.warn('Unexpected candidate structure:', candidate);
+                            }
+                        } 
+                        // Check for alternative response structures (Gemini 2.5 might use different format)
+                        else if (response.data && response.data.text) {
+                            // Direct text response
+                            responseText = response.data.text;
+                        }
+                        else if (response.data && response.data.content) {
+                            // Content-based response
+                            responseText = response.data.content;
+                        }
+                        else if (response.data && response.data.response) {
+                            // Response wrapper
+                            responseText = response.data.response;
+                        }
+                        else {
+                            console.error('Unrecognized Gemini API response structure:', {
+                                hasData: !!response.data,
+                                dataKeys: response.data ? Object.keys(response.data) : [],
+                                dataType: typeof response.data
+                            });
+                            throw new Error('Unrecognized response structure from Gemini API');
+                        }
+                    } catch (parseError) {
+                        console.error('Error parsing Gemini response:', parseError);
+                        console.error('Raw response data:', response.data);
+                        throw new Error(`Failed to parse Gemini response: ${parseError.message}`);
+                    }
 
                     // Extract sentiment from the Gemini response using a pattern-matching approach
                     const sentimentRegex = /(bullish|bearish|neutral)/i;
