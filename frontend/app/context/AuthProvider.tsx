@@ -271,38 +271,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check if auth store is initialized
   const isStoreInitialized = authStore.getInitialized();
 
-  // Update initialization state when auth store finishes initializing
-  useEffect(() => {
-    if (isStoreInitialized && isInitializing) {
-      setIsInitializing(false);
-      console.log('🔄 Auth initialization complete');
-    }
-  }, [isStoreInitialized, isInitializing]);
-
-  // SECURITY: Function to get access token with automatic refresh
-  const getSecureAccessToken = useCallback(async (): Promise<string | null> => {
-    // First, try to get token from memory
-    let accessToken = authStore.getAccessToken();
-    
-    if (accessToken && !authStore.isTokenExpired()) {
-      console.log('🔐 Using valid in-memory access token');
-      return accessToken;
-    }
-    
-    // Token expired or missing, try to refresh
-    console.log('🔄 Access token expired or missing, attempting refresh...');
-    const refreshed = await refreshAuth();
-    
-    if (refreshed) {
-      accessToken = authStore.getAccessToken();
-      console.log('✅ Access token refreshed successfully');
-      return accessToken;
-    }
-    
-    console.log('❌ Failed to refresh access token');
-    return null;
-  }, []);
-
   const refreshAuth = useCallback(async (): Promise<boolean> => {
     // Note: Refresh token is now in httpOnly cookie, no need to get it from storage
     console.log('🔄 Refreshing access token using httpOnly cookie...');
@@ -379,6 +347,129 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
   }, []);
+
+  // Update initialization state when auth store finishes initializing
+  useEffect(() => {
+    console.log('🔍 useEffect triggered - checking auto-refresh conditions:', {
+      isStoreInitialized,
+      isInitializing,
+      isAuthenticated: authState.isAuthenticated,
+      hasUser: !!authState.user,
+      userEmail: authState.user?.email,
+      hasAccessToken: !!authStore.getAccessToken()
+    });
+    
+    if (isStoreInitialized && isInitializing) {
+      setIsInitializing(false);
+      console.log('🔄 Auth initialization complete');
+    }
+    
+    // SECURITY: Auto-refresh token if user is authenticated but has no access token
+    // Check this regardless of initialization state to catch auth state changes
+    if (authState.isAuthenticated && authState.user && !authStore.getAccessToken()) {
+      console.log('🔄 User authenticated but no access token - auto-refreshing...');
+      refreshAuth().then((success) => {
+        if (success) {
+          console.log('✅ Auto-refresh successful on initialization');
+        } else {
+          console.log('❌ Auto-refresh failed on initialization');
+        }
+      }).catch((error) => {
+        console.error('❌ Auto-refresh error on initialization:', error);
+      });
+    }
+  }, [isStoreInitialized, isInitializing, authState.isAuthenticated, authState.user, refreshAuth]);
+
+  // Additional useEffect specifically for auto-refresh when auth state changes
+  useEffect(() => {
+    // Only run if store is initialized and we're not in the middle of initializing
+    if (isStoreInitialized && !isInitializing && authState.isAuthenticated && authState.user && !authStore.getAccessToken()) {
+      console.log('🔄 Auth state changed - triggering auto-refresh...');
+      refreshAuth().then((success) => {
+        if (success) {
+          console.log('✅ Auto-refresh successful on state change');
+        } else {
+          console.log('❌ Auto-refresh failed on state change');
+        }
+      }).catch((error) => {
+        console.error('❌ Auto-refresh error on state change:', error);
+      });
+    }
+  }, [authState.isAuthenticated, authState.user, isStoreInitialized, isInitializing, refreshAuth]);
+
+  // SECURITY: Function to get access token with automatic refresh
+  const getSecureAccessToken = useCallback(async (): Promise<string | null> => {
+    console.log('🔄 getSecureAccessToken called');
+    
+    // First, try to get token from memory using the global authStore instance
+    let accessToken = (window as any).__authStore?.getAccessToken();
+    console.log('🎫 Direct token from window.__authStore:', accessToken ? `${accessToken.substring(0, 20)}...` : 'null');
+    
+    // Also check the local authStore for comparison
+    const localToken = authStore.getAccessToken();
+    console.log('🎫 Local authStore token:', localToken ? `${localToken.substring(0, 20)}...` : 'null');
+    
+    // Use whichever token is available
+    accessToken = accessToken || localToken;
+    
+    if (accessToken && !(window as any).__authStore?.isTokenExpired()) {
+      console.log('🔐 Using valid in-memory access token');
+      return accessToken;
+    }
+    
+    // Token expired or missing, try to refresh
+    console.log('🔄 Access token expired or missing, attempting refresh...');
+    const refreshed = await refreshAuth();
+    
+    if (refreshed) {
+      // Try both sources again after refresh
+      accessToken = (window as any).__authStore?.getAccessToken() || authStore.getAccessToken();
+      console.log('✅ Access token refreshed successfully:', accessToken ? `${accessToken.substring(0, 20)}...` : 'still null');
+      return accessToken;
+    }
+    
+    console.log('❌ Failed to refresh access token');
+    return null;
+  }, [refreshAuth]);
+
+  // SECURITY: Enhanced auto-refresh that runs periodically
+  useEffect(() => {
+    console.log('🔍 Setting up enhanced auto-refresh timer...');
+    
+    const checkAndRefreshToken = async () => {
+      // Only proceed if we have auth state but no token
+      if (authState.isAuthenticated && authState.user && !authStore.getAccessToken()) {
+        console.log('🔄 Periodic check: Missing token detected, refreshing...');
+        try {
+          const success = await refreshAuth();
+          if (success) {
+            console.log('✅ Periodic refresh successful');
+          } else {
+            console.log('❌ Periodic refresh failed');
+          }
+        } catch (error) {
+          console.error('❌ Periodic refresh error:', error);
+        }
+      }
+    };
+    
+    // Run immediately
+    checkAndRefreshToken();
+    
+    // Set up periodic checks every 5 seconds for the first minute after load
+    const intervalId = setInterval(checkAndRefreshToken, 5000);
+    
+    // Clean up after 1 minute
+    const timeoutId = setTimeout(() => {
+      clearInterval(intervalId);
+      console.log('🔍 Enhanced auto-refresh timer stopped');
+    }, 60000);
+    
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
+  }, [authState.isAuthenticated, authState.user, refreshAuth]);
 
   const verifySubscription = useCallback(async (email?: string): Promise<void> => {
     const emailToVerify = email || authState.user?.email;
