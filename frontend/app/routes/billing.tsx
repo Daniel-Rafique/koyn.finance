@@ -95,12 +95,19 @@ function BillingContent() {
     if (!isClientSide || typeof window === "undefined") return
 
     try {
+      // Set multiple flags to ensure modal doesn't appear
       sessionStorage.setItem("on_billing_page", "true")
+      sessionStorage.setItem("suppress_subscription_modal", "true")
+      
+      // Also set a flag in localStorage for more persistence
+      localStorage.setItem("on_billing_page", "true")
 
       // Clean up when navigating away
       return () => {
         try {
           sessionStorage.removeItem("on_billing_page")
+          sessionStorage.removeItem("suppress_subscription_modal")
+          localStorage.removeItem("on_billing_page")
         } catch (err) {
           console.error("Error removing session storage:", err)
         }
@@ -475,16 +482,31 @@ function BillingContent() {
         <h2 className="text-xl font-semibold text-white mb-4">Choose Your Plan</h2>
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
-            gap: "2rem",
+            display: "flex",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: "1.5rem",
             marginBottom: "2rem",
             width: "100%",
-            margin: "0 auto",
+            maxWidth: "1200px",
+            margin: "0 auto 2rem auto",
+            justifyContent: "space-between",
           }}
+          className="subscription-plans-container"
         >
           {/* Monthly Plan */}
-          <div style={{ position: "relative", padding: "1.5rem", borderRadius: "0.5rem" }}>
+          <div 
+            style={{ 
+              flex: "1 1 350px",
+              minWidth: "350px",
+              maxWidth: "380px",
+              position: "relative", 
+              padding: "1.5rem", 
+              borderRadius: "0.5rem",
+              border: "1px solid rgba(64, 47, 181, 0.3)",
+              background: "rgba(7, 4, 23, 0.8)"
+            }}
+          >
             <h3 className="text-lg font-semibold text-white mb-2">Monthly Plan</h3>
             <div className="mb-4">
               <span className="text-2xl font-bold text-white">$10</span>
@@ -533,8 +555,19 @@ function BillingContent() {
           </div>
 
           {/* Quarterly Plan */}
-          <div style={{ position: "relative", padding: "1.5rem", borderRadius: "0.5rem" }}>
-            <div className="absolute -top-3 -right-3 bg-[#ffffff] text-white text-xs font-bold px-3 py-1 rounded-full">
+          <div 
+            style={{ 
+              flex: "1 1 350px",
+              minWidth: "350px", 
+              maxWidth: "380px",
+              position: "relative", 
+              padding: "1.5rem", 
+              borderRadius: "0.5rem",
+              border: "2px solid rgba(64, 47, 181, 0.6)",
+              background: "rgba(7, 4, 23, 0.9)"
+            }}
+          >
+            <div className="absolute -top-3 -right-3 bg-[#402fb5] text-white text-xs font-bold px-3 py-1 rounded-full">
               POPULAR
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">Quarterly Plan</h3>
@@ -585,7 +618,18 @@ function BillingContent() {
           </div>
 
           {/* Lifetime Plan */}
-          <div style={{ position: "relative", padding: "1.5rem", borderRadius: "0.5rem" }}>
+          <div 
+            style={{ 
+              flex: "1 1 350px",
+              minWidth: "350px",
+              maxWidth: "380px", 
+              position: "relative", 
+              padding: "1.5rem", 
+              borderRadius: "0.5rem",
+              border: "1px solid rgba(207, 48, 170, 0.4)",
+              background: "rgba(7, 4, 23, 0.8)"
+            }}
+          >
             <h3 className="text-lg font-semibold text-white mb-2">Lifetime Plan</h3>
             <div className="mb-4">
               <span className="text-2xl font-bold text-white">$100</span>
@@ -751,7 +795,7 @@ function BillingContent() {
         <canvas id="particles-canvas" className="fixed top-0 left-0 w-full h-full z-0 pointer-events-none"></canvas>
       )}
 
-      <main className="max-w-[1200px] px-12 relative z-10 min-h-[calc(100vh-240px)] flex flex-col overflow-x-hidden pb-20 mx-0 lg:mx-auto">
+      <main className="max-w-[1400px] px-6 lg:px-12 relative z-10 min-h-[calc(100vh-240px)] flex flex-col overflow-x-hidden pb-20 mx-auto">
         {/* Back to Home button - positioned in top-left corner as a floating button */}
         <div className="absolute top-4 left-4 z-20 mb-4">
           <a
