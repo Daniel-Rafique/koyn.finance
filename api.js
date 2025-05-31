@@ -3554,7 +3554,7 @@ app.post('/api/share-result', async (req, res) => {
       success: true,
       message: 'Analysis shared successfully',
       shareId,
-      shareUrl: `https://koyn.finance/shared/${shareId}`
+      shareUrl: `https://koyn.finance/app/shared/${shareId}`
     });
   } catch (error) {
     console.error('Error sharing analysis result:', error);
