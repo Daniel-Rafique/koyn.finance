@@ -19,14 +19,14 @@
   width: 100%;
   position: absolute;
   overflow: hidden;
-  z-index: 0;
+  z-index: -1;
   /* Border Radius */
   border-radius: 12px;
   filter: blur(3px);
 }
 
 .glowing-input {
-  background: rgb(1, 2, 1);
+  background: rgb(5, 3, 16);
   border: none;
   width: 100%;
   height: 56px;
@@ -58,7 +58,7 @@
   width: 200px;
   height: 22px;
   position: absolute;
-  background: linear-gradient(90deg, transparent, rgb(1, 2, 1));
+  background: linear-gradient(90deg, transparent, rgb(5, 3, 16));
   top: 18px;
   left: 70px;
 }
@@ -87,7 +87,7 @@
   filter: blur(2px);
 }
 
-.glowing-input-container .white::before {
+.white::before {
   content: "";
   z-index: -2;
   text-align: center;
@@ -118,8 +118,7 @@
   filter: blur(0.5px);
 }
 
-/* Make sure the border::before only applies within glowing-input-container */
-.glowing-input-container .border::before {
+.border::before {
   content: "";
   z-index: -2;
   text-align: center;
@@ -148,7 +147,7 @@
   max-width: 100%;
 }
 
-.glowing-input-container .darkBorderBg::before {
+.darkBorderBg::before {
   content: "";
   z-index: -2;
   text-align: center;
@@ -215,9 +214,9 @@
   max-width: 100%;
 }
 
-.glowing-input-container .glow:before {
+.glow:before {
   content: "";
-  z-index: -2;
+  z-index: 0;
   text-align: center;
   top: 50%;
   left: 50%;
@@ -238,25 +237,24 @@
   transition: all 2s;
 }
 
-.glowing-input-container .search-button {
+.search-button {
   position: absolute;
   top: 8px;
-  right: 9px;
+  right: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2;
   max-height: 40px;
   max-width: 38px;
-  width: 35px !important;
   height: 100%;
+  width: 100%;
   isolation: isolate;
   overflow: hidden;
   border-radius: 10px;
   background: linear-gradient(180deg, #161329, black, #1d1b4b);
   border: 1px solid transparent;
   cursor: pointer;
-  min-width: 35px !important;
 }
 
 .button-border {
@@ -269,7 +267,7 @@
   border-radius: 10px;
 }
 
-.glowing-input-container .button-border::before {
+.button-border::before {
   content: "";
   text-align: center;
   top: 50%;
@@ -283,10 +281,10 @@
   filter: brightness(1.35);
   background-image: conic-gradient(
     rgba(0, 0, 0, 0),
-    #402fb5,
+    #3d3a4f,
     rgba(0, 0, 0, 0) 50%,
     rgba(0, 0, 0, 0) 50%,
-    #cf30aa,
+    #3d3a4f,
     rgba(0, 0, 0, 0) 100%
   );
   animation: rotate 4s linear infinite;
@@ -312,19 +310,6 @@
 /* Enhanced search container for vertical centering */
 .enhanced-search-container {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto;
-  position: relative;
-}
-
-.enhanced-search-form {
-  width: 100%;
-  max-width: 600px;
-  margin: 0 auto;
-  position: relative;
 }
 
 /* News section styles */
@@ -361,7 +346,7 @@
 }
 
 .news-section h4 {
-  color: #ffffff;
+  color: #a099d8;
 }
 
 .news-section p {
@@ -372,7 +357,7 @@
 .news-source {
   position: relative;
   display: inline-block;
-  color: #ffffff;
+  color: #cf30aa;
   font-weight: 500;
   cursor: pointer;
 }
@@ -385,8 +370,8 @@
   transform: translateX(-50%);
   width: 300px;
   padding: 12px;
-  background: black;
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(15, 10, 40, 0.95);
+  border: 1px solid rgba(64, 47, 181, 0.5);
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   z-index: 100;
@@ -406,6 +391,13 @@
   z-index: 1;
 }
 
+.search-button {
+  min-width: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
   .glowing-input-container {
@@ -417,92 +409,4 @@
     left: 0;
     transform: none;
   }
-}
-
-/* Add styles for the subscribe button */
-.subscribe-button {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-  isolation: isolate;
-  overflow: hidden;
-  border-radius: 10px;
-  background: linear-gradient(180deg, #000000, #000000, #111111);
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-
-.subscribe-button:hover {
-  background: linear-gradient(180deg, #1a1a1a, #0a0a0a, #222222);
-}
-
-.subscribe-button:active {
-  transform: scale(0.97);
-}
-
-.subscribe-button:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
-/* Make sure glowing-input-container scales properly for buttons */
-.glowing-input-container.button-container {
-  width: auto;
-  max-width: none;
-  margin: 0;
-}
-
-.button-container .input-main {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 40px;
-}
-
-/* Only apply small sizing to icon buttons, not text buttons */
-.glowing-input-container.icon-button .glow,
-.glowing-input-container.icon-button .white,
-.glowing-input-container.icon-button .darkBorderBg {
-  max-height: 40px;
-  max-width: 40px;
-  height: 40px;
-  width: 40px;
-}
-
-/* Text buttons should scale with content */
-.glowing-input-container.button-container .glow,
-.glowing-input-container.button-container .white,
-.glowing-input-container.button-container .darkBorderBg {
-  max-height: 48px;
-  max-width: 100%;
-  height: 48px;
-  width: 100%;
-}
-
-/* Ensure the animation is consistent between search and subscribe buttons */
-.glowing-input-container:hover .subscribe-button + .button-border::before,
-.glowing-input-container:focus-within .subscribe-button + .button-border::before {
-  animation: rotate 3s linear infinite;
-}
-
-/* Disabled state - prevent animations */
-.glowing-input-container.disabled .glow::before,
-.glowing-input-container.disabled .white::before,
-.glowing-input-container.disabled .darkBorderBg::before {
-  animation: none !important;
-  transform: none !important;
-}
-
-.glowing-input-container.disabled:hover .glow::before,
-.glowing-input-container.disabled:hover .white::before,
-.glowing-input-container.disabled:hover .darkBorderBg::before {
-  transform: none !important;
-}
-
-.glowing-input-container.disabled:focus-within .glow::before,
-.glowing-input-container.disabled:focus-within .white::before,
-.glowing-input-container.disabled:focus-within .darkBorderBg::before {
-  transform: none !important;
 } 
