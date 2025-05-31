@@ -105,31 +105,19 @@ function BillingContent() {
     const initializeBilling = async () => {
       console.log("AuthProvider loaded - subscription status:", isSubscribed, "userEmail:", userEmail)
 
-      // Check for subscription with the known email from your server data
-      const knownSubscriptionEmail = "koynlabs@gmail.com";
-      
-      // Try with the authenticated user email first
+      // Only proceed if user is authenticated with a valid email
       if (isSubscribed && userEmail) {
         try {
           await fetchSubscriptionDetails(userEmail)
         } catch (error) {
           console.error("Error fetching billing details for authenticated user:", error)
-        }
-      } 
-      // If no authenticated user but we're on production, try the known subscription email
-      else if (!userEmail && window.location.hostname !== 'localhost') {
-        console.log("No authenticated user, checking for known subscription:", knownSubscriptionEmail)
-        try {
-          await fetchSubscriptionDetails(knownSubscriptionEmail)
-        } catch (error) {
-          console.error("Error fetching known subscription details:", error)
-          setError("Please log in to access your billing information")
+          setError("Failed to load your billing information")
           setIsLoading(false)
         }
-      }
-      // Handle non-subscribed authenticated user
+      } 
+      // Handle authenticated user without subscription
       else if (userEmail && !isSubscribed) {
-        console.log("User email found but not subscribed:", userEmail)
+        console.log("User authenticated but not subscribed:", userEmail)
         const fallbackDate = "2024-01-01T00:00:00.000Z"
         setSubscriptionDetails({
           id: "inactive-user",
@@ -144,9 +132,9 @@ function BillingContent() {
         setError("No active subscription found")
         setIsLoading(false)
       } 
-      // No user data available
+      // User not authenticated - should not happen on billing page
       else {
-        console.log("No verified email found, subscription status:", isSubscribed)
+        console.log("User not authenticated - billing page access error")
         setIsLoading(false)
         setError("Please log in to access your billing information")
       }
@@ -727,12 +715,10 @@ function BillingContent() {
           <p className="text-[#ffffff] mt-2">Manage your subscription and payment details</p>
         </div>
 
-        {isLoading || !isSubscribed ? (
+        {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <Loader />
-            {isLoading && (
-              <div className="text-white text-sm mt-4">Loading subscription status...</div>
-            )}
+            <div className="text-white text-sm mt-4">Loading subscription status...</div>
           </div>
         ) : (
           <>
@@ -1056,8 +1042,8 @@ function BillingContent() {
 
                     <p className="mt-6 text-sm text-[#ffffff]">
                       Need help? Contact{" "}
-                      <a href="mailto:support@koyn.ai" className="text-[#ffffff] hover:underline">
-                        hi@koyn.ai
+                      <a href="mailto:hi@koyn.finance" className="text-[#ffffff] hover:underline">
+                        hi@koyn.finance
                       </a>
                     </p>
                   </div>
