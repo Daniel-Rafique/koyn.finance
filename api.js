@@ -18,10 +18,11 @@ const app = express();
 const PORT = 3001;
 
 // JWT configuration for secure authentication
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex');
+const JWT_SECRET = process.env.JWT_SECRET || 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6k7l8m9n0o1p2q3r4s5t6u7v8w9x0y1z2';
 
 if (!process.env.JWT_SECRET) {
-  console.warn('⚠️  JWT_SECRET not set in environment. Using generated secret for development only.');
+  console.warn('⚠️  JWT_SECRET not set in environment. Using fixed development secret.');
+  console.warn('⚠️  For production, set JWT_SECRET environment variable.');
 }
 
 // Initialize Redis client
@@ -53,34 +54,44 @@ try {
 // JWT Authentication Functions
 function verifyAccessToken(token) {
   try {
-    return jwt.verify(token, JWT_SECRET, {
+    console.log('🔐 Verifying JWT token...');
+    const decoded = jwt.verify(token, JWT_SECRET, {
       issuer: 'koyn.finance',
       audience: 'koyn.finance-users'
     });
+    console.log('✅ JWT token verified successfully:', { email: decoded.email, subscriptionId: decoded.subscriptionId, plan: decoded.plan });
+    return decoded;
   } catch (error) {
+    console.error('❌ JWT verification failed:', error.message);
     return null;
   }
 }
 
 // Middleware to extract subscription ID from JWT token or fallback to query param
 function getSubscriptionId(req) {
+  console.log('🔍 Getting subscription ID from request...');
+  
   // First try to get from Authorization header (JWT token)
   const authHeader = req.headers['authorization'];
+  console.log('📋 Authorization header:', authHeader ? 'Present' : 'Missing');
+  
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
+    console.log('🎫 Extracted JWT token (first 20 chars):', token.substring(0, 20) + '...');
+    
     const decoded = verifyAccessToken(token);
     
     if (decoded) {
       // Check if token already has subscriptionId (new format)
       if (decoded.subscriptionId) {
-        console.log(`Using JWT subscriptionId: ${decoded.subscriptionId}`);
+        console.log(`✅ Using JWT subscriptionId: ${decoded.subscriptionId}`);
         return decoded.subscriptionId;
       }
       
       // Handle legacy token format - look up subscription ID by email
       const email = decoded.email; // Use only the correct email field
       if (email) {
-        console.log(`JWT token missing subscriptionId, looking up by email: ${email}`);
+        console.log(`🔄 JWT token missing subscriptionId, looking up by email: ${email}`);
         
         try {
           const subscriptionsFilePath = path.join(__dirname, 'data', 'subscriptions.json');
@@ -93,17 +104,17 @@ function getSubscriptionId(req) {
             );
             
             if (subscription) {
-              console.log(`Found subscription ID ${subscription.id} for email ${email}`);
+              console.log(`✅ Found subscription ID ${subscription.id} for email ${email}`);
               return subscription.id;
             } else {
-              console.log(`No active subscription found for email ${email}`);
+              console.log(`❌ No active subscription found for email ${email}`);
             }
           }
         } catch (error) {
-          console.error('Error looking up subscription by email:', error);
+          console.error('❌ Error looking up subscription by email:', error);
         }
       } else {
-        console.log('JWT token missing email field');
+        console.log('❌ JWT token missing email field');
       }
     }
   }
@@ -115,6 +126,7 @@ function getSubscriptionId(req) {
     return legacyId;
   }
   
+  console.log('❌ No subscription ID found in request');
   return null;
 }
 
