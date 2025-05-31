@@ -450,7 +450,7 @@
 /* Make sure glowing-input-container scales properly for buttons */
 .glowing-input-container.button-container {
   width: auto;
-  max-width: 50px;
+  max-width: none;
   margin: 0;
 }
 
@@ -458,16 +458,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 40px;
 }
 
-.button-container .glow,
-.button-container .white,
-.button-container .border,
-.button-container .darkBorderBg {
+/* Only apply small sizing to icon buttons, not text buttons */
+.glowing-input-container.icon-button .glow,
+.glowing-input-container.icon-button .white,
+.glowing-input-container.icon-button .darkBorderBg {
   max-height: 40px;
   max-width: 40px;
   height: 40px;
   width: 40px;
+}
+
+/* Text buttons should scale with content */
+.glowing-input-container.button-container .glow,
+.glowing-input-container.button-container .white,
+.glowing-input-container.button-container .darkBorderBg {
+  max-height: 70px;
+  max-width: 100%;
+  height: 100%;
+  width: 100%;
 }
 
 /* Ensure the animation is consistent between search and subscribe buttons */
