@@ -10,7 +10,6 @@ import ProtectedPage from "../components/ProtectedPage"
 import Nav from "../components/Nav"
 import Footer from "../components/Footer"
 import "../styles/news-carousel-solid.css"
-import "../styles/glowing-input.css"
 import { HelioCheckout } from "@heliofi/checkout-react"
 // Import the specific types from the Helio library
 import type { HelioEmbedConfig } from "@heliofi/checkout-react"

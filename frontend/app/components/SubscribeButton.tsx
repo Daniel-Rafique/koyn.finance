@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect } from "react"
 import { Routes } from "../utils/routes"
 import SubscriptionModal from "./SubscriptionModal"
-import "../styles/glowing-input.css"
 import { useSubscription } from "../context/AuthProvider"
 import { createPortal } from "react-dom"
 import { useNavigate } from "react-router"

@@ -4,8 +4,9 @@ import React, { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router"
 import { Routes } from "../utils/routes"
 import SubscriptionModal from "./SubscriptionModal"
-import "../styles/glowing-input.css"
 import { useSubscription } from "../context/AuthProvider"
+import { Link } from "react-router"
+import { useAuth } from '../context/AuthProvider'
 
 interface SearchFormProps {
   onResultsChange?: (hasResults: boolean) => void
