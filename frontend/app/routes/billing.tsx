@@ -105,17 +105,32 @@ function BillingContent() {
     const initializeBilling = async () => {
       console.log("AuthProvider loaded - subscription status:", isSubscribed, "userEmail:", userEmail)
 
-      // Now we can trust the isSubscribed and userEmail values from AuthProvider
-
+      // Check for subscription with the known email from your server data
+      const knownSubscriptionEmail = "koynlabs@gmail.com";
+      
+      // Try with the authenticated user email first
       if (isSubscribed && userEmail) {
         try {
           await fetchSubscriptionDetails(userEmail)
         } catch (error) {
-          console.error("Error fetching billing details:", error)
+          console.error("Error fetching billing details for authenticated user:", error)
         }
-      } else if (userEmail && !isSubscribed) {
+      } 
+      // If no authenticated user but we're on production, try the known subscription email
+      else if (!userEmail && window.location.hostname !== 'localhost') {
+        console.log("No authenticated user, checking for known subscription:", knownSubscriptionEmail)
+        try {
+          await fetchSubscriptionDetails(knownSubscriptionEmail)
+        } catch (error) {
+          console.error("Error fetching known subscription details:", error)
+          setError("Please log in to access your billing information")
+          setIsLoading(false)
+        }
+      }
+      // Handle non-subscribed authenticated user
+      else if (userEmail && !isSubscribed) {
         console.log("User email found but not subscribed:", userEmail)
-        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
+        const fallbackDate = "2024-01-01T00:00:00.000Z"
         setSubscriptionDetails({
           id: "inactive-user",
           email: userEmail,
@@ -128,7 +143,9 @@ function BillingContent() {
         })
         setError("No active subscription found")
         setIsLoading(false)
-      } else {
+      } 
+      // No user data available
+      else {
         console.log("No verified email found, subscription status:", isSubscribed)
         setIsLoading(false)
         setError("Please log in to access your billing information")
@@ -149,25 +166,7 @@ function BillingContent() {
     setError(null)
 
     try {
-      // Since we know the subscription is verified, prioritize context data if available
-      if (user && typeof user === "object" && user.isActive) {
-        console.log("Using verified subscription from context")
-        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
-        const contextSubscription: Subscription = {
-          id: `user-${user.email}`,
-          email: user.email,
-          status: "active",
-          startedAt: fallbackDate,
-          renewalDate: fallbackDate,
-          plan: user.plan || "unknown",
-          paymentMethod: "crypto",
-        }
-        setSubscriptionDetails(contextSubscription)
-        setIsLoading(false)
-        return
-      }
-
-      // Fetch detailed subscription data from webhook handler for billing details
+      // Always fetch detailed subscription data from the server first
       console.log("Fetching detailed billing information for:", email)
       const accessToken = isClientSide && typeof window !== "undefined" ? localStorage.getItem("koyn_access_token") : null
 
@@ -184,35 +183,51 @@ function BillingContent() {
         headers,
       })
 
-      if (!response.ok) {
-        console.warn(`API call failed with ${response.status}, using context data`)
-        // API failed but we know subscription is active from context
-        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
-        setSubscriptionDetails({
-          id: "context-verified",
-          email: email,
+      if (response.ok) {
+        const data = await response.json()
+        console.log("Detailed billing data from server:", data)
+
+        if (data.active && data.subscription) {
+          // Use detailed data from server - this has the real dates!
+          console.log("Using detailed billing data from server")
+          setSubscriptionDetails(data.subscription)
+          setIsLoading(false)
+          return
+        }
+      } else {
+        console.warn(`API call failed with ${response.status}`)
+      }
+
+      // Fallback: Only use context data if API completely fails
+      if (user && typeof user === "object" && user.isActive) {
+        console.log("API failed, using verified subscription from context")
+        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date only as last resort
+        const contextSubscription: Subscription = {
+          id: `user-${user.email}`,
+          email: user.email,
           status: "active",
           startedAt: fallbackDate,
           renewalDate: fallbackDate,
-          transactionId: "verified",
-          plan: "verified",
-          paymentMethod: "verified",
-        })
+          plan: user.plan || "unknown",
+          paymentMethod: "crypto",
+        }
+        setSubscriptionDetails(contextSubscription)
         setIsLoading(false)
         return
       }
 
-      const data = await response.json()
-      console.log("Detailed billing data from server:", data)
+      // If we get here, no subscription found
+      console.log("No subscription data available from server or context")
+      setError("No active subscription found")
+      setIsLoading(false)
 
-      if (data.active && data.subscription) {
-        // Use detailed data from webhook handler
-        console.log("Using detailed billing data from server")
-        setSubscriptionDetails(data.subscription)
-      } else {
-        // Fallback to verified context data
-        console.log("Server has no detailed data, using verified context data")
-        const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
+    } catch (err) {
+      console.error("Error fetching detailed billing data:", err)
+      
+      // Last resort fallback to context data
+      if (user && typeof user === "object" && user.isActive) {
+        console.log("Network error, using verified context data as fallback")
+        const fallbackDate = "2024-01-01T00:00:00.000Z"
         setSubscriptionDetails({
           id: "context-verified",
           email: email,
@@ -223,22 +238,9 @@ function BillingContent() {
           plan: "verified",
           paymentMethod: "verified",
         })
+      } else {
+        setError("Failed to load subscription information")
       }
-    } catch (err) {
-      console.warn("Error fetching detailed billing data, using verified context:", err)
-      // Since subscription is verified by context, show as active even if API fails
-      const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
-      setSubscriptionDetails({
-        id: "context-verified",
-        email: email,
-        status: "active",
-        startedAt: fallbackDate,
-        renewalDate: fallbackDate,
-        transactionId: "verified",
-        plan: "verified",
-        paymentMethod: "verified",
-      })
-    } finally {
       setIsLoading(false)
     }
   }

@@ -3,7 +3,7 @@ import type { Route } from "./+types/home";
 import SearchForm from "../components/SearchForm";
 import SubscriptionModal from "../components/SubscriptionModal";
 import NewsCarousel from "../components/NewsCarousel";
-import { useSubscription } from "../context/AuthProvider";
+import { useAuth } from "../context/AuthProvider";
 import { useEffect, useState } from 'react';
 import { useNavigate } from "react-router";
 import { Routes } from "../utils/routes";
@@ -12,6 +12,7 @@ import Footer from "../components/Footer";
 import "../styles/home.css";
 import "../styles/glowing-input.css";
 import "../styles/news-carousel-solid.css";
+import { performTestLogin, clearTestAuth, isDevelopment } from "../utils/testAuth";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -31,8 +32,23 @@ export default function Home() {
     isSubscribed,
     user,
     userEmail,
-    isLoading: contextLoading
-  } = useSubscription();
+    isLoading: contextLoading,
+    login
+  } = useAuth();
+
+  // Test login function for development
+  const handleTestLogin = () => {
+    const authData = performTestLogin();
+    if (authData) {
+      login(authData);
+      console.log('✅ Test login successful! You are now authenticated with subscription data.');
+    }
+  };
+
+  const handleTestLogout = () => {
+    clearTestAuth();
+    window.location.reload(); // Force reload to clear AuthProvider state
+  };
 
   // Effect to handle client-side mounting
   useEffect(() => {
@@ -238,6 +254,35 @@ export default function Home() {
       <Nav />
       {/* Particles canvas for background effect */}
       <canvas id="particles-canvas" className="fixed top-0 left-0 w-full h-full z-0 pointer-events-none"></canvas>
+      
+      {/* Development test buttons */}
+      {isDevelopment() && isClientMounted && (
+        <div className="fixed top-4 right-4 z-30 space-y-2">
+          {!isSubscribed ? (
+            <button
+              onClick={handleTestLogin}
+              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+              title="Test login with subscription data"
+            >
+              🧪 Test Login
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <div className="bg-green-800 text-white px-3 py-1 rounded text-sm">
+                ✅ {user?.email}
+              </div>
+              <button
+                onClick={handleTestLogout}
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm w-full"
+                title="Clear test authentication"
+              >
+                🧪 Logout
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <main className="flex flex-col items-center justify-center min-h-[calc(100vh-160px)] max-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Back to Analysis button - repositioned to top-right corner as a floating button */}
         {hasStoredResults && (
