@@ -1045,10 +1045,7 @@ function BillingContent() {
                       >
                         <div className="glow"></div>
                         <div className="darkBorderBg"></div>
-                        <div className="darkBorderBg"></div>
-                        <div className="darkBorderBg"></div>
                         <div className="white"></div>
-                        <div className="border"></div>
                         
                         <div className="input-main" style={{ width: "100%", height: "40px" }}>
                           <button
@@ -1077,10 +1074,6 @@ function BillingContent() {
                           >
                             Renew Subscription
                           </button>
-                          <div
-                            className="button-border"
-                            style={{ width: "100%", height: "100%", top: 0, right: 0 }}
-                          ></div>
                         </div>
                       </div>
 
@@ -1090,10 +1083,7 @@ function BillingContent() {
                       >
                         <div className="glow"></div>
                         <div className="darkBorderBg"></div>
-                        <div className="darkBorderBg"></div>
-                        <div className="darkBorderBg"></div>
                         <div className="white"></div>
-                        <div className="border"></div>
                         
                         <div className="input-main" style={{ width: "100%", height: "40px" }}>
                           <button
@@ -1118,10 +1108,6 @@ function BillingContent() {
                           >
                             Upgrade/Downgrade
                           </button>
-                          <div
-                            className="button-border"
-                            style={{ width: "100%", height: "100%", top: 0, right: 0 }}
-                          ></div>
                         </div>
                       </div>
                     </div>
@@ -1156,10 +1142,7 @@ function BillingContent() {
                       <div className="glowing-input-container button-container" style={{ maxWidth: "200px" }}>
                         <div className="glow"></div>
                         <div className="darkBorderBg"></div>
-                        <div className="darkBorderBg"></div>
-                        <div className="darkBorderBg"></div>
                         <div className="white"></div>
-                        <div className="border"></div>
                         
                         <div className="input-main" style={{ width: "100%", height: "40px" }}>
                           <button
@@ -1176,10 +1159,6 @@ function BillingContent() {
                           >
                             Subscribe Now
                           </button>
-                          <div
-                            className="button-border"
-                            style={{ width: "100%", height: "100%", top: 0, right: 0 }}
-                          ></div>
                         </div>
                       </div>
                     </div>
