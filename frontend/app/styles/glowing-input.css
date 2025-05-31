@@ -475,9 +475,9 @@
 .glowing-input-container.button-container .glow,
 .glowing-input-container.button-container .white,
 .glowing-input-container.button-container .darkBorderBg {
-  max-height: 70px;
+  max-height: 48px;
   max-width: 100%;
-  height: 100%;
+  height: 48px;
   width: 100%;
 }
 

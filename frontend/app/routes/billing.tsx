@@ -1047,7 +1047,7 @@ function BillingContent() {
                         <div className="darkBorderBg"></div>
                         <div className="white"></div>
                         
-                        <div className="input-main" style={{ width: "100%", height: "40px" }}>
+                        <div className="input-main" style={{ width: "100%", height: "48px" }}>
                           <button
                             onClick={() => {
                               const paylinkId =
@@ -1061,7 +1061,7 @@ function BillingContent() {
                               top: "0",
                               left: "0",
                               width: "100%",
-                              height: "40px",
+                              height: "48px",
                               background: !hasRenewalDatePassed(subscriptionDetails?.renewalDate || "")
                                 ? "linear-gradient(180deg, #465370, #363f52, #505e7e)"
                                 : "linear-gradient(180deg, #135c36, #0e4429, #1d6f42)",
@@ -1085,7 +1085,7 @@ function BillingContent() {
                         <div className="darkBorderBg"></div>
                         <div className="white"></div>
                         
-                        <div className="input-main" style={{ width: "100%", height: "40px" }}>
+                        <div className="input-main" style={{ width: "100%", height: "48px" }}>
                           <button
                             onClick={handleUpgradeDowngrade}
                             disabled={isSubscribed}
@@ -1095,7 +1095,7 @@ function BillingContent() {
                               top: "0",
                               left: "0",
                               width: "100%",
-                              height: "40px",
+                              height: "48px",
                               background: isSubscribed
                                 ? "linear-gradient(180deg, #465370, #363f52, #505e7e)"
                                 : "linear-gradient(180deg, #263c87, #1c2d65, #2d4aa6)",
@@ -1144,7 +1144,7 @@ function BillingContent() {
                         <div className="darkBorderBg"></div>
                         <div className="white"></div>
                         
-                        <div className="input-main" style={{ width: "100%", height: "40px" }}>
+                        <div className="input-main" style={{ width: "100%", height: "48px" }}>
                           <button
                             onClick={() => handleRenewSubscription("68229ffa2c8760f1eb3d19d7")}
                             className="subscribe-button text-white font-bold py-2 px-6"
@@ -1153,7 +1153,7 @@ function BillingContent() {
                               top: "0",
                               left: "0",
                               width: "100%",
-                              height: "40px",
+                              height: "48px",
                               background: "linear-gradient(180deg, #135c36, #0e4429, #1d6f42)",
                             }}
                           >
