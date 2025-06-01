@@ -123,7 +123,7 @@ export default function SharedAnalysis() {
             href="/" 
             className="inline-flex items-center"
           >
-            <img src="/logo.jpg" alt="Koyn Logo" className="w-40 h-40" />
+            <img src="/logo.jpg" alt="Koyn Logo" className="w-20 h-20" />
           </a>
         </div>
 
