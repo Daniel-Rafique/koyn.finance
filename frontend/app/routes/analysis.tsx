@@ -1021,10 +1021,6 @@ function AnalysisContent() {
             />
           </div>
         </div>
-
-        <div className="news-carousel-solid">
-          <NewsCarousel accounts={["business", "BitcoinMagazine", "solana", "koynlabs"]} />
-        </div>
       </div>
   )
 }
