@@ -765,18 +765,11 @@ function AnalysisContent() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10 min-h-[calc(100vh-160px)] flex flex-col pb-32">
         {isFirstLoad && isLoading && (!currentEntry || !currentEntry.results) ? (
-          <div className="loading-container flex flex-col items-center justify-center flex-grow">
-            <div className="relative w-full max-w-3xl mx-auto mt-24 flex flex-col items-center z-10">
-              {isLoading && (
-                <div className="absolute" style={{ top: "-150px" }}>
-                  <Loader />
-                </div>
-              )}
-
-              <div className="w-full text-center mb-8">
-                <p className="text-[#a099d8]">{query}</p>
-              </div>
+          <div className="loading-container flex flex-col items-center justify-start flex-grow pt-8">
+            <div className="w-full text-center mb-8">
+              <p className="text-[#a099d8] text-xl">{query}</p>
             </div>
+            <Loader />
           </div>
         ) : error ? (
           <div className="flex-grow flex flex-col items-center justify-center">
