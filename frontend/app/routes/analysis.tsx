@@ -1018,8 +1018,6 @@ function AnalysisContent() {
               waitForResults={true}
               onSearch={handleSearch}
               isLoading={searchFormLoading}
-              isRateLimited={isRateLimited}
-              setIsRateLimited={setIsRateLimited}
             />
           </div>
         </div>
