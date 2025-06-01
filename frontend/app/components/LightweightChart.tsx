@@ -2876,25 +2876,25 @@ function LightweightChart({
               // Adjust visible points based on timeframe
               switch (timeframe) {
                 case "1m":
-                  visibleDataPoints = 60 // Show last hour for 1-minute data
+                  visibleDataPoints = 20 // Show last hour for 1-minute data
                   break
                 case "5m":
-                  visibleDataPoints = 72 // Show last 6 hours for 5-minute data
+                  visibleDataPoints = 20 // Show last 6 hours for 5-minute data
                   break
                 case "15m":
-                  visibleDataPoints = 64 // Show last 16 hours for 15-minute data
+                  visibleDataPoints = 20 // Show last 16 hours for 15-minute data
                   break
                 case "30m":
-                  visibleDataPoints = 48 // Show last 24 hours for 30-minute data
+                  visibleDataPoints = 20 // Show last 24 hours for 30-minute data
                   break
                 case "1H":
-                  visibleDataPoints = 48 // Show last 2 days for 1-hour data
+                  visibleDataPoints = 20 // Show last 2 days for 1-hour data
                   break
                 case "4H":
-                  visibleDataPoints = 42 // Show last week for 4-hour data
+                  visibleDataPoints = 20 // Show last week for 4-hour data
                   break
                 case "1D":
-                  visibleDataPoints = 30 // Show last month for daily data
+                  visibleDataPoints = 20 // Show last month for daily data
                   break
               }
 
