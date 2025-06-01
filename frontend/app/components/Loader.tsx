@@ -5,6 +5,8 @@ interface LoaderProps {
 }
 
 export function Loader({ className = '' }: LoaderProps) {
+  debugger; // Breakpoint for debugging
+  
   return (
     <div className={`w-full max-w-4xl mx-auto space-y-6 ${className}`} style={{ zIndex: 1000 }}>
       {/* Query Title Skeleton */}
