@@ -63,7 +63,7 @@ export default function ErrorPage() {
         <div className="space-y-4">
           <Link 
             to="/"
-            className="inline-block w-full bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white font-medium py-3 px-6 rounded-lg hover:from-[#7C3AED] hover:to-[#DB2777] transition-all duration-200 transform hover:scale-105"
+            className="inline-block w-full bg-gradient-to-r from-[#0000] to-[rgba(139,92,246,0.1)] text-white font-medium py-3 px-6 rounded-lg hover:from-[#7C3AED] hover:to-[#DB2777] transition-all duration-200 transform hover:scale-105"
           >
             Go Home
           </Link>
