@@ -6,7 +6,7 @@ interface LoaderProps {
 
 export function Loader({ className = '' }: LoaderProps) {
   return (
-    <div className={`w-full max-w-4xl mx-auto space-y-6 ${className}`}>
+    <div className={`w-full max-w-4xl mx-auto space-y-6 ${className}`} style={{ zIndex: 1000 }}>
       {/* Query Title Skeleton */}
       <div className="animate-pulse">
         <div className="h-8 bg-gray-700 rounded-md w-3/4 mb-6"></div>
