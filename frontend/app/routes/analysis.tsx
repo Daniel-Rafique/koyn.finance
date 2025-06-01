@@ -140,6 +140,12 @@ function AnalysisContent() {
   const [resultsVersion, setResultsVersion] = useState(0)
   const [historyVersion, setHistoryVersion] = useState(0)
 
+  // Add scroll-based opacity state for floating search bar
+  const [searchOpacity, setSearchOpacity] = useState(1)
+  const [isScrolling, setIsScrolling] = useState(false)
+  const [isHoveringSearch, setIsHoveringSearch] = useState(false)
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   const query = searchParams.get("q")
 
   console.log("Analysis page - Current subscription status:", {
@@ -593,6 +599,80 @@ function AnalysisContent() {
     }
   }, [currentIndex, resultsArray.length])
 
+  // Add scroll event listener for dynamic search opacity
+  useEffect(() => {
+    let lastScrollY = 0
+    let ticking = false
+
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY
+          const scrollSpeed = Math.abs(currentScrollY - lastScrollY)
+          
+          // Set scrolling state
+          setIsScrolling(true)
+          
+          // Clear existing timeout
+          if (scrollTimeoutRef.current) {
+            clearTimeout(scrollTimeoutRef.current)
+          }
+          
+          // Calculate opacity based on scroll activity and position
+          let newOpacity = 1
+          
+          // Don't reduce opacity if user is hovering over search area
+          if (!isHoveringSearch) {
+            if (currentScrollY > 150) { // Start fading after scrolling 150px
+              // Base opacity reduction when scrolled
+              newOpacity = 0.6
+              
+              // Additional reduction when actively scrolling fast
+              if (scrollSpeed > 15) {
+                newOpacity = Math.max(0.2, 0.6 - (scrollSpeed / 120))
+              }
+            } else if (currentScrollY > 50) {
+              // Gradual fade between 50-150px
+              newOpacity = 1 - ((currentScrollY - 50) * 0.4 / 100)
+            }
+          }
+          
+          setSearchOpacity(newOpacity)
+          lastScrollY = currentScrollY
+          
+          // Reset scrolling state after scroll ends
+          scrollTimeoutRef.current = setTimeout(() => {
+            setIsScrolling(false)
+            // Restore opacity when scrolling stops (unless hovering)
+            if (!isHoveringSearch) {
+              if (currentScrollY > 150) {
+                setSearchOpacity(0.7) // Slightly more visible when scroll stops
+              } else if (currentScrollY > 50) {
+                setSearchOpacity(1 - ((currentScrollY - 50) * 0.3 / 100))
+              } else {
+                setSearchOpacity(1)
+              }
+            }
+          }, 200)
+          
+          ticking = false
+        })
+        ticking = true
+      }
+    }
+
+    // Add scroll listener
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current)
+      }
+    }
+  }, [isHoveringSearch])
+
   // Get the current entry to display
   const currentEntry = resultsArray[currentIndex] || null
 
@@ -1042,8 +1122,29 @@ function AnalysisContent() {
       <div
         className="fixed bottom-0 left-0 w-full z-10"
         style={{
-          backgroundColor: "rgb(13, 10, 33)",
-          boxShadow: "0 -10px 20px rgb(13, 10, 33)",
+          backgroundColor: `rgba(13, 10, 33, ${Math.max(0.4, searchOpacity)})`,
+          boxShadow: `0 -10px 20px rgba(13, 10, 33, ${searchOpacity * 0.8})`,
+          backdropFilter: searchOpacity < 0.9 ? 'blur(12px)' : 'none',
+          WebkitBackdropFilter: searchOpacity < 0.9 ? 'blur(12px)' : 'none',
+          transition: isScrolling 
+            ? 'all 0.15s ease-out' 
+            : 'all 0.4s ease-out'
+        }}
+        onMouseEnter={() => {
+          setIsHoveringSearch(true)
+          setSearchOpacity(1) // Full opacity when hovering
+        }}
+        onMouseLeave={() => {
+          setIsHoveringSearch(false)
+          // Restore scroll-based opacity when not hovering
+          const currentScrollY = window.scrollY
+          if (currentScrollY > 150) {
+            setSearchOpacity(0.7)
+          } else if (currentScrollY > 50) {
+            setSearchOpacity(1 - ((currentScrollY - 50) * 0.3 / 100))
+          } else {
+            setSearchOpacity(1)
+          }
         }}
       >
         <div className="fixed bottom-20 left-0 w-full flex justify-center px-4 z-20">
