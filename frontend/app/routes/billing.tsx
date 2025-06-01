@@ -503,7 +503,7 @@ function BillingContent() {
               position: "relative", 
               padding: "1.5rem", 
               borderRadius: "0.5rem",
-              border: "1px solid rgba(64, 47, 181, 0.3)",
+              border: "1px solid rgb(31, 41, 55)",
               background: "rgba(7, 4, 23, 0.8)"
             }}
           >
@@ -563,7 +563,7 @@ function BillingContent() {
               position: "relative", 
               padding: "1.5rem", 
               borderRadius: "0.5rem",
-              border: "2px solid rgba(64, 47, 181, 0.6)",
+              border: "2px solid rgb(55, 65, 81)",
               background: "rgba(7, 4, 23, 0.9)"
             }}
           >
@@ -626,7 +626,7 @@ function BillingContent() {
               position: "relative", 
               padding: "1.5rem", 
               borderRadius: "0.5rem",
-              border: "1px solid rgba(207, 48, 170, 0.4)",
+              border: "1px solid rgb(31, 41, 55)",
               background: "rgba(7, 4, 23, 0.8)"
             }}
           >
@@ -841,8 +841,89 @@ function BillingContent() {
         </div>
 
         {isBillingLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="text-white text-sm mt-4">Loading subscription status...</div>
+          <div className="space-y-8 mb-6">
+            {/* Subscription Overview Skeleton */}
+            <div className="animate-pulse">
+              <div className="h-7 bg-gray-700 rounded w-48 mb-4"></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <div className="h-4 bg-gray-700 rounded w-16 mb-1"></div>
+                    <div className="h-5 bg-gray-700 rounded w-32"></div>
+                  </div>
+                  <div>
+                    <div className="h-4 bg-gray-700 rounded w-16 mb-1"></div>
+                    <div className="h-5 bg-gray-700 rounded w-20"></div>
+                  </div>
+                  <div>
+                    <div className="h-4 bg-gray-700 rounded w-12 mb-1"></div>
+                    <div className="h-5 bg-gray-700 rounded w-48"></div>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <div className="h-4 bg-gray-700 rounded w-20 mb-1"></div>
+                    <div className="h-5 bg-gray-700 rounded w-28"></div>
+                  </div>
+                  <div>
+                    <div className="h-4 bg-gray-700 rounded w-24 mb-1"></div>
+                    <div className="h-5 bg-gray-700 rounded w-28"></div>
+                    <div className="h-3 bg-gray-700 rounded w-36 mt-1"></div>
+                  </div>
+                  <div>
+                    <div className="h-4 bg-gray-700 rounded w-32 mb-1"></div>
+                    <div className="h-5 bg-gray-700 rounded w-24"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment History Skeleton */}
+            <div className="animate-pulse">
+              <div className="h-7 bg-gray-700 rounded w-40 mb-4"></div>
+              <div className="overflow-x-auto">
+                <div className="min-w-full divide-y divide-gray-800">
+                  {/* Table Header */}
+                  <div className="grid grid-cols-4 gap-4 px-4 py-3">
+                    <div className="h-4 bg-gray-700 rounded w-12"></div>
+                    <div className="h-4 bg-gray-700 rounded w-24"></div>
+                    <div className="h-4 bg-gray-700 rounded w-16"></div>
+                    <div className="h-4 bg-gray-700 rounded w-16"></div>
+                  </div>
+                  {/* Table Rows */}
+                  {[...Array(2)].map((_, i) => (
+                    <div key={i} className="grid grid-cols-4 gap-4 px-4 py-4">
+                      <div className="h-4 bg-gray-700 rounded w-20"></div>
+                      <div className="h-4 bg-gray-700 rounded w-16"></div>
+                      <div className="h-4 bg-gray-700 rounded w-20"></div>
+                      <div className="h-6 bg-gray-700 rounded-full w-20"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Subscription Actions Skeleton */}
+            <div className="animate-pulse">
+              <div className="h-7 bg-gray-700 rounded w-52 mb-4"></div>
+              <div className="flex flex-col md:flex-row gap-6 mb-4">
+                <div className="md:w-1/2">
+                  <div className="h-12 bg-gray-700 rounded-lg w-full"></div>
+                </div>
+                <div className="md:w-1/2">
+                  <div className="h-12 bg-gray-700 rounded-lg w-full"></div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 bg-gray-700 rounded w-full"></div>
+                <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+              </div>
+            </div>
+
+            {/* Contact Info Skeleton */}
+            <div className="animate-pulse">
+              <div className="h-4 bg-gray-700 rounded w-64"></div>
+            </div>
           </div>
         ) : (
           <>
@@ -922,7 +1003,7 @@ function BillingContent() {
                       </div>
                     </div>
                     {subscriptionDetails.amount && (
-                      <div className="mt-4 pt-4 border-t border-[rgba(64,47,181,0.3)]">
+                      <div className="mt-4 pt-4 border-t border-gray-800">
                         <span className="text-[#ffffff] block">Current Billing</span>
                         <span className="text-white font-medium">
                           {formatAmount(
@@ -940,7 +1021,7 @@ function BillingContent() {
 
                     {/* Additional Transaction Details */}
                     {subscriptionDetails.transactionDetails && (
-                      <div className="mt-4 pt-4 border-t border-[rgba(64,47,181,0.3)]">
+                      <div className="mt-4 pt-4 border-t border-gray-800">
                         <h3 className="text-lg font-semibold text-white mb-3">Payment Details</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {subscriptionDetails.transactionDetails.paylinkId && (
@@ -975,7 +1056,7 @@ function BillingContent() {
                     <h2 className="text-xl font-semibold text-white mb-4">Payment History</h2>
                     {subscriptionDetails && subscriptionDetails.transactionId ? (
                       <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-white">
+                        <table className="min-w-full divide-y divide-gray-800">
                           <thead>
                             <tr>
                               <th className="px-4 py-3 text-left text-xs font-medium text-[#ffffff] uppercase tracking-wider">
@@ -997,7 +1078,7 @@ function BillingContent() {
                               )}
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-white">
+                          <tbody className="divide-y divide-gray-800">
                             <tr>
                               <td className="px-4 py-4 whitespace-nowrap text-sm text-white">
                                 {formatDate(
