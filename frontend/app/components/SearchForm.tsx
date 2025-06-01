@@ -60,21 +60,7 @@ export default function SearchForm({
   }, [])
 
   const placeholders = [
-    "What's the outlook for AAPL stock?",
-    "How is Bitcoin performing today?",
-    "Should I invest in Tesla right now?",
-    "What's the sentiment on Amazon stock?",
-    "Analyze S&P 500 market conditions",
-    "What's the forecast for Gold prices?",
-    "How will interest rates affect the market?",
-    "Is it a good time to buy tech stocks?",
-    "What's the analysis for NVIDIA stock?",
-    "Explain the recent trends in oil prices",
-    "What's driving the Dow Jones today?",
-    "Is real estate a good investment now?",
-    "Compare Tesla and Ford stock performance",
-    "How are bank stocks performing?",
-    "Forecast Ethereum price movement",
+    "What's the outlook for AAPL stock?"
   ]
 
   // Rotate placeholder text every 3 seconds
