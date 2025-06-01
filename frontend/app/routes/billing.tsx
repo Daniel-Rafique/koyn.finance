@@ -841,88 +841,90 @@ function BillingContent() {
         </div>
 
         {isBillingLoading ? (
-          <div className="space-y-8 mb-6">
-            {/* Subscription Overview Skeleton */}
-            <div className="animate-pulse">
-              <div className="h-7 bg-gray-700 rounded w-48 mb-4"></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <div className="h-4 bg-gray-700 rounded w-16 mb-1"></div>
-                    <div className="h-5 bg-gray-700 rounded w-32"></div>
-                  </div>
-                  <div>
-                    <div className="h-4 bg-gray-700 rounded w-16 mb-1"></div>
-                    <div className="h-5 bg-gray-700 rounded w-20"></div>
-                  </div>
-                  <div>
-                    <div className="h-4 bg-gray-700 rounded w-12 mb-1"></div>
-                    <div className="h-5 bg-gray-700 rounded w-48"></div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <div className="h-4 bg-gray-700 rounded w-20 mb-1"></div>
-                    <div className="h-5 bg-gray-700 rounded w-28"></div>
-                  </div>
-                  <div>
-                    <div className="h-4 bg-gray-700 rounded w-24 mb-1"></div>
-                    <div className="h-5 bg-gray-700 rounded w-28"></div>
-                    <div className="h-3 bg-gray-700 rounded w-36 mt-1"></div>
-                  </div>
-                  <div>
-                    <div className="h-4 bg-gray-700 rounded w-32 mb-1"></div>
-                    <div className="h-5 bg-gray-700 rounded w-24"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Payment History Skeleton */}
-            <div className="animate-pulse">
-              <div className="h-7 bg-gray-700 rounded w-40 mb-4"></div>
-              <div className="overflow-x-auto">
-                <div className="min-w-full divide-y divide-gray-800">
-                  {/* Table Header */}
-                  <div className="grid grid-cols-4 gap-4 px-4 py-3">
-                    <div className="h-4 bg-gray-700 rounded w-12"></div>
-                    <div className="h-4 bg-gray-700 rounded w-24"></div>
-                    <div className="h-4 bg-gray-700 rounded w-16"></div>
-                    <div className="h-4 bg-gray-700 rounded w-16"></div>
-                  </div>
-                  {/* Table Rows */}
-                  {[...Array(2)].map((_, i) => (
-                    <div key={i} className="grid grid-cols-4 gap-4 px-4 py-4">
-                      <div className="h-4 bg-gray-700 rounded w-20"></div>
-                      <div className="h-4 bg-gray-700 rounded w-16"></div>
-                      <div className="h-4 bg-gray-700 rounded w-20"></div>
-                      <div className="h-6 bg-gray-700 rounded-full w-20"></div>
+          <div className="w-full max-w-4xl mx-auto">
+            <div className="space-y-8 mb-6">
+              {/* Subscription Overview Skeleton */}
+              <div className="animate-pulse">
+                <div className="h-7 bg-gray-700 rounded w-48 mb-4"></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <div className="h-4 bg-gray-700 rounded w-16 mb-1"></div>
+                      <div className="h-5 bg-gray-700 rounded w-32"></div>
                     </div>
-                  ))}
+                    <div>
+                      <div className="h-4 bg-gray-700 rounded w-16 mb-1"></div>
+                      <div className="h-5 bg-gray-700 rounded w-20"></div>
+                    </div>
+                    <div>
+                      <div className="h-4 bg-gray-700 rounded w-12 mb-1"></div>
+                      <div className="h-5 bg-gray-700 rounded w-48"></div>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="h-4 bg-gray-700 rounded w-20 mb-1"></div>
+                      <div className="h-5 bg-gray-700 rounded w-28"></div>
+                    </div>
+                    <div>
+                      <div className="h-4 bg-gray-700 rounded w-24 mb-1"></div>
+                      <div className="h-5 bg-gray-700 rounded w-28"></div>
+                      <div className="h-3 bg-gray-700 rounded w-36 mt-1"></div>
+                    </div>
+                    <div>
+                      <div className="h-4 bg-gray-700 rounded w-32 mb-1"></div>
+                      <div className="h-5 bg-gray-700 rounded w-24"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Subscription Actions Skeleton */}
-            <div className="animate-pulse">
-              <div className="h-7 bg-gray-700 rounded w-52 mb-4"></div>
-              <div className="flex flex-col md:flex-row gap-6 mb-4">
-                <div className="md:w-1/2">
-                  <div className="h-12 bg-gray-700 rounded-lg w-full"></div>
-                </div>
-                <div className="md:w-1/2">
-                  <div className="h-12 bg-gray-700 rounded-lg w-full"></div>
+              {/* Payment History Skeleton */}
+              <div className="animate-pulse">
+                <div className="h-7 bg-gray-700 rounded w-40 mb-4"></div>
+                <div className="overflow-x-auto">
+                  <div className="min-w-full divide-y divide-gray-800">
+                    {/* Table Header */}
+                    <div className="grid grid-cols-4 gap-4 px-4 py-3">
+                      <div className="h-4 bg-gray-700 rounded w-12"></div>
+                      <div className="h-4 bg-gray-700 rounded w-24"></div>
+                      <div className="h-4 bg-gray-700 rounded w-16"></div>
+                      <div className="h-4 bg-gray-700 rounded w-16"></div>
+                    </div>
+                    {/* Table Rows */}
+                    {[...Array(2)].map((_, i) => (
+                      <div key={i} className="grid grid-cols-4 gap-4 px-4 py-4">
+                        <div className="h-4 bg-gray-700 rounded w-20"></div>
+                        <div className="h-4 bg-gray-700 rounded w-16"></div>
+                        <div className="h-4 bg-gray-700 rounded w-20"></div>
+                        <div className="h-6 bg-gray-700 rounded-full w-20"></div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-700 rounded w-full"></div>
-                <div className="h-4 bg-gray-700 rounded w-3/4"></div>
-              </div>
-            </div>
 
-            {/* Contact Info Skeleton */}
-            <div className="animate-pulse">
-              <div className="h-4 bg-gray-700 rounded w-64"></div>
+              {/* Subscription Actions Skeleton */}
+              <div className="animate-pulse">
+                <div className="h-7 bg-gray-700 rounded w-52 mb-4"></div>
+                <div className="flex flex-col md:flex-row gap-6 mb-4">
+                  <div className="md:w-1/2">
+                    <div className="h-12 bg-gray-700 rounded-lg w-full"></div>
+                  </div>
+                  <div className="md:w-1/2">
+                    <div className="h-12 bg-gray-700 rounded-lg w-full"></div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-700 rounded w-full"></div>
+                  <div className="h-4 bg-gray-700 rounded w-3/4"></div>
+                </div>
+              </div>
+
+              {/* Contact Info Skeleton */}
+              <div className="animate-pulse">
+                <div className="h-4 bg-gray-700 rounded w-64"></div>
+              </div>
             </div>
           </div>
         ) : (
