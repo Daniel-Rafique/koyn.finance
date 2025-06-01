@@ -1,6 +1,4 @@
 "use client"
-
-import type { Route } from "./+types/analysis"
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useNavigate, useSearchParams } from "react-router"
 import AnalysisResults from "../components/AnalysisResults"
@@ -16,22 +14,29 @@ import NewsCarousel from "../components/NewsCarousel"
 
 // Meta function for React Router to set page title and description
 export const meta = ({ location }: { location: { search: string } }) => {
-  const searchParams = new URLSearchParams(location.search);
-  const query = searchParams.get("q");
-  
+  const searchParams = new URLSearchParams(location.search)
+  const query = searchParams.get("q")
+
   if (query) {
     return [
       { title: `Analysis: ${query} - koyn.finance` },
-      { name: "description", content: `AI-powered financial analysis and market sentiment for ${query}. Get real-time insights, price trends, and social sentiment analysis.` },
+      {
+        name: "description",
+        content: `AI-powered financial analysis and market sentiment for ${query}. Get real-time insights, price trends, and social sentiment analysis.`,
+      },
       { name: "robots", content: "noindex, nofollow" }, // Don't index specific searches
-    ];
+    ]
   }
-  
+
   return [
     { title: "Market Analysis - koyn.finance" },
-    { name: "description", content: "AI-powered financial market analysis with real-time sentiment tracking, price predictions, and comprehensive market insights for cryptocurrencies and stocks." },
-  ];
-};
+    {
+      name: "description",
+      content:
+        "AI-powered financial market analysis with real-time sentiment tracking, price predictions, and comprehensive market insights for cryptocurrencies and stocks.",
+    },
+  ]
+}
 
 interface SearchResult {
   asset: {
@@ -77,9 +82,9 @@ interface ResultEntry {
 }
 
 // Add a helper function to truncate long queries for mobile display
-function truncateQuery(query: string, maxLength: number = 40): string {
-  if (query.length <= maxLength) return query;
-  return query.substring(0, maxLength) + '...';
+function truncateQuery(query: string, maxLength = 40): string {
+  if (query.length <= maxLength) return query
+  return query.substring(0, maxLength) + "..."
 }
 
 function normalizeQuery(q: string): string {
@@ -151,7 +156,7 @@ function AnalysisContent() {
   console.log("Analysis page - Current subscription status:", {
     isSubscribed,
     userEmail,
-    user: user?.email
+    user: user?.email,
   })
 
   // Effect to handle client-side mounting
@@ -174,7 +179,7 @@ function AnalysisContent() {
   // Load results array from localStorage on mount and set current index based on query
   useEffect(() => {
     if (!isClientMounted) return
-    
+
     const arr = getResultsArray()
     setResultsArray(arr)
 
@@ -230,7 +235,7 @@ function AnalysisContent() {
         const existingIndex = findEntryIndexByQuery(currentStoredResults, questionQuery)
         if (existingIndex !== -1) {
           console.log(`Using existing results for "${questionQuery}" from localStorage at index ${existingIndex}`)
-          
+
           // Update state with current localStorage data
           setResultsArray(currentStoredResults)
           setCurrentIndex(existingIndex)
@@ -251,23 +256,23 @@ function AnalysisContent() {
 
       try {
         // SECURITY: Get access token securely with automatic refresh
-        const accessToken = await getSecureAccessToken();
-        
+        const accessToken = await getSecureAccessToken()
+
         if (!accessToken) {
-          console.log('❌ No valid access token available');
-          setError("Authentication failed. Please sign in again.");
-          setIsLoading(false);
+          console.log("❌ No valid access token available")
+          setError("Authentication failed. Please sign in again.")
+          setIsLoading(false)
           if (setSearchLoadingCallback) {
-            setSearchLoadingCallback(false);
-            setSearchFormLoading(false);
+            setSearchLoadingCallback(false)
+            setSearchFormLoading(false)
           }
-          return;
+          return
         }
-        
+
         // Prepare headers with JWT authentication
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}`
+          Authorization: `Bearer ${accessToken}`,
         }
 
         // Prepare request body - only need the question now since auth is via JWT
@@ -279,11 +284,11 @@ function AnalysisContent() {
         console.log("Sending API request with secure JWT authentication:", {
           question: questionQuery,
           hasToken: true,
-          tokenSource: 'memory-secure',
-          userEmail: user?.email || userEmail
+          tokenSource: "memory-secure",
+          userEmail: user?.email || userEmail,
         })
 
-        let response;
+        let response
         try {
           response = await fetch("https://koyn.finance:3001/api/sentiment", {
             method: "POST",
@@ -293,20 +298,24 @@ function AnalysisContent() {
         } catch (fetchError) {
           // Handle network-level errors including 429s that don't return a response
           console.error("Network error during fetch:", fetchError)
-          
-          if (fetchError instanceof Error && 
-              (fetchError.message.includes('429') || 
-               fetchError.message.includes('Too Many Requests') ||
-               fetchError.message.includes('Daily API limit exceeded') ||
-               fetchError.message.includes('Rate Limit Exceeded') ||
-               fetchError.message.includes('rate limit'))) {
-            setError("You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!")
-          } else if (fetchError instanceof TypeError && fetchError.message.includes('fetch')) {
+
+          if (
+            fetchError instanceof Error &&
+            (fetchError.message.includes("429") ||
+              fetchError.message.includes("Too Many Requests") ||
+              fetchError.message.includes("Daily API limit exceeded") ||
+              fetchError.message.includes("Rate Limit Exceeded") ||
+              fetchError.message.includes("rate limit"))
+          ) {
+            setError(
+              "You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!",
+            )
+          } else if (fetchError instanceof TypeError && fetchError.message.includes("fetch")) {
             setError("Unable to connect to our servers. Please check your internet connection and try again.")
           } else {
             setError("Network error occurred. Please try again or contact support if this persists.")
           }
-          
+
           setIsLoading(false)
           if (setSearchLoadingCallback) {
             setSearchLoadingCallback(false)
@@ -320,18 +329,22 @@ function AnalysisContent() {
           if (response.status === 429) {
             try {
               const errorData = await response.json()
-              
+
               // Use the API's error message if available, or provide a fallback
               if (errorData.message) {
                 setError(errorData.message)
               } else {
-                setError(`You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!`)
+                setError(
+                  `You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!`,
+                )
               }
             } catch (parseError) {
               // Fallback if we can't parse the error response
-              setError(`You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!`)
+              setError(
+                `You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!`,
+              )
             }
-          } 
+          }
           // Handle authentication errors
           else if (response.status === 401) {
             setError("Your session has expired. Please sign in again to continue.")
@@ -353,7 +366,7 @@ function AnalysisContent() {
           else {
             setError(`Request failed (${response.status}). Please try again or contact support if this persists.`)
           }
-          
+
           setIsLoading(false)
           if (setSearchLoadingCallback) {
             setSearchLoadingCallback(false)
@@ -386,28 +399,28 @@ function AnalysisContent() {
           })
 
           // Log if we have news data
-          console.log("API response includes news:", data.news ? `Yes (${data.news.length} items)` : "No");
-          
+          console.log("API response includes news:", data.news ? `Yes (${data.news.length} items)` : "No")
+
           // If no news data is present in the API response, create sample news items for testing
           if (!data.news || data.news.length === 0) {
-            console.log("Adding sample news items for testing");
-            const fallbackDate = "2024-01-01T00:00:00.000Z"; // Use consistent fallback date
+            console.log("Adding sample news items for testing")
+            const fallbackDate = "2024-01-01T00:00:00.000Z" // Use consistent fallback date
             data.news = [
               {
                 source: "CoinDesk",
                 url: "https://www.coindesk.com/",
                 title: "Bitcoin Price Analysis Shows Bullish Trend",
                 description: "Recent market indicators suggest Bitcoin may continue its upward trajectory.",
-                publishedAt: fallbackDate
+                publishedAt: fallbackDate,
               },
               {
                 source: "Reuters",
                 url: "https://www.reuters.com/",
                 title: "Market Analysts Predict Bitcoin Rally",
                 description: "Financial experts weigh in on cryptocurrency market movements.",
-                publishedAt: fallbackDate
-              }
-            ];
+                publishedAt: fallbackDate,
+              },
+            ]
           }
 
           // Create a new entry for this query
@@ -448,15 +461,15 @@ function AnalysisContent() {
           try {
             // Only access localStorage on client-side
             if (typeof window !== "undefined") {
-            const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]")
-            if (!recentQueries.includes(questionQuery)) {
-              const updatedQueries = [
-                questionQuery,
-                ...recentQueries.filter((q: string) => q !== questionQuery).slice(0, 9),
-              ]
-              localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries))
-              searchHistoryRef.current = updatedQueries
-              setHistoryVersion((prev) => prev + 1)
+              const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]")
+              if (!recentQueries.includes(questionQuery)) {
+                const updatedQueries = [
+                  questionQuery,
+                  ...recentQueries.filter((q: string) => q !== questionQuery).slice(0, 9),
+                ]
+                localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries))
+                searchHistoryRef.current = updatedQueries
+                setHistoryVersion((prev) => prev + 1)
               }
             }
           } catch (historyError) {
@@ -471,17 +484,27 @@ function AnalysisContent() {
         }
       } catch (err) {
         console.error("Error fetching results:", err)
-        
+
         // Provide more user-friendly error messages based on error type
-        if (err instanceof TypeError && err.message.includes('fetch')) {
+        if (err instanceof TypeError && err.message.includes("fetch")) {
           setError("Unable to connect to our servers. Please check your internet connection and try again.")
-        } else if (err instanceof Error && err.message.includes('Authentication failed')) {
+        } else if (err instanceof Error && err.message.includes("Authentication failed")) {
           setError("Authentication failed. Please sign in again.")
-        } else if (err instanceof Error && (err.message.includes('429') || err.message.includes('Too Many Requests') || err.message.includes('Daily API limit exceeded') || err.message.includes('Rate Limit Exceeded'))) {
-          setError("You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!")
-        } else if (err instanceof Error && err.message.includes('Failed to fetch')) {
+        } else if (
+          err instanceof Error &&
+          (err.message.includes("429") ||
+            err.message.includes("Too Many Requests") ||
+            err.message.includes("Daily API limit exceeded") ||
+            err.message.includes("Rate Limit Exceeded"))
+        ) {
+          setError(
+            "You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!",
+          )
+        } else if (err instanceof Error && err.message.includes("Failed to fetch")) {
           // This could be a network-level error including 429 that didn't get caught above
-          setError("Unable to connect to our servers. This could be due to rate limiting or connection issues. Please try again later.")
+          setError(
+            "Unable to connect to our servers. This could be due to rate limiting or connection issues. Please try again later.",
+          )
         } else {
           setError("An unexpected error occurred. Please try again or contact support if this persists.")
         }
@@ -519,17 +542,17 @@ function AnalysisContent() {
       try {
         // Only access localStorage on client-side
         if (typeof window !== "undefined") {
-        const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]")
+          const recentQueries = JSON.parse(localStorage.getItem("koyn_recent_queries") || "[]")
 
-        // Only add to history if this is a new query (not already in history)
-        if (!recentQueries.includes(searchQuery)) {
-          // Keep only the most recent 10 queries, excluding the current one
-          const updatedQueries = [searchQuery, ...recentQueries.filter((q: string) => q !== searchQuery).slice(0, 9)]
+          // Only add to history if this is a new query (not already in history)
+          if (!recentQueries.includes(searchQuery)) {
+            // Keep only the most recent 10 queries, excluding the current one
+            const updatedQueries = [searchQuery, ...recentQueries.filter((q: string) => q !== searchQuery).slice(0, 9)]
 
-          // Update localStorage and reference
-          localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries))
-          searchHistoryRef.current = updatedQueries
-          console.log("Updated search history with new query:", searchQuery)
+            // Update localStorage and reference
+            localStorage.setItem("koyn_recent_queries", JSON.stringify(updatedQueries))
+            searchHistoryRef.current = updatedQueries
+            console.log("Updated search history with new query:", searchQuery)
           }
         }
       } catch (err) {
@@ -576,26 +599,28 @@ function AnalysisContent() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only handle arrow keys when not typing in an input/textarea
-      if (event.target instanceof HTMLInputElement || 
-          event.target instanceof HTMLTextAreaElement || 
-          event.target instanceof HTMLSelectElement) {
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement
+      ) {
         return
       }
 
       if (resultsArray.length > 1) {
-        if (event.key === 'ArrowLeft' && currentIndex > 0) {
+        if (event.key === "ArrowLeft" && currentIndex > 0) {
           event.preventDefault()
           goToPrevious()
-        } else if (event.key === 'ArrowRight' && currentIndex < resultsArray.length - 1) {
+        } else if (event.key === "ArrowRight" && currentIndex < resultsArray.length - 1) {
           event.preventDefault()
           goToNext()
         }
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener("keydown", handleKeyDown)
     return () => {
-      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener("keydown", handleKeyDown)
     }
   }, [currentIndex, resultsArray.length])
 
@@ -609,52 +634,53 @@ function AnalysisContent() {
         requestAnimationFrame(() => {
           const currentScrollY = window.scrollY
           const scrollSpeed = Math.abs(currentScrollY - lastScrollY)
-          
+
           // Set scrolling state
           setIsScrolling(true)
-          
+
           // Clear existing timeout
           if (scrollTimeoutRef.current) {
             clearTimeout(scrollTimeoutRef.current)
           }
-          
+
           // Calculate opacity based on scroll activity and position
           let newOpacity = 1
-          
+
           // Don't reduce opacity if user is hovering over search area
           if (!isHoveringSearch) {
-            if (currentScrollY > 100) { // Start fading earlier at 100px
-              // Much more transparent base opacity when scrolled
-              newOpacity = 0.3
-              
+            if (currentScrollY > 100) {
+              // Start fading earlier at 100px
+              // Much more transparent when scrolled
+              newOpacity = 0.2
+
               // Even more transparent when actively scrolling fast
               if (scrollSpeed > 10) {
-                newOpacity = Math.max(0.1, 0.3 - (scrollSpeed / 80))
+                newOpacity = Math.max(0.1, 0.2 - scrollSpeed / 100)
               }
             } else if (currentScrollY > 30) {
               // Gradual fade between 30-100px
-              newOpacity = 1 - ((currentScrollY - 30) * 0.7 / 70)
+              newOpacity = 1 - ((currentScrollY - 30) * 0.8) / 70
             }
           }
-          
+
           setSearchOpacity(newOpacity)
           lastScrollY = currentScrollY
-          
+
           // Reset scrolling state after scroll ends
           scrollTimeoutRef.current = setTimeout(() => {
             setIsScrolling(false)
             // Restore opacity when scrolling stops (unless hovering)
             if (!isHoveringSearch) {
               if (currentScrollY > 100) {
-                setSearchOpacity(0.7) // Slightly more visible when scroll stops
+                setSearchOpacity(0.3) // Slightly more visible when scroll stops but still very transparent
               } else if (currentScrollY > 30) {
-                setSearchOpacity(1 - ((currentScrollY - 30) * 0.3 / 70))
+                setSearchOpacity(1 - ((currentScrollY - 30) * 0.7) / 70)
               } else {
                 setSearchOpacity(1)
               }
             }
           }, 200)
-          
+
           ticking = false
         })
         ticking = true
@@ -662,11 +688,11 @@ function AnalysisContent() {
     }
 
     // Add scroll listener
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    
+    window.addEventListener("scroll", handleScroll, { passive: true })
+
     // Cleanup
     return () => {
-      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener("scroll", handleScroll)
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current)
       }
@@ -681,12 +707,12 @@ function AnalysisContent() {
     if (currentIndex > 0) {
       const newIndex = currentIndex - 1
       setCurrentIndex(newIndex)
-      
+
       // Update URL to reflect the new query
       const newQuery = resultsArray[newIndex].query
       const newUrl = `${Routes.ANALYSIS}?q=${encodeURIComponent(newQuery)}`
       window.history.pushState({}, "", newUrl)
-      
+
       console.log(`Navigated to previous result: "${newQuery}" (${newIndex + 1}/${resultsArray.length})`)
     }
   }
@@ -695,12 +721,12 @@ function AnalysisContent() {
     if (currentIndex < resultsArray.length - 1) {
       const newIndex = currentIndex + 1
       setCurrentIndex(newIndex)
-      
+
       // Update URL to reflect the new query
       const newQuery = resultsArray[newIndex].query
       const newUrl = `${Routes.ANALYSIS}?q=${encodeURIComponent(newQuery)}`
       window.history.pushState({}, "", newUrl)
-      
+
       console.log(`Navigated to next result: "${newQuery}" (${newIndex + 1}/${resultsArray.length})`)
     }
   }
@@ -713,7 +739,7 @@ function AnalysisContent() {
         opacity: 0,
         transform: "translateY(-10px)",
       })
-      
+
       // Small delay to allow for animation
       const timer = setTimeout(() => {
         setDropdownAnimation({
@@ -721,7 +747,7 @@ function AnalysisContent() {
           transform: "translateY(0)",
         })
       }, 10)
-      
+
       return () => clearTimeout(timer)
     } else {
       setDropdownAnimation({
@@ -756,41 +782,43 @@ function AnalysisContent() {
           <div className="flex-grow flex flex-col items-center justify-center">
             <div className="text-center max-w-md mx-auto p-6 bg-[rgba(13,10,33,0.6)]">
               {/* Different styling based on error type */}
-              {error.includes('Daily API limit exceeded') || error.includes('daily search limit') || error.includes('rate limit') || error.includes('Rate Limit Exceeded') || error.includes('requests today') ? (
+              {error.includes("Daily API limit exceeded") ||
+              error.includes("daily search limit") ||
+              error.includes("rate limit") ||
+              error.includes("Rate Limit Exceeded") ||
+              error.includes("requests today") ? (
                 <>
                   <div className="text-yellow-400 text-3xl mb-4">⏰</div>
                   <h3 className="text-xl font-semibold text-white mb-2">Daily Limit Reached</h3>
                   <p className="text-[#a099d8] mb-4 leading-relaxed">{error}</p>
                   <div className="space-y-3">
-                    <button 
-                      onClick={() => navigate('/app/billing')}
+                    <button
+                      onClick={() => navigate("/app/billing")}
                       className="w-full px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors font-medium"
                     >
                       Account
                     </button>
-                    <p className="text-xs text-gray-400">
-                      Your searches reset daily at midnight UTC
-                    </p>
+                    <p className="text-xs text-gray-400">Your searches reset daily at midnight UTC</p>
                   </div>
                 </>
-              ) : error.includes('session has expired') || error.includes('Authentication failed') ? (
+              ) : error.includes("session has expired") || error.includes("Authentication failed") ? (
                 <>
                   <div className="text-red-400 text-3xl mb-4">🔐</div>
                   <h3 className="text-xl font-semibold text-white mb-2">Authentication Required</h3>
                   <p className="text-[#a099d8] mb-4">{error}</p>
-                  <button 
+                  <button
                     onClick={() => window.location.reload()}
                     className="px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors"
                   >
                     Sign In Again
                   </button>
                 </>
-              ) : error.includes('servers are experiencing') ? (
+              ) : error.includes("servers are experiencing") ? (
                 <>
                   <div className="text-orange-400 text-3xl mb-4">🔧</div>
                   <h3 className="text-xl font-semibold text-white mb-2">Server Maintenance</h3>
                   <p className="text-[#a099d8] mb-4">{error}</p>
-                  <button 
+                  <button
                     onClick={() => window.location.reload()}
                     className="px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors"
                   >
@@ -802,7 +830,7 @@ function AnalysisContent() {
                   <div className="text-red-400 text-3xl mb-4">⚠️</div>
                   <h3 className="text-xl font-semibold text-white mb-2">Something Went Wrong</h3>
                   <p className="text-[#a099d8] mb-4">{error}</p>
-                  <button 
+                  <button
                     onClick={() => setError(null)}
                     className="px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors"
                   >
@@ -892,7 +920,10 @@ function AnalysisContent() {
                     </div>
 
                     <h1 className="text-xl font-medium text-white">
-                      Results for: <span className="font-bold break-words" title={currentEntry.query}>{truncateQuery(currentEntry.query, 60)}</span>
+                      Results for:{" "}
+                      <span className="font-bold break-words" title={currentEntry.query}>
+                        {truncateQuery(currentEntry.query, 60)}
+                      </span>
                     </h1>
                   </div>
 
@@ -938,20 +969,20 @@ function AnalysisContent() {
                           <span className="text-white text-sm font-medium">Search History</span>
                           <button
                             onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              console.log("Clear All button clicked");
-                              if (confirm('Clear all search history? This cannot be undone.')) {
-                                localStorage.removeItem('koyn_analysis_results')
-                                localStorage.removeItem('koyn_recent_queries')
+                              e.preventDefault()
+                              e.stopPropagation()
+                              console.log("Clear All button clicked")
+                              if (confirm("Clear all search history? This cannot be undone.")) {
+                                localStorage.removeItem("koyn_analysis_results")
+                                localStorage.removeItem("koyn_recent_queries")
                                 setResultsArray([])
                                 setCurrentIndex(-1)
                                 searchHistoryRef.current = []
                                 setShowHistoryDropdown(false)
                                 // Navigate to analysis page without query
                                 window.history.pushState({}, "", Routes.ANALYSIS)
-                                setResultsVersion(prev => prev + 1)
-                                setHistoryVersion(prev => prev + 1)
+                                setResultsVersion((prev) => prev + 1)
+                                setHistoryVersion((prev) => prev + 1)
                               }
                             }}
                             type="button"
@@ -990,22 +1021,22 @@ function AnalysisContent() {
                                         e.stopPropagation()
                                         try {
                                           // Remove from history
-                                          const newHistory = searchHistoryRef.current.filter(q => q !== historyItem)
+                                          const newHistory = searchHistoryRef.current.filter((q) => q !== historyItem)
                                           searchHistoryRef.current = newHistory
                                           localStorage.setItem("koyn_recent_queries", JSON.stringify(newHistory))
-                                          
+
                                           // Remove from results
-                                          const newResults = resultsArray.filter(entry => entry.query !== historyItem)
+                                          const newResults = resultsArray.filter((entry) => entry.query !== historyItem)
                                           setResultsArray(newResults)
                                           localStorage.setItem("koyn_analysis_results", JSON.stringify(newResults))
-                                          
+
                                           // Update current index if needed
                                           if (currentIndex >= newResults.length) {
                                             setCurrentIndex(newResults.length > 0 ? newResults.length - 1 : -1)
                                           }
-                                          
-                                          setHistoryVersion(prev => prev + 1)
-                                          setResultsVersion(prev => prev + 1)
+
+                                          setHistoryVersion((prev) => prev + 1)
+                                          setResultsVersion((prev) => prev + 1)
                                         } catch (err) {
                                           console.error("Failed to clear item:", err)
                                         }
@@ -1043,12 +1074,24 @@ function AnalysisContent() {
                 <div className="flex text-xs text-gray-500 mt-1 overflow-hidden">
                   {currentIndex > 0 && (
                     <span className="mr-4 flex-shrink-0">
-                      ← <span className="text-[#a099d8] truncate inline-block max-w-[120px] sm:max-w-[200px] lg:max-w-none" title={resultsArray[currentIndex - 1].query}>{truncateQuery(resultsArray[currentIndex - 1].query, 30)}</span>
+                      ←{" "}
+                      <span
+                        className="text-[#a099d8] truncate inline-block max-w-[120px] sm:max-w-[200px] lg:max-w-none"
+                        title={resultsArray[currentIndex - 1].query}
+                      >
+                        {truncateQuery(resultsArray[currentIndex - 1].query, 30)}
+                      </span>
                     </span>
                   )}
                   {currentIndex < resultsArray.length - 1 && (
                     <span className="flex-shrink-0">
-                      <span className="text-[#a099d8] truncate inline-block max-w-[120px] sm:max-w-[200px] lg:max-w-none" title={resultsArray[currentIndex + 1].query}>{truncateQuery(resultsArray[currentIndex + 1].query, 30)}</span> →
+                      <span
+                        className="text-[#a099d8] truncate inline-block max-w-[120px] sm:max-w-[200px] lg:max-w-none"
+                        title={resultsArray[currentIndex + 1].query}
+                      >
+                        {truncateQuery(resultsArray[currentIndex + 1].query, 30)}
+                      </span>{" "}
+                      →
                     </span>
                   )}
                 </div>
@@ -1124,11 +1167,9 @@ function AnalysisContent() {
         style={{
           backgroundColor: `rgba(13, 10, 33, ${Math.max(0.15, searchOpacity * 0.6)})`,
           boxShadow: `0 -10px 20px rgba(13, 10, 33, ${searchOpacity * 0.5})`,
-          backdropFilter: searchOpacity < 0.8 ? 'blur(20px)' : 'blur(4px)',
-          WebkitBackdropFilter: searchOpacity < 0.8 ? 'blur(20px)' : 'blur(4px)',
-          transition: isScrolling 
-            ? 'all 0.1s ease-out' 
-            : 'all 0.3s ease-out'
+          backdropFilter: searchOpacity < 0.8 ? "blur(20px)" : "blur(4px)",
+          WebkitBackdropFilter: searchOpacity < 0.8 ? "blur(20px)" : "blur(4px)",
+          transition: isScrolling ? "all 0.1s ease-out" : "all 0.3s ease-out",
         }}
         onMouseEnter={() => {
           setIsHoveringSearch(true)
@@ -1141,7 +1182,7 @@ function AnalysisContent() {
           if (currentScrollY > 100) {
             setSearchOpacity(0.7)
           } else if (currentScrollY > 30) {
-            setSearchOpacity(1 - ((currentScrollY - 30) * 0.3 / 70))
+            setSearchOpacity(1 - ((currentScrollY - 30) * 0.3) / 70)
           } else {
             setSearchOpacity(1)
           }
@@ -1175,5 +1216,5 @@ export default function Analysis() {
     <ProtectedPage requiresSubscription={true}>
       <AnalysisContent />
     </ProtectedPage>
-  );
+  )
 }
