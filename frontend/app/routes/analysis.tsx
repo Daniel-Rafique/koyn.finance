@@ -687,7 +687,7 @@ function AnalysisContent() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10 min-h-[calc(100vh-160px)] flex flex-col pb-32">
         {/* Toast Notification */}
         {toast && (
-          <div className="fixed top-4 right-4 z-50 max-w-sm">
+          <div className="fixed top-4 right-4 max-w-sm" style={{ zIndex: 100000 }}>
             <div 
               className={`p-4 rounded-lg border backdrop-blur-sm transition-all duration-300 ${
                 toast.type === 'error' 
