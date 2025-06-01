@@ -325,21 +325,19 @@ export default function Home() {
         
         {/* Rotating categories display for non-logged in users */}
         {!isSubscribed && isClientMounted && (
-          <div className="text-center">
+          <div className="text-center mb-8">
             <RotatingCategories />
           </div>
         )}
-      </main>
-      
-      {/* Fixed Search Bar - positioned exactly like analysis page */}
-      <div className="fixed bottom-20 left-0 w-full flex justify-center px-4 z-20">
-        <div className="w-full max-w-3xl floating-search-bar py-6">
+        
+        {/* Centered Search Form */}
+        <div className="w-full max-w-3xl">
           <SearchForm 
             onSubscribeClick={() => openSubscriptionModal()}
             isSubscribed={isSubscribed} 
           />
         </div>
-      </div>
+      </main>
       
       {/* Subscription Modal */}
       <SubscriptionModal 
