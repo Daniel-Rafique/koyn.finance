@@ -325,12 +325,19 @@ export default function Home() {
           {/* Main headline with keywords for SEO */}
           <div className="mb-4 text-center">
           </div>
+          {/* SearchForm moved to fixed position at bottom */}
+        </div>
+      </main>
+      
+      {/* Fixed Search Bar - positioned exactly like analysis page */}
+      <div className="fixed bottom-20 left-0 w-full flex justify-center px-4 z-20">
+        <div className="w-full max-w-3xl floating-search-bar py-6">
           <SearchForm 
             onSubscribeClick={() => openSubscriptionModal()}
             isSubscribed={isSubscribed} 
           />
         </div>
-      </main>
+      </div>
       
       {/* Subscription Modal */}
       <SubscriptionModal 
