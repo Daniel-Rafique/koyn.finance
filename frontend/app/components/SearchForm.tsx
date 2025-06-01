@@ -29,6 +29,7 @@ export default function SearchForm({
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
+  const [isRateLimited, setIsRateLimited] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Use secure subscription context
@@ -110,6 +111,11 @@ export default function SearchForm({
       return
     }
 
+    // Check if rate limited
+    if (isRateLimited) {
+      return
+    }
+
     // Check subscription status using secure context
     if (!isSubscribed && onSubscribeClick) {
       console.log("User not subscribed, showing modal on search button click")
@@ -157,7 +163,21 @@ export default function SearchForm({
         // This will trigger the parent component to handle the search and update the cache
         // The parent component will mark this as a user-initiated search
         // Pass the subscription ID and email to the onSearch function
-        onSearch(question, setIsLoading, subscriptionId, searchUserEmail)
+        onSearch(question, (loading) => {
+          setIsLoading(loading)
+          // Check if we got rate limited
+          if (!loading) {
+            // Add a small delay to check if we got rate limited
+            setTimeout(() => {
+              // Check localStorage or other indicators for rate limiting
+              const rateLimitCheck = localStorage.getItem('koyn_rate_limited')
+              if (rateLimitCheck === 'true') {
+                setIsRateLimited(true)
+                localStorage.removeItem('koyn_rate_limited') // Clean up
+              }
+            }, 100)
+          }
+        }, subscriptionId, searchUserEmail)
         console.log("Passing subscription data to parent:", {
           id: subscriptionId,
           email: searchUserEmail,
@@ -284,64 +304,75 @@ export default function SearchForm({
               <div className="input-mask" id="input-mask"></div>
               <div className="pink-mask" id="pink-mask"></div>
               <div className="button-border filterBorder"></div>
-              <button
-                type="button"
-                className="search-button text-white"
-                id="filter-icon"
-                disabled={isLoading}
-                onClick={handleSearch}
-                style={{
-                  background: "linear-gradient(180deg, #000000, black, #111111)",
-                  color: "white"
-                }}
-              >
-                {isLoading ? (
-                  <svg
-                    className="animate-spin h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path
-                      d="M12.8281 1C12.8281 2.10747 11.7632 3.17235 10.6558 3.17235C11.7632 3.17235 12.8281 4.23724 12.8281 5.34471C12.8281 4.23724 13.893 3.17235 15.0005 3.17235C13.893 3.17235 12.8281 2.10747 12.8281 1Z"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    ></path>
-                    <path
-                      d="M13 12C13 12.5098 12.5098 13 12 13C12.5098 13 13 13.4902 13 14C13 13.4902 13.4902 13 14 13C13.4902 13 13 12.5098 13 12Z"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    ></path>
-                    <path
-                      d="M5.10285 3.89648C5.10285 5.98837 3.0914 7.99982 0.999512 7.99982C3.0914 7.99982 5.10285 10.0113 5.10285 12.1032C5.10285 10.0113 7.1143 7.99982 9.20619 7.99982C7.1143 7.99982 5.10285 5.98837 5.10285 3.89648Z"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    ></path>
-                  </svg>
+              <div className="relative">
+                <button
+                  type="button"
+                  className={`search-button text-white ${isRateLimited ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  id="filter-icon"
+                  disabled={isLoading || isRateLimited}
+                  onClick={handleSearch}
+                  style={{
+                    background: "linear-gradient(180deg, #000000, black, #111111)",
+                    color: "white"
+                  }}
+                  title={isRateLimited ? "Daily search limit reached. Try again tomorrow!" : ""}
+                >
+                  {isLoading ? (
+                    <svg
+                      className="animate-spin h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path
+                        d="M12.8281 1C12.8281 2.10747 11.7632 3.17235 10.6558 3.17235C11.7632 3.17235 12.8281 4.23724 12.8281 5.34471C12.8281 4.23724 13.893 3.17235 15.0005 3.17235C13.893 3.17235 12.8281 2.10747 12.8281 1Z"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      ></path>
+                      <path
+                        d="M13 12C13 12.5098 12.5098 13 12 13C12.5098 13 13 13.4902 13 14C13 13.4902 13.4902 13 14 13C13.4902 13 13 12.5098 13 12Z"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      ></path>
+                      <path
+                        d="M5.10285 3.89648C5.10285 5.98837 3.0914 7.99982 0.999512 7.99982C3.0914 7.99982 5.10285 10.0113 5.10285 12.1032C5.10285 10.0113 7.1143 7.99982 9.20619 7.99982C7.1143 7.99982 5.10285 5.98837 5.10285 3.89648Z"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      ></path>
+                    </svg>
+                  )}
+                </button>
+                
+                {/* Tooltip for rate limited state */}
+                {isRateLimited && (
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-[rgba(0,0,0,0.9)] text-white text-xs rounded border border-[rgba(255,255,255,0.3)] whitespace-nowrap z-50">
+                    Daily search limit reached. Try again tomorrow!
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-l-transparent border-r-transparent border-t-[rgba(0,0,0,0.9)]"></div>
+                  </div>
                 )}
-              </button>
+              </div>
             </div>
           </div>
         </div>

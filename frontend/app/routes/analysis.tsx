@@ -131,7 +131,6 @@ function AnalysisContent() {
   const [searchFormLoading, setSearchFormLoading] = useState(false)
   const [resultsArray, setResultsArray] = useState<ResultEntry[]>([])
   const [currentIndex, setCurrentIndex] = useState(-1)
-  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info' } | null>(null)
   const [isFirstLoad, setIsFirstLoad] = useState(true)
   const [isClientMounted, setIsClientMounted] = useState(false)
   const previousQueryRef = useRef<string | null>(null)
@@ -207,28 +206,21 @@ function AnalysisContent() {
     }
   }, [query, isClientMounted])
 
-  // Function to show toast notifications
-  const showToast = (message: string, type: 'error' | 'success' | 'info' = 'error') => {
-    setToast({ message, type })
-    // Auto-hide toast after 5 seconds
-    setTimeout(() => setToast(null), 5000)
-  }
-
-  // Update error handling in fetchAnalysis to use toast
+  // Update error handling to be silent or log only
   const handleApiError = (err: any, response?: Response) => {
     console.error("Error fetching results:", err)
 
-    // Handle different error types with toast notifications
+    // Handle different error types silently - just log them
     if (response?.status === 429) {
-      showToast("Daily search limit reached. Upgrade your plan for more searches!", 'error')
+      console.log("Rate limit reached")
     } else if (response?.status === 401) {
-      showToast("Session expired. Please refresh the page to sign in again.", 'error')
+      console.log("Authentication error")
     } else if (response?.status === 403) {
-      showToast("Access denied. Please check your subscription status.", 'error')
+      console.log("Access denied")
     } else if (response?.status && response.status >= 500) {
-      showToast("Server maintenance in progress. Please try again in a few minutes.", 'error')
+      console.log("Server error")
     } else if (err instanceof TypeError && err.message.includes("fetch")) {
-      showToast("Connection error. Please check your internet and try again.", 'error')
+      console.log("Network error")
     } else if (
       err instanceof Error &&
       (err.message.includes("429") ||
@@ -236,9 +228,9 @@ function AnalysisContent() {
         err.message.includes("Daily API limit exceeded") ||
         err.message.includes("Rate Limit Exceeded"))
     ) {
-      showToast("Daily search limit reached. Upgrade your plan for more searches!", 'error')
+      console.log("Rate limit error")
     } else {
-      showToast("Something went wrong. Please try again or contact support.", 'error')
+      console.log("General error")
     }
   }
 
@@ -294,7 +286,6 @@ function AnalysisContent() {
 
         if (!accessToken) {
           console.log("❌ No valid access token available")
-          showToast("Authentication failed. Please sign in again.", 'error')
           setIsLoading(false)
           if (setSearchLoadingCallback) {
             setSearchLoadingCallback(false)
@@ -341,11 +332,12 @@ function AnalysisContent() {
               fetchError.message.includes("Rate Limit Exceeded") ||
               fetchError.message.includes("rate limit"))
           ) {
-            showToast("Daily search limit reached. Upgrade your plan for more searches!", 'error')
+            console.log("Rate limit error")
+            localStorage.setItem('koyn_rate_limited', 'true')
           } else if (fetchError instanceof TypeError && fetchError.message.includes("fetch")) {
-            showToast("Connection error. Please check your internet and try again.", 'error')
+            console.log("Network connection error")
           } else {
-            showToast("Network error. Please try again or contact support.", 'error')
+            console.log("Network error")
           }
 
           setIsLoading(false)
@@ -357,35 +349,27 @@ function AnalysisContent() {
         }
 
         if (!response.ok) {
-          // Handle rate limiting (429) with user-friendly message
+          // Handle rate limiting (429) silently
           if (response.status === 429) {
-            try {
-              const errorData = await response.json()
-              showToast(errorData.message || "Daily search limit reached. Upgrade your plan for more searches!", 'error')
-            } catch (parseError) {
-              showToast("Daily search limit reached. Upgrade your plan for more searches!", 'error')
-            }
+            console.log("Rate limit reached")
+            // Set a flag for SearchForm to detect
+            localStorage.setItem('koyn_rate_limited', 'true')
           }
-          // Handle authentication errors
+          // Handle authentication errors silently
           else if (response.status === 401) {
-            showToast("Session expired. Please refresh the page to sign in again.", 'error')
+            console.log("Authentication error")
           }
-          // Handle subscription issues
+          // Handle subscription issues silently
           else if (response.status === 403) {
-            try {
-              const errorData = await response.json()
-              showToast(errorData.message || "Access denied. Please check your subscription status.", 'error')
-            } catch (parseError) {
-              showToast("Access denied. Please check your subscription status.", 'error')
-            }
+            console.log("Access denied")
           }
-          // Handle other server errors
+          // Handle other server errors silently
           else if (response.status >= 500) {
-            showToast("Server maintenance in progress. Please try again in a few minutes.", 'error')
+            console.log("Server error")
           }
-          // Generic error for other status codes
+          // Log other status codes
           else {
-            showToast("Something went wrong. Please try again or contact support.", 'error')
+            console.log("API error:", response.status)
           }
 
           setIsLoading(false)
@@ -399,7 +383,7 @@ function AnalysisContent() {
         const data = await response.json()
 
         if (data.subscription_expired) {
-          showToast(data.message || "Subscription expired. Please renew to continue.", 'error')
+          console.log("Subscription expired")
           setIsLoading(false)
 
           // Reset search form loading state
@@ -685,35 +669,6 @@ function AnalysisContent() {
       <canvas id="particles-canvas" className="fixed top-0 left-0 w-full h-full z-0 pointer-events-none"></canvas>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10 min-h-[calc(100vh-160px)] flex flex-col pb-32">
-        {/* Toast Notification */}
-        {toast && (
-          <div className="fixed top-4 right-4 max-w-sm" style={{ zIndex: 100000 }}>
-            <div 
-              className={`p-4 rounded-lg border backdrop-blur-sm transition-all duration-300 ${
-                toast.type === 'error' 
-                  ? 'bg-[rgba(0,0,0,0.9)] border-red-500/50 text-white' 
-                  : toast.type === 'success'
-                  ? 'bg-[rgba(0,0,0,0.9)] border-green-500/50 text-white'
-                  : 'bg-[rgba(0,0,0,0.9)] border-[#a099d8]/50 text-white'
-              }`}
-            >
-              <div className="flex items-start">
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{toast.message}</p>
-                </div>
-                <button
-                  onClick={() => setToast(null)}
-                  className="ml-2 text-white/60 hover:text-white transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {isFirstLoad && isLoading && (!currentEntry || !currentEntry.results) ? (
           <div className="w-full">
             <div className="w-full text-center mb-8">
