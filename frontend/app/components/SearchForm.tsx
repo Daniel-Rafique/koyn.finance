@@ -17,6 +17,7 @@ interface SearchFormProps {
     userEmail?: string | null,
   ) => void
   isLoading?: boolean
+  isRateLimited?: boolean
 }
 
 export default function SearchForm({
@@ -25,6 +26,7 @@ export default function SearchForm({
   waitForResults = false,
   onSearch,
   isLoading: parentIsLoading,
+  isRateLimited,
 }: SearchFormProps) {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
@@ -65,15 +67,13 @@ export default function SearchForm({
     "Should I invest in Tesla right now?",
     "What's the sentiment on Amazon stock?",
     "Analyze S&P 500 market conditions",
-    "What's the forecast for Gold prices?",
+    "What's the forecast for XAUUSD prices?",
     "How will interest rates affect the market?",
     "Is it a good time to buy tech stocks?",
     "What's the analysis for NVIDIA stock?",
     "Explain the recent trends in oil prices",
     "What's driving the Dow Jones today?",
-    "Is real estate a good investment now?",
     "Compare Tesla and Ford stock performance",
-    "How are bank stocks performing?",
     "Forecast Ethereum price movement",
   ]
 
@@ -287,28 +287,49 @@ export default function SearchForm({
             <div className="border"></div>
 
             <div className="input-main" id="main">
-              <input
-                ref={inputRef}
-                type="text"
-                name="question"
-                autoFocus
-                placeholder={placeholders[placeholderIndex]}
-                dir="auto"
-                className="glowing-input input"
-                style={{
-                  paddingRight: "50px",
-                  background: "rgb(0, 0, 0)",
-                  color: "white",
-                }}
-                onKeyDown={handleKeyPress}
-                onFocus={handleInputFocus}
-                onClick={handleInputFocus}
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck="false"
-                data-form-type="other"
-              />
+              <div className="relative group">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  name="question"
+                  autoFocus
+                  placeholder={isRateLimited ? "Daily search limit reached. Try again tomorrow!" : placeholders[placeholderIndex]}
+                  dir="auto"
+                  className="glowing-input input"
+                  style={{
+                    paddingRight: "50px",
+                    background: "rgb(0, 0, 0)",
+                    color: "white",
+                    opacity: isRateLimited ? 0.5 : 1,
+                    cursor: isRateLimited ? "not-allowed" : "text"
+                  }}
+                  onKeyDown={handleKeyPress}
+                  onFocus={handleInputFocus}
+                  onClick={handleInputFocus}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  data-form-type="other"
+                  disabled={isRateLimited}
+                />
+
+                {/* Tooltip for rate limited state - shows on input hover */}
+                {isRateLimited && (
+                  <div 
+                    className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-[rgba(0,0,0,0.9)] text-white text-xs rounded border border-[rgba(255,255,255,0.3)] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                    style={{ 
+                      zIndex: 999999,
+                      position: "absolute",
+                      backgroundColor: "rgba(0,0,0,0.95)",
+                      backdropFilter: "blur(4px)"
+                    }}
+                  >
+                    Daily search limit reached. Try again tomorrow!
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[4px] border-r-[4px] border-t-[4px] border-l-transparent border-r-transparent border-t-[rgba(0,0,0,0.9)]"></div>
+                  </div>
+                )}
+              </div>
               <div className="input-mask" id="input-mask"></div>
               <div className="pink-mask" id="pink-mask"></div>
               <div className="button-border filterBorder"></div>

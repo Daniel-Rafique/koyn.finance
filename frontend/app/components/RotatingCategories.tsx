@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 
 const RotatingCategories: React.FC = () => {
   const [currentPhrase, setCurrentPhrase] = useState('');
-  const [phraseIndex, setPhraseIndex] = useState(0);
 
   // Define phrases based on market periods
   const getPhrasesForTime = () => {
@@ -59,33 +58,26 @@ const RotatingCategories: React.FC = () => {
   };
 
   useEffect(() => {
-    const updatePhrase = () => {
-      const phrases = getPhrasesForTime();
-      setCurrentPhrase(phrases[phraseIndex % phrases.length]);
-    };
-
-    updatePhrase();
-    
-    // Rotate phrases every 3 seconds
-    const phraseInterval = setInterval(() => {
-      setPhraseIndex(prev => prev + 1);
-    }, 3000);
-    
-    // Update phrase set every minute (in case market period changes)
-    const timeInterval = setInterval(() => {
-      setPhraseIndex(0); // Reset to first phrase when time period changes
-    }, 60000);
-    
-    return () => {
-      clearInterval(phraseInterval);
-      clearInterval(timeInterval);
-    };
-  }, [phraseIndex]);
-
-  useEffect(() => {
+    // Get phrases for current time period
     const phrases = getPhrasesForTime();
-    setCurrentPhrase(phrases[phraseIndex % phrases.length]);
-  }, [phraseIndex]);
+    
+    // Get or create a session-based index for this time period
+    const timeKey = `phrase_index_${Math.floor(new Date().getHours() / 4)}`; // Group hours into 6 periods
+    let sessionIndex = parseInt(sessionStorage.getItem(timeKey) || '0');
+    
+    // If this is a new session or the stored index is invalid, pick a random starting point
+    if (isNaN(sessionIndex) || sessionIndex >= phrases.length) {
+      sessionIndex = Math.floor(Math.random() * phrases.length);
+    }
+    
+    // Set the current phrase
+    setCurrentPhrase(phrases[sessionIndex]);
+    
+    // Increment and store the index for next refresh
+    const nextIndex = (sessionIndex + 1) % phrases.length;
+    sessionStorage.setItem(timeKey, nextIndex.toString());
+    
+  }, []); // Only run once on component mount
 
   return (
     <div className="select-none">
