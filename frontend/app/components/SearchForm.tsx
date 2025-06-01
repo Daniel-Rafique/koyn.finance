@@ -28,7 +28,6 @@ export default function SearchForm({
 }: SearchFormProps) {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
-  const [placeholderIndex, setPlaceholderIndex] = useState(0)
   const [searchError, setSearchError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -57,33 +56,6 @@ export default function SearchForm({
     return () => {
       setIsLoading(false)
     }
-  }, [])
-
-  const placeholders = [
-    "What's the outlook for AAPL stock?",
-    "How is Bitcoin performing today?",
-    "Should I invest in Tesla right now?",
-    "What's the sentiment on Amazon stock?",
-    "Analyze S&P 500 market conditions",
-    "What's the forecast for Gold prices?",
-    "How will interest rates affect the market?",
-    "Is it a good time to buy tech stocks?",
-    "What's the analysis for NVIDIA stock?",
-    "Explain the recent trends in oil prices",
-    "What's driving the Dow Jones today?",
-    "Is real estate a good investment now?",
-    "Compare Tesla and Ford stock performance",
-    "How are bank stocks performing?",
-    "Forecast Ethereum price movement",
-  ]
-
-  // Rotate placeholder text every 3 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPlaceholderIndex((prevIndex) => (prevIndex + 1) % placeholders.length)
-    }, 3000)
-
-    return () => clearInterval(interval)
   }, [])
 
   // Check subscription status when input is focused
@@ -292,7 +264,7 @@ export default function SearchForm({
                 type="text"
                 name="question"
                 autoFocus
-                placeholder={placeholders[placeholderIndex]}
+                placeholder="What's the outlook for AAPL stock?"
                 dir="auto"
                 className="glowing-input input"
                 style={{
