@@ -623,82 +623,6 @@ function AnalysisContent() {
       window.removeEventListener("keydown", handleKeyDown)
     }
   }, [currentIndex, resultsArray.length])
-
-  // Add scroll event listener for dynamic search opacity
-  useEffect(() => {
-    let lastScrollY = 0
-    let ticking = false
-
-    const handleScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          const currentScrollY = window.scrollY
-          const scrollSpeed = Math.abs(currentScrollY - lastScrollY)
-
-          // Set scrolling state
-          setIsScrolling(true)
-
-          // Clear existing timeout
-          if (scrollTimeoutRef.current) {
-            clearTimeout(scrollTimeoutRef.current)
-          }
-
-          // Calculate opacity based on scroll activity and position
-          let newOpacity = 1
-
-          // Don't reduce opacity if user is hovering over search area
-          if (!isHoveringSearch) {
-            if (currentScrollY > 100) {
-              // Start fading earlier at 100px
-              // Much more transparent when scrolled
-              newOpacity = 0.2
-
-              // Even more transparent when actively scrolling fast
-              if (scrollSpeed > 10) {
-                newOpacity = Math.max(0.1, 0.2 - scrollSpeed / 100)
-              }
-            } else if (currentScrollY > 30) {
-              // Gradual fade between 30-100px
-              newOpacity = 1 - ((currentScrollY - 30) * 0.8) / 70
-            }
-          }
-
-          setSearchOpacity(newOpacity)
-          lastScrollY = currentScrollY
-
-          // Reset scrolling state after scroll ends
-          scrollTimeoutRef.current = setTimeout(() => {
-            setIsScrolling(false)
-            // Restore opacity when scrolling stops (unless hovering)
-            if (!isHoveringSearch) {
-              if (currentScrollY > 100) {
-                setSearchOpacity(0.3) // Slightly more visible when scroll stops but still very transparent
-              } else if (currentScrollY > 30) {
-                setSearchOpacity(1 - ((currentScrollY - 30) * 0.7) / 70)
-              } else {
-                setSearchOpacity(1)
-              }
-            }
-          }, 200)
-
-          ticking = false
-        })
-        ticking = true
-      }
-    }
-
-    // Add scroll listener
-    window.addEventListener("scroll", handleScroll, { passive: true })
-
-    // Cleanup
-    return () => {
-      window.removeEventListener("scroll", handleScroll)
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current)
-      }
-    }
-  }, [isHoveringSearch])
-
   // Get the current entry to display
   const currentEntry = resultsArray[currentIndex] || null
 
@@ -1157,32 +1081,6 @@ function AnalysisContent() {
         )}
       </main>
 
-      <div
-        className="fixed bottom-0 left-0 w-full z-10"
-        style={{
-          backgroundColor: `rgba(13, 10, 33, ${Math.max(0.15, searchOpacity * 0.6)})`,
-          boxShadow: `0 -10px 20px rgba(13, 10, 33, ${searchOpacity * 0.5})`,
-          backdropFilter: searchOpacity < 0.8 ? "blur(20px)" : "blur(4px)",
-          WebkitBackdropFilter: searchOpacity < 0.8 ? "blur(20px)" : "blur(4px)",
-          transition: isScrolling ? "all 0.1s ease-out" : "all 0.3s ease-out",
-        }}
-        onMouseEnter={() => {
-          setIsHoveringSearch(true)
-          setSearchOpacity(1) // Full opacity when hovering
-        }}
-        onMouseLeave={() => {
-          setIsHoveringSearch(false)
-          // Restore scroll-based opacity when not hovering
-          const currentScrollY = window.scrollY
-          if (currentScrollY > 100) {
-            setSearchOpacity(0.7)
-          } else if (currentScrollY > 30) {
-            setSearchOpacity(1 - ((currentScrollY - 30) * 0.3) / 70)
-          } else {
-            setSearchOpacity(1)
-          }
-        }}
-      >
         <div className="fixed bottom-20 left-0 w-full flex justify-center px-4 z-20">
           <div className="w-full max-w-3xl floating-search-bar py-6">
             <SearchForm
@@ -1201,7 +1099,6 @@ function AnalysisContent() {
           <NewsCarousel accounts={["business", "BitcoinMagazine", "solana", "koynlabs"]} />
         </div>
       </div>
-    </div>
   )
 }
 
