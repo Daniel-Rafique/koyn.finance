@@ -121,9 +121,9 @@ export default function SharedAnalysis() {
           </p>
           <a 
             href="/" 
-            className="inline-flex items-center gap-2 mt-4 px-3 py-1 text-sm bg-white text-black rounded hover:bg-gray-200 transition-colors"
+            className="inline-flex items-center"
           >
-            <img src="/logo.jpg" alt="Koyn Logo" className="w-4 h-4" />
+            <img src="/logo.jpg" alt="Koyn Logo" className="w-40 h-40" />
           </a>
         </div>
 
