@@ -7,6 +7,10 @@
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
+  height: 70px;
+  isolation: isolate;
+  contain: layout style;
+  overflow: hidden;
 }
 
 .white,
@@ -23,6 +27,7 @@
   /* Border Radius */
   border-radius: 12px;
   filter: blur(3px);
+  contain: layout style;
 }
 
 .glowing-input {
