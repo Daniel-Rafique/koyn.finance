@@ -131,7 +131,7 @@ function AnalysisContent() {
   const [searchFormLoading, setSearchFormLoading] = useState(false)
   const [resultsArray, setResultsArray] = useState<ResultEntry[]>([])
   const [currentIndex, setCurrentIndex] = useState(-1)
-  const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info' } | null>(null)
   const [isFirstLoad, setIsFirstLoad] = useState(true)
   const [isClientMounted, setIsClientMounted] = useState(false)
   const previousQueryRef = useRef<string | null>(null)
@@ -207,6 +207,41 @@ function AnalysisContent() {
     }
   }, [query, isClientMounted])
 
+  // Function to show toast notifications
+  const showToast = (message: string, type: 'error' | 'success' | 'info' = 'error') => {
+    setToast({ message, type })
+    // Auto-hide toast after 5 seconds
+    setTimeout(() => setToast(null), 5000)
+  }
+
+  // Update error handling in fetchAnalysis to use toast
+  const handleApiError = (err: any, response?: Response) => {
+    console.error("Error fetching results:", err)
+
+    // Handle different error types with toast notifications
+    if (response?.status === 429) {
+      showToast("Daily search limit reached. Upgrade your plan for more searches!", 'error')
+    } else if (response?.status === 401) {
+      showToast("Session expired. Please refresh the page to sign in again.", 'error')
+    } else if (response?.status === 403) {
+      showToast("Access denied. Please check your subscription status.", 'error')
+    } else if (response?.status && response.status >= 500) {
+      showToast("Server maintenance in progress. Please try again in a few minutes.", 'error')
+    } else if (err instanceof TypeError && err.message.includes("fetch")) {
+      showToast("Connection error. Please check your internet and try again.", 'error')
+    } else if (
+      err instanceof Error &&
+      (err.message.includes("429") ||
+        err.message.includes("Too Many Requests") ||
+        err.message.includes("Daily API limit exceeded") ||
+        err.message.includes("Rate Limit Exceeded"))
+    ) {
+      showToast("Daily search limit reached. Upgrade your plan for more searches!", 'error')
+    } else {
+      showToast("Something went wrong. Please try again or contact support.", 'error')
+    }
+  }
+
   // Extract the fetch logic to a separate function that can be called from multiple places
   const fetchAnalysis = useCallback(
     async (
@@ -218,7 +253,6 @@ function AnalysisContent() {
     ) => {
       if (!questionQuery) return
 
-      setError(null)
       setIsLoading(true)
 
       // Also set the search form loading state if a callback was provided
@@ -260,7 +294,7 @@ function AnalysisContent() {
 
         if (!accessToken) {
           console.log("❌ No valid access token available")
-          setError("Authentication failed. Please sign in again.")
+          showToast("Authentication failed. Please sign in again.", 'error')
           setIsLoading(false)
           if (setSearchLoadingCallback) {
             setSearchLoadingCallback(false)
@@ -307,13 +341,11 @@ function AnalysisContent() {
               fetchError.message.includes("Rate Limit Exceeded") ||
               fetchError.message.includes("rate limit"))
           ) {
-            setError(
-              "You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!",
-            )
+            showToast("Daily search limit reached. Upgrade your plan for more searches!", 'error')
           } else if (fetchError instanceof TypeError && fetchError.message.includes("fetch")) {
-            setError("Unable to connect to our servers. Please check your internet connection and try again.")
+            showToast("Connection error. Please check your internet and try again.", 'error')
           } else {
-            setError("Network error occurred. Please try again or contact support if this persists.")
+            showToast("Network error. Please try again or contact support.", 'error')
           }
 
           setIsLoading(false)
@@ -329,42 +361,31 @@ function AnalysisContent() {
           if (response.status === 429) {
             try {
               const errorData = await response.json()
-
-              // Use the API's error message if available, or provide a fallback
-              if (errorData.message) {
-                setError(errorData.message)
-              } else {
-                setError(
-                  `You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!`,
-                )
-              }
+              showToast(errorData.message || "Daily search limit reached. Upgrade your plan for more searches!", 'error')
             } catch (parseError) {
-              // Fallback if we can't parse the error response
-              setError(
-                `You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!`,
-              )
+              showToast("Daily search limit reached. Upgrade your plan for more searches!", 'error')
             }
           }
           // Handle authentication errors
           else if (response.status === 401) {
-            setError("Your session has expired. Please sign in again to continue.")
+            showToast("Session expired. Please refresh the page to sign in again.", 'error')
           }
           // Handle subscription issues
           else if (response.status === 403) {
             try {
               const errorData = await response.json()
-              setError(errorData.message || "Access denied. Please check your subscription status.")
+              showToast(errorData.message || "Access denied. Please check your subscription status.", 'error')
             } catch (parseError) {
-              setError("Access denied. Please check your subscription status.")
+              showToast("Access denied. Please check your subscription status.", 'error')
             }
           }
           // Handle other server errors
           else if (response.status >= 500) {
-            setError("Our servers are experiencing issues. Please try again in a few minutes.")
+            showToast("Server maintenance in progress. Please try again in a few minutes.", 'error')
           }
           // Generic error for other status codes
           else {
-            setError(`Request failed (${response.status}). Please try again or contact support if this persists.`)
+            showToast("Something went wrong. Please try again or contact support.", 'error')
           }
 
           setIsLoading(false)
@@ -378,7 +399,7 @@ function AnalysisContent() {
         const data = await response.json()
 
         if (data.subscription_expired) {
-          setError(data.message || "Your subscription has expired. Please renew to continue.")
+          showToast(data.message || "Subscription expired. Please renew to continue.", 'error')
           setIsLoading(false)
 
           // Reset search form loading state
@@ -483,31 +504,7 @@ function AnalysisContent() {
           console.log(`Current index set to ${newIndex} for query "${questionQuery}"`)
         }
       } catch (err) {
-        console.error("Error fetching results:", err)
-
-        // Provide more user-friendly error messages based on error type
-        if (err instanceof TypeError && err.message.includes("fetch")) {
-          setError("Unable to connect to our servers. Please check your internet connection and try again.")
-        } else if (err instanceof Error && err.message.includes("Authentication failed")) {
-          setError("Authentication failed. Please sign in again.")
-        } else if (
-          err instanceof Error &&
-          (err.message.includes("429") ||
-            err.message.includes("Too Many Requests") ||
-            err.message.includes("Daily API limit exceeded") ||
-            err.message.includes("Rate Limit Exceeded"))
-        ) {
-          setError(
-            "You've reached your daily search limit. Your searches will reset tomorrow at midnight UTC. Upgrade your plan for more searches!",
-          )
-        } else if (err instanceof Error && err.message.includes("Failed to fetch")) {
-          // This could be a network-level error including 429 that didn't get caught above
-          setError(
-            "Unable to connect to our servers. This could be due to rate limiting or connection issues. Please try again later.",
-          )
-        } else {
-          setError("An unexpected error occurred. Please try again or contact support if this persists.")
-        }
+        handleApiError(err)
       } finally {
         setIsLoading(false)
 
@@ -688,6 +685,35 @@ function AnalysisContent() {
       <canvas id="particles-canvas" className="fixed top-0 left-0 w-full h-full z-0 pointer-events-none"></canvas>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10 min-h-[calc(100vh-160px)] flex flex-col pb-32">
+        {/* Toast Notification */}
+        {toast && (
+          <div className="fixed top-4 right-4 z-50 max-w-sm">
+            <div 
+              className={`p-4 rounded-lg border backdrop-blur-sm transition-all duration-300 ${
+                toast.type === 'error' 
+                  ? 'bg-[rgba(0,0,0,0.9)] border-red-500/50 text-white' 
+                  : toast.type === 'success'
+                  ? 'bg-[rgba(0,0,0,0.9)] border-green-500/50 text-white'
+                  : 'bg-[rgba(0,0,0,0.9)] border-[#a099d8]/50 text-white'
+              }`}
+            >
+              <div className="flex items-start">
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{toast.message}</p>
+                </div>
+                <button
+                  onClick={() => setToast(null)}
+                  className="ml-2 text-white/60 hover:text-white transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {isFirstLoad && isLoading && (!currentEntry || !currentEntry.results) ? (
           <div className="w-full">
             <div className="w-full text-center mb-8">
@@ -695,92 +721,6 @@ function AnalysisContent() {
             </div>
             <div className="w-full flex justify-center">
               <Loader />
-            </div>
-          </div>
-        ) : error ? (
-          <div className="flex-grow flex flex-col items-center justify-center">
-            <div className="text-center max-w-md mx-auto p-6 bg-[rgba(0,0,0,0.8)] border border-[rgba(255,255,255,0.2)]">
-              {/* Different styling based on error type */}
-              {error.includes("Daily API limit exceeded") ||
-              error.includes("daily search limit") ||
-              error.includes("rate limit") ||
-              error.includes("Rate Limit Exceeded") ||
-              error.includes("requests today") ? (
-                <>
-                  <h3 className="text-xl font-semibold text-white mb-2">Daily Limit Reached</h3>
-                  <p className="text-[#a099d8] mb-4 leading-relaxed">{error}</p>
-                  <div className="space-y-3">
-                    <div className="glowing-input-container button-container w-full">
-                      <div className="white"></div>
-                      <div className="border"></div>
-                      <div className="darkBorderBg"></div>
-                      <div className="glow"></div>
-                      <button
-                        onClick={() => navigate("/app/billing")}
-                        className="subscribe-button w-full h-12 text-white font-medium transition-all duration-200 flex items-center justify-center"
-                      >
-                        Account
-                      </button>
-                      <div className="button-border"></div>
-                    </div>
-                    <p className="text-xs text-[#6b7280]">Your searches reset daily at midnight UTC</p>
-                  </div>
-                </>
-              ) : error.includes("session has expired") || error.includes("Authentication failed") ? (
-                <>
-                  <h3 className="text-xl font-semibold text-white mb-2">Authentication Required</h3>
-                  <p className="text-[#a099d8] mb-4">{error}</p>
-                  <div className="glowing-input-container button-container w-full">
-                    <div className="white"></div>
-                    <div className="border"></div>
-                    <div className="darkBorderBg"></div>
-                    <div className="glow"></div>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="subscribe-button w-full h-12 text-white font-medium transition-all duration-200 flex items-center justify-center"
-                    >
-                      Sign In Again
-                    </button>
-                    <div className="button-border"></div>
-                  </div>
-                </>
-              ) : error.includes("servers are experiencing") ? (
-                <>
-                  <h3 className="text-xl font-semibold text-white mb-2">Server Maintenance</h3>
-                  <p className="text-[#a099d8] mb-4">{error}</p>
-                  <div className="glowing-input-container button-container w-full">
-                    <div className="white"></div>
-                    <div className="border"></div>
-                    <div className="darkBorderBg"></div>
-                    <div className="glow"></div>
-                    <button
-                      onClick={() => window.location.reload()}
-                      className="subscribe-button w-full h-12 text-white font-medium transition-all duration-200 flex items-center justify-center"
-                    >
-                      Try Again
-                    </button>
-                    <div className="button-border"></div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-xl font-semibold text-white mb-2">Something Went Wrong</h3>
-                  <p className="text-[#a099d8] mb-4">{error}</p>
-                  <div className="glowing-input-container button-container w-full">
-                    <div className="white"></div>
-                    <div className="border"></div>
-                    <div className="darkBorderBg"></div>
-                    <div className="glow"></div>
-                    <button
-                      onClick={() => setError(null)}
-                      className="subscribe-button w-full h-12 text-white font-medium transition-all duration-200 flex items-center justify-center"
-                    >
-                      Try Again
-                    </button>
-                    <div className="button-border"></div>
-                  </div>
-                </>
-              )}
             </div>
           </div>
         ) : currentEntry && currentEntry.results ? (
