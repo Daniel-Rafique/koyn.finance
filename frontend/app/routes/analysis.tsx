@@ -623,17 +623,17 @@ function AnalysisContent() {
           
           // Don't reduce opacity if user is hovering over search area
           if (!isHoveringSearch) {
-            if (currentScrollY > 150) { // Start fading after scrolling 150px
-              // Base opacity reduction when scrolled
-              newOpacity = 0.6
+            if (currentScrollY > 100) { // Start fading earlier at 100px
+              // Much more transparent base opacity when scrolled
+              newOpacity = 0.3
               
-              // Additional reduction when actively scrolling fast
-              if (scrollSpeed > 15) {
-                newOpacity = Math.max(0.2, 0.6 - (scrollSpeed / 120))
+              // Even more transparent when actively scrolling fast
+              if (scrollSpeed > 10) {
+                newOpacity = Math.max(0.1, 0.3 - (scrollSpeed / 80))
               }
-            } else if (currentScrollY > 50) {
-              // Gradual fade between 50-150px
-              newOpacity = 1 - ((currentScrollY - 50) * 0.4 / 100)
+            } else if (currentScrollY > 30) {
+              // Gradual fade between 30-100px
+              newOpacity = 1 - ((currentScrollY - 30) * 0.7 / 70)
             }
           }
           
@@ -645,10 +645,10 @@ function AnalysisContent() {
             setIsScrolling(false)
             // Restore opacity when scrolling stops (unless hovering)
             if (!isHoveringSearch) {
-              if (currentScrollY > 150) {
+              if (currentScrollY > 100) {
                 setSearchOpacity(0.7) // Slightly more visible when scroll stops
-              } else if (currentScrollY > 50) {
-                setSearchOpacity(1 - ((currentScrollY - 50) * 0.3 / 100))
+              } else if (currentScrollY > 30) {
+                setSearchOpacity(1 - ((currentScrollY - 30) * 0.3 / 70))
               } else {
                 setSearchOpacity(1)
               }
@@ -1122,13 +1122,13 @@ function AnalysisContent() {
       <div
         className="fixed bottom-0 left-0 w-full z-10"
         style={{
-          backgroundColor: `rgba(13, 10, 33, ${Math.max(0.4, searchOpacity)})`,
-          boxShadow: `0 -10px 20px rgba(13, 10, 33, ${searchOpacity * 0.8})`,
-          backdropFilter: searchOpacity < 0.9 ? 'blur(12px)' : 'none',
-          WebkitBackdropFilter: searchOpacity < 0.9 ? 'blur(12px)' : 'none',
+          backgroundColor: `rgba(13, 10, 33, ${Math.max(0.15, searchOpacity * 0.6)})`,
+          boxShadow: `0 -10px 20px rgba(13, 10, 33, ${searchOpacity * 0.5})`,
+          backdropFilter: searchOpacity < 0.8 ? 'blur(20px)' : 'blur(4px)',
+          WebkitBackdropFilter: searchOpacity < 0.8 ? 'blur(20px)' : 'blur(4px)',
           transition: isScrolling 
-            ? 'all 0.15s ease-out' 
-            : 'all 0.4s ease-out'
+            ? 'all 0.1s ease-out' 
+            : 'all 0.3s ease-out'
         }}
         onMouseEnter={() => {
           setIsHoveringSearch(true)
@@ -1138,10 +1138,10 @@ function AnalysisContent() {
           setIsHoveringSearch(false)
           // Restore scroll-based opacity when not hovering
           const currentScrollY = window.scrollY
-          if (currentScrollY > 150) {
+          if (currentScrollY > 100) {
             setSearchOpacity(0.7)
-          } else if (currentScrollY > 50) {
-            setSearchOpacity(1 - ((currentScrollY - 50) * 0.3 / 100))
+          } else if (currentScrollY > 30) {
+            setSearchOpacity(1 - ((currentScrollY - 30) * 0.3 / 70))
           } else {
             setSearchOpacity(1)
           }
