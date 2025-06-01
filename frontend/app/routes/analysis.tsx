@@ -133,6 +133,7 @@ function AnalysisContent() {
   const [currentIndex, setCurrentIndex] = useState(-1)
   const [isFirstLoad, setIsFirstLoad] = useState(true)
   const [isClientMounted, setIsClientMounted] = useState(false)
+  const [isRateLimited, setIsRateLimited] = useState(false)
   const previousQueryRef = useRef<string | null>(null)
   const hasInitializedFromStorage = useRef<boolean>(false)
   const searchHistoryRef = useRef<string[]>([])
@@ -161,6 +162,10 @@ function AnalysisContent() {
   // Effect to handle client-side mounting
   useEffect(() => {
     setIsClientMounted(true)
+    // Reset rate limit state on page load (don't persist across sessions)
+    setIsRateLimited(false)
+    // Clean up any leftover rate limit flags
+    localStorage.removeItem('koyn_rate_limited')
   }, [])
 
   // Load search history from localStorage on initial mount
@@ -396,6 +401,9 @@ function AnalysisContent() {
         }
 
         if (data.results && data.results.length > 0) {
+          // Reset rate limit state on successful response
+          setIsRateLimited(false)
+          
           // Add random price change percentage if not provided
           data.results.forEach((result: SearchResult) => {
             if (!result.price_change_percentage) {
@@ -1010,6 +1018,8 @@ function AnalysisContent() {
               waitForResults={true}
               onSearch={handleSearch}
               isLoading={searchFormLoading}
+              isRateLimited={isRateLimited}
+              setIsRateLimited={setIsRateLimited}
             />
           </div>
         </div>
