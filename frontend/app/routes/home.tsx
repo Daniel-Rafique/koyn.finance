@@ -10,6 +10,7 @@ import Nav from "../components/Nav";
 import "../styles/home.css";
 import "../styles/news-carousel-solid.css";
 import { performTestLogin, clearTestAuth, isDevelopment } from "../utils/testAuth";
+import RotatingCategories from "../components/RotatingCategories";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -282,7 +283,7 @@ export default function Home() {
 
       <main className="flex flex-col items-center justify-center min-h-[calc(100vh-160px)] max-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Back to Analysis button - repositioned to top-right corner as a floating button */}
-        {hasStoredResults && (
+        {isSubscribed && hasStoredResults && (
           <div className="absolute top-4 left-4 z-20">
             <a
               href="/app/analysis"
@@ -321,12 +322,13 @@ export default function Home() {
             </a>
           </div>
         )}
-        <div className="w-full max-w-3xl">
-          {/* Main headline with keywords for SEO */}
-          <div className="mb-4 text-center">
+        
+        {/* Rotating categories display for non-logged in users */}
+        {!isSubscribed && isClientMounted && (
+          <div className="text-center">
+            <RotatingCategories />
           </div>
-          {/* SearchForm moved to fixed position at bottom */}
-        </div>
+        )}
       </main>
       
       {/* Fixed Search Bar - positioned exactly like analysis page */}
