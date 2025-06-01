@@ -13,7 +13,234 @@ import {
   type SeriesType 
 } from "lightweight-charts"
 import { useAuth } from "../context/AuthProvider"
-// import { Loader } from "./Loader"
+
+// Skeleton Component for Chart Loading
+const ChartSkeleton = ({ height, width, symbol, timeframe }: { 
+  height: number | string; 
+  width: number | string;
+  symbol: string;
+  timeframe: string;
+}) => {
+  const [animatedBars, setAnimatedBars] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAnimatedBars(prev => (prev + 1) % 20)
+    }, 100)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  const generateSkeletonBars = () => {
+    const bars = []
+    const barCount = 50
+    const containerWidth = typeof width === 'string' ? 600 : Number(width)
+    const containerHeight = typeof height === 'string' ? 400 : Number(height)
+    const barWidth = Math.max(4, containerWidth / barCount - 2)
+    const maxBarHeight = containerHeight * 0.6
+
+    for (let i = 0; i < barCount; i++) {
+      const isAnimated = i === animatedBars || i === (animatedBars + 1) % barCount
+      const baseHeight = 20 + Math.random() * maxBarHeight
+      const barHeight = isAnimated ? baseHeight * 1.2 : baseHeight
+      const x = i * (barWidth + 2) + 20
+      const y = containerHeight - barHeight - 60
+
+      bars.push(
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: `${x}px`,
+            bottom: '60px',
+            width: `${barWidth}px`,
+            height: `${barHeight}px`,
+            background: isAnimated 
+              ? 'linear-gradient(180deg, rgba(70, 167, 88, 0.6) 0%, rgba(70, 167, 88, 0.2) 100%)'
+              : 'linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)',
+            borderRadius: '2px',
+            transition: 'all 0.3s ease',
+            opacity: isAnimated ? 1 : 0.6,
+          }}
+        />
+      )
+    }
+    return bars
+  }
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: '#000000',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {/* Header skeleton */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '20px',
+          left: '20px',
+          right: '20px',
+          height: '40px',
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'center',
+        }}
+      >
+        {/* Price skeleton */}
+        <div
+          style={{
+            width: '120px',
+            height: '24px',
+            background: 'linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.1) 100%)',
+            borderRadius: '4px',
+            animation: 'shimmer 2s infinite',
+          }}
+        />
+        {/* Change skeleton */}
+        <div
+          style={{
+            width: '80px',
+            height: '20px',
+            background: 'linear-gradient(90deg, rgba(70, 167, 88, 0.1) 0%, rgba(70, 167, 88, 0.2) 50%, rgba(70, 167, 88, 0.1) 100%)',
+            borderRadius: '4px',
+            animation: 'shimmer 2s infinite 0.5s',
+          }}
+        />
+      </div>
+
+      {/* Chart area with skeleton bars */}
+      <div
+        style={{
+          position: 'relative',
+          flex: 1,
+          marginTop: '80px',
+          marginBottom: '40px',
+          paddingLeft: '20px',
+          paddingRight: '20px',
+        }}
+      >
+        {generateSkeletonBars()}
+        
+        {/* Grid lines skeleton */}
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={`grid-h-${i}`}
+            style={{
+              position: 'absolute',
+              left: '20px',
+              right: '20px',
+              top: `${(i + 1) * 20}%`,
+              height: '1px',
+              background: 'rgba(255, 255, 255, 0.05)',
+            }}
+          />
+        ))}
+        
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={`grid-v-${i}`}
+            style={{
+              position: 'absolute',
+              left: `${20 + (i + 1) * 12}%`,
+              top: '0',
+              bottom: '0',
+              width: '1px',
+              background: 'rgba(255, 255, 255, 0.05)',
+            }}
+          />
+        ))}
+
+        {/* Y-axis labels skeleton */}
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={`y-label-${i}`}
+            style={{
+              position: 'absolute',
+              right: '5px',
+              top: `${i * 16 + 10}%`,
+              width: '50px',
+              height: '12px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '2px',
+              animation: `shimmer 2s infinite ${i * 0.2}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Bottom controls skeleton */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '10px',
+          left: '20px',
+          right: '20px',
+          height: '30px',
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'center',
+        }}
+      >
+        {/* X-axis labels skeleton */}
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={`x-label-${i}`}
+            style={{
+              width: '60px',
+              height: '12px',
+              background: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '2px',
+              animation: `shimmer 2s infinite ${i * 0.3}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Loading text */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: '#46A758',
+          fontSize: '14px',
+          fontWeight: '500',
+          textAlign: 'center',
+          zIndex: 10,
+        }}
+      >
+        <div style={{ marginBottom: '8px' }}>Loading chart data...</div>
+        <div style={{ fontSize: '12px', color: '#888', opacity: 0.8 }}>
+          {symbol} • {timeframe}
+        </div>
+      </div>
+
+      {/* CSS Animation */}
+      <style>
+        {`
+          @keyframes shimmer {
+            0% {
+              background-position: -200px 0;
+            }
+            100% {
+              background-position: calc(200px + 100%) 0;
+            }
+          }
+        `}
+      </style>
+    </div>
+  )
+}
 
 interface LightweightChartProps {
   symbol?: string
@@ -3298,27 +3525,7 @@ function LightweightChart({
         </div>
 
         {isLoading && (
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0, 0, 0, 0.8)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#46A758",
-              fontSize: "14px",
-              zIndex: 1000,
-              backdropFilter: "blur(2px)",
-            }}
-          >
-            {/* <Loader /> */}
-            <div style={{ marginTop: "16px", color: "#FFFFFF" }}>Loading {symbol} chart data...</div>
-          </div>
+          <ChartSkeleton height={height} width={width} symbol={symbol} timeframe={timeframe} />
         )}
         <div
           ref={chartContainerRef}
