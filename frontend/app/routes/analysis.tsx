@@ -699,7 +699,7 @@ function AnalysisContent() {
           </div>
         ) : error ? (
           <div className="flex-grow flex flex-col items-center justify-center">
-            <div className="text-center max-w-md mx-auto p-6 bg-[rgba(13,10,33,0.6)]">
+            <div className="text-center max-w-md mx-auto p-6 bg-[rgba(0,0,0,0.8)] border border-[rgba(255,255,255,0.2)]">
               {/* Different styling based on error type */}
               {error.includes("Daily API limit exceeded") ||
               error.includes("daily search limit") ||
@@ -707,54 +707,78 @@ function AnalysisContent() {
               error.includes("Rate Limit Exceeded") ||
               error.includes("requests today") ? (
                 <>
-                  <div className="text-yellow-400 text-3xl mb-4">⏰</div>
                   <h3 className="text-xl font-semibold text-white mb-2">Daily Limit Reached</h3>
                   <p className="text-[#a099d8] mb-4 leading-relaxed">{error}</p>
                   <div className="space-y-3">
-                    <button
-                      onClick={() => navigate("/app/billing")}
-                      className="w-full px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors font-medium"
-                    >
-                      Account
-                    </button>
-                    <p className="text-xs text-gray-400">Your searches reset daily at midnight UTC</p>
+                    <div className="glowing-input-container button-container w-full">
+                      <div className="white"></div>
+                      <div className="border"></div>
+                      <div className="darkBorderBg"></div>
+                      <div className="glow"></div>
+                      <button
+                        onClick={() => navigate("/app/billing")}
+                        className="subscribe-button w-full h-12 text-white font-medium transition-all duration-200 flex items-center justify-center"
+                      >
+                        Account
+                      </button>
+                      <div className="button-border"></div>
+                    </div>
+                    <p className="text-xs text-[#6b7280]">Your searches reset daily at midnight UTC</p>
                   </div>
                 </>
               ) : error.includes("session has expired") || error.includes("Authentication failed") ? (
                 <>
-                  <div className="text-red-400 text-3xl mb-4">🔐</div>
                   <h3 className="text-xl font-semibold text-white mb-2">Authentication Required</h3>
                   <p className="text-[#a099d8] mb-4">{error}</p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors"
-                  >
-                    Sign In Again
-                  </button>
+                  <div className="glowing-input-container button-container w-full">
+                    <div className="white"></div>
+                    <div className="border"></div>
+                    <div className="darkBorderBg"></div>
+                    <div className="glow"></div>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="subscribe-button w-full h-12 text-white font-medium transition-all duration-200 flex items-center justify-center"
+                    >
+                      Sign In Again
+                    </button>
+                    <div className="button-border"></div>
+                  </div>
                 </>
               ) : error.includes("servers are experiencing") ? (
                 <>
-                  <div className="text-orange-400 text-3xl mb-4">🔧</div>
                   <h3 className="text-xl font-semibold text-white mb-2">Server Maintenance</h3>
                   <p className="text-[#a099d8] mb-4">{error}</p>
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors"
-                  >
-                    Try Again
-                  </button>
+                  <div className="glowing-input-container button-container w-full">
+                    <div className="white"></div>
+                    <div className="border"></div>
+                    <div className="darkBorderBg"></div>
+                    <div className="glow"></div>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="subscribe-button w-full h-12 text-white font-medium transition-all duration-200 flex items-center justify-center"
+                    >
+                      Try Again
+                    </button>
+                    <div className="button-border"></div>
+                  </div>
                 </>
               ) : (
                 <>
-                  <div className="text-red-400 text-3xl mb-4">⚠️</div>
                   <h3 className="text-xl font-semibold text-white mb-2">Something Went Wrong</h3>
                   <p className="text-[#a099d8] mb-4">{error}</p>
-                  <button
-                    onClick={() => setError(null)}
-                    className="px-4 py-2 bg-[#46A758] text-white rounded-md hover:bg-[#3d9049] transition-colors"
-                  >
-                    Try Again
-                  </button>
+                  <div className="glowing-input-container button-container w-full">
+                    <div className="white"></div>
+                    <div className="border"></div>
+                    <div className="darkBorderBg"></div>
+                    <div className="glow"></div>
+                    <button
+                      onClick={() => setError(null)}
+                      className="subscribe-button w-full h-12 text-white font-medium transition-all duration-200 flex items-center justify-center"
+                    >
+                      Try Again
+                    </button>
+                    <div className="button-border"></div>
+                  </div>
                 </>
               )}
             </div>
