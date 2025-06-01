@@ -1108,671 +1108,765 @@ const getNewsMaxAgeByAssetType = (assetType) => {
             return 1800; // Default to 30 minutes
     }
   };
-  
-// Modify detectAsset to include historical prices
-const detectAsset = async (query) => {
+  // Modify detectAsset to include historical prices
+  const detectAsset = async (query) => {
     try {
-        console.log(`Detecting asset from query: "${query}"`);
-
-        // SMART EXTRACTION: Try to extract potential ticker symbols from the query first
-        const extractedSymbols = [];
-        
-        // Common patterns for ticker extraction (ORDERED BY PRIORITY)
-        const patterns = [
-            // PRIORITY 1: Specific symbol variations first
-            /\b(appl|aple)\b/gi, // Apple variations
-            /\b(googl|goog)\b/gi, // Google variations
-            /\b(msft|micro)\b/gi, // Microsoft variations
-            /\b(tsla|tesla)\b/gi, // Tesla variations
-            /\b(amzn|amazon)\b/gi, // Amazon variations
-            /\b(nvda|nvidia)\b/gi, // NVIDIA variations
-            /\b(meta|fb)\b/gi, // Meta/Facebook variations
-            /\b(nflx|netflix)\b/gi, // Netflix variations
-            /\b(btc|bitcoin)\b/gi, // Bitcoin variations
-            /\b(eth|ethereum)\b/gi, // Ethereum variations
-            // PRIORITY 2: General ticker pattern last (to avoid false matches)
-            /\b([A-Z]{2,5})\b/g, // Only match 2-5 letter combinations and only when capitalized
-        ];
-        
-        patterns.forEach(pattern => {
-            const matches = query.match(pattern);
-            if (matches) {
-                matches.forEach(match => {
-                    let normalized = match.toUpperCase();
-                    // Normalize common variations
-                    if (['APPL', 'APLE'].includes(normalized)) normalized = 'AAPL';
-                    if (['GOOGL', 'GOOG'].includes(normalized)) normalized = 'GOOGL';
-                    if (['MSFT', 'MICRO'].includes(normalized)) normalized = 'MSFT';
-                    if (['TSLA', 'TESLA'].includes(normalized)) normalized = 'TSLA';
-                    if (['AMZN', 'AMAZON'].includes(normalized)) normalized = 'AMZN';
-                    if (['NVDA', 'NVIDIA'].includes(normalized)) normalized = 'NVDA';
-                    if (['META', 'FB'].includes(normalized)) normalized = 'META';
-                    if (['NFLX', 'NETFLIX'].includes(normalized)) normalized = 'NFLX';
-                    if (['BTC', 'BITCOIN'].includes(normalized)) normalized = 'BTC';
-                    if (['ETH', 'ETHEREUM'].includes(normalized)) normalized = 'ETH';
-                    
-                    if (!extractedSymbols.includes(normalized)) {
-                        extractedSymbols.push(normalized);
-                    }
-                });
+      console.log(`Detecting asset from query: "${query}"`)
+  
+      // ENHANCED SMART EXTRACTION: Load all asset data and create comprehensive patterns
+      const extractedSymbols = []
+      const allAssetSymbols = new Set()
+      const symbolToAssetMap = new Map()
+  
+      // Load all asset data to create comprehensive symbol patterns
+      try {
+        // Load stocks
+        const stocksData = fs.readFileSync("data/stocks.json", "utf8")
+        const stocksJson = JSON.parse(stocksData)
+        if (stocksJson && stocksJson.tickers && Array.isArray(stocksJson.tickers)) {
+          stocksJson.tickers.forEach((ticker) => {
+            allAssetSymbols.add(ticker.toUpperCase())
+            symbolToAssetMap.set(ticker.toUpperCase(), { symbol: ticker, type: "stock" })
+          })
+        }
+  
+        // Load crypto
+        const cryptoData = fs.readFileSync("data/crypto.json", "utf8")
+        const cryptoList = JSON.parse(cryptoData)
+        cryptoList.forEach((crypto) => {
+          const cleanSymbol = crypto.symbol.replace("USD", "").toUpperCase()
+          allAssetSymbols.add(cleanSymbol)
+          allAssetSymbols.add(crypto.symbol.toUpperCase())
+          symbolToAssetMap.set(cleanSymbol, { symbol: crypto.symbol, type: "crypto", name: crypto.name })
+          symbolToAssetMap.set(crypto.symbol.toUpperCase(), { symbol: crypto.symbol, type: "crypto", name: crypto.name })
+        })
+  
+        // Load commodities
+        const commoditiesData = fs.readFileSync("data/commodities.json", "utf8")
+        const commoditiesList = JSON.parse(commoditiesData)
+        commoditiesList.forEach((commodity) => {
+          allAssetSymbols.add(commodity.symbol.toUpperCase())
+          symbolToAssetMap.set(commodity.symbol.toUpperCase(), {
+            symbol: commodity.symbol,
+            type: "commodity",
+            name: commodity.name,
+          })
+        })
+  
+        // Load indices
+        const indicesData = fs.readFileSync("data/indices.json", "utf8")
+        const indicesList = JSON.parse(indicesData)
+        indicesList.forEach((index) => {
+          allAssetSymbols.add(index.symbol.toUpperCase())
+          symbolToAssetMap.set(index.symbol.toUpperCase(), { symbol: index.symbol, type: "index", name: index.name })
+        })
+  
+        // Load forex
+        const forexData = fs.readFileSync("data/forex.json", "utf8")
+        const forexList = JSON.parse(forexData)
+        forexList.forEach((forex) => {
+          allAssetSymbols.add(forex.symbol.toUpperCase())
+          // Also add currency pair variations
+          const pair1 = `${forex.fromCurrency}${forex.toCurrency}`.toUpperCase()
+          const pair2 = `${forex.fromCurrency}/${forex.toCurrency}`.toUpperCase()
+          allAssetSymbols.add(pair1)
+          allAssetSymbols.add(pair2)
+          symbolToAssetMap.set(forex.symbol.toUpperCase(), {
+            symbol: forex.symbol,
+            type: "forex",
+            name: `${forex.fromName} to ${forex.toName}`,
+          })
+          symbolToAssetMap.set(pair1, {
+            symbol: forex.symbol,
+            type: "forex",
+            name: `${forex.fromName} to ${forex.toName}`,
+          })
+          symbolToAssetMap.set(pair2, {
+            symbol: forex.symbol,
+            type: "forex",
+            name: `${forex.fromName} to ${forex.toName}`,
+          })
+        })
+  
+        console.log(`Loaded ${allAssetSymbols.size} total asset symbols for extraction`)
+      } catch (error) {
+        console.error("Error loading asset data for extraction:", error.message)
+      }
+  
+      // Enhanced patterns for comprehensive asset extraction
+      const patterns = [
+        // PRIORITY 1: Common asset name variations and abbreviations
+        /\b(apple|aapl|appl|aple)\b/gi,
+        /\b(google|googl|goog|alphabet)\b/gi,
+        /\b(microsoft|msft|micro)\b/gi,
+        /\b(tesla|tsla)\b/gi,
+        /\b(amazon|amzn)\b/gi,
+        /\b(nvidia|nvda)\b/gi,
+        /\b(meta|fb|facebook)\b/gi,
+        /\b(netflix|nflx)\b/gi,
+        /\b(bitcoin|btc)\b/gi,
+        /\b(ethereum|eth)\b/gi,
+        /\b(binance|bnb|binancecoin)\b/gi,
+        /\b(solana|sol)\b/gi,
+        /\b(cardano|ada)\b/gi,
+        /\b(polkadot|dot)\b/gi,
+        /\b(chainlink|link)\b/gi,
+        /\b(polygon|matic)\b/gi,
+        /\b(avalanche|avax)\b/gi,
+        /\b(uniswap|uni)\b/gi,
+        /\b(litecoin|ltc)\b/gi,
+        /\b(ripple|xrp)\b/gi,
+        /\b(dogecoin|doge)\b/gi,
+        /\b(gold|gld|xau)\b/gi,
+        /\b(silver|slv|xag)\b/gi,
+        /\b(oil|crude|wti|brent)\b/gi,
+        /\b(sp500|s&p500|spy|spx)\b/gi,
+        /\b(nasdaq|qqq|ndx)\b/gi,
+        /\b(dow|dji|dia)\b/gi,
+        /\b(eurusd|eur\/usd|gbpusd|gbp\/usd|usdjpy|usd\/jpy)\b/gi,
+  
+        // PRIORITY 2: Direct symbol matches from our asset databases
+        ...Array.from(allAssetSymbols).map(
+          (symbol) => new RegExp(`\\b${symbol.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"),
+        ),
+  
+        // PRIORITY 3: General ticker pattern (2-5 letters, only when capitalized)
+        /\b([A-Z]{2,5})\b/g,
+      ]
+  
+      patterns.forEach((pattern) => {
+        const matches = query.match(pattern)
+        if (matches) {
+          matches.forEach((match) => {
+            let normalized = match.toUpperCase()
+  
+            // Normalize common variations
+            const normalizations = {
+              APPLE: "AAPL",
+              APPL: "AAPL",
+              APLE: "AAPL",
+              GOOGLE: "GOOGL",
+              GOOG: "GOOGL",
+              ALPHABET: "GOOGL",
+              MICROSOFT: "MSFT",
+              MICRO: "MSFT",
+              TESLA: "TSLA",
+              AMAZON: "AMZN",
+              NVIDIA: "NVDA",
+              META: "META",
+              FB: "META",
+              FACEBOOK: "META",
+              NETFLIX: "NFLX",
+              BITCOIN: "BTC",
+              ETHEREUM: "ETH",
+              BINANCE: "BNB",
+              BINANCECOIN: "BNB",
+              SOLANA: "SOL",
+              CARDANO: "ADA",
+              POLKADOT: "DOT",
+              CHAINLINK: "LINK",
+              POLYGON: "MATIC",
+              AVALANCHE: "AVAX",
+              UNISWAP: "UNI",
+              LITECOIN: "LTC",
+              RIPPLE: "XRP",
+              DOGECOIN: "DOGE",
+              GOLD: "GLD",
+              SILVER: "SLV",
+              OIL: "CL=F",
+              CRUDE: "CL=F",
+              WTI: "CL=F",
+              SP500: "SPY",
+              "S&P500": "SPY",
+              NASDAQ: "QQQ",
+              DOW: "DIA",
+              EURUSD: "EURUSD",
+              "EUR/USD": "EURUSD",
+              GBPUSD: "GBPUSD",
+              "GBP/USD": "GBPUSD",
+              USDJPY: "USDJPY",
+              "USD/JPY": "USDJPY",
             }
-        });
-        
-        console.log(`Extracted potential symbols: ${extractedSymbols.join(', ')}`);
-
-        // Try each extracted symbol with our existing detection logic
-        for (const symbol of extractedSymbols) {
-            console.log(`Trying extracted symbol: ${symbol}`);
-            
-            // Try stock detection first for extracted symbols
+  
+            if (normalizations[normalized]) {
+              normalized = normalizations[normalized]
+            }
+  
+            if (!extractedSymbols.includes(normalized)) {
+              extractedSymbols.push(normalized)
+            }
+          })
+        }
+      })
+  
+      console.log(`Extracted potential symbols: ${extractedSymbols.join(", ")}`)
+  
+      // Try each extracted symbol with priority-based detection
+      for (const symbol of extractedSymbols) {
+        console.log(`Trying extracted symbol: ${symbol}`)
+  
+        // Check if symbol exists in our comprehensive symbol map
+        const assetInfo = symbolToAssetMap.get(symbol)
+        if (assetInfo) {
+          console.log(`Found ${assetInfo.type} asset via comprehensive extraction: ${assetInfo.symbol}`)
+  
+          try {
+            const priceData = await getAssetPrice({
+              symbol: assetInfo.symbol,
+              name: assetInfo.name || assetInfo.symbol,
+              type: assetInfo.type,
+            })
+            if (priceData) {
+              return {
+                id: assetInfo.type === "crypto" ? assetInfo.symbol.replace("USD", "") : assetInfo.symbol,
+                name: assetInfo.name || assetInfo.symbol,
+                symbol: assetInfo.symbol,
+                displaySymbol: assetInfo.type === "crypto" ? assetInfo.symbol.replace("USD", "") : assetInfo.symbol,
+                type: assetInfo.type,
+                source: `fmp_${assetInfo.type}_extracted`,
+                price: priceData,
+              }
+            }
+          } catch (priceError) {
+            console.error("Error getting price data:", priceError)
+          }
+  
+          // Return asset even if price fetch fails
+          return {
+            id: assetInfo.type === "crypto" ? assetInfo.symbol.replace("USD", "") : assetInfo.symbol,
+            name: assetInfo.name || assetInfo.symbol,
+            symbol: assetInfo.symbol,
+            displaySymbol: assetInfo.type === "crypto" ? assetInfo.symbol.replace("USD", "") : assetInfo.symbol,
+            type: assetInfo.type,
+            source: `${assetInfo.type}_json_extracted`,
+          }
+        }
+      }
+  
+      // If no extraction worked, continue with original exact matching logic
+      console.log(`No assets found via extraction, trying exact matching for: ${query}`)
+  
+      // 1. PRIORITY: Crypto assets from our crypto.json file
+      try {
+        const cryptoData = fs.readFileSync("data/crypto.json", "utf8")
+        const cryptoList = JSON.parse(cryptoData)
+  
+        // Enhanced crypto matching with common abbreviation support
+        let cryptoMatch = null
+        const queryLower = query.toLowerCase()
+  
+        // First try exact matches
+        cryptoMatch = cryptoList.find((crypto) => {
+          const cleanSymbol = crypto.symbol.replace("USD", "").toLowerCase()
+          return cleanSymbol === queryLower || crypto.symbol.toLowerCase() === queryLower
+        })
+  
+        // If no exact match, try common cryptocurrency abbreviations
+        if (!cryptoMatch) {
+          const cryptoAbbreviations = {
+            btc: "BTCUSD",
+            bitcoin: "BTCUSD",
+            eth: "ETHUSD",
+            ethereum: "ETHUSD",
+            ada: "ADAUSD",
+            cardano: "ADAUSD",
+            dot: "DOTUSD",
+            polkadot: "DOTUSD",
+            bnb: "BNBUSD",
+            "binance coin": "BNBUSD",
+            sol: "SOLUSD",
+            solana: "SOLUSD",
+            matic: "MATICUSD",
+            polygon: "MATICUSD",
+            avax: "AVAXUSD",
+            avalanche: "AVAXUSD",
+            link: "LINKUSD",
+            chainlink: "LINKUSD",
+            uni: "UNIUSD",
+            uniswap: "UNIUSD",
+            ltc: "LTCUSD",
+            litecoin: "LTCUSD",
+            bch: "BCHUSD",
+            "bitcoin cash": "BCHUSD",
+            xrp: "XRPUSD",
+            ripple: "XRPUSD",
+            doge: "DOGEUSD",
+            dogecoin: "DOGEUSD",
+          }
+  
+          const targetSymbol = cryptoAbbreviations[queryLower]
+          if (targetSymbol) {
+            console.log(`Converting crypto abbreviation "${query}" to "${targetSymbol}"`)
+            cryptoMatch = cryptoList.find((crypto) => crypto.symbol.toLowerCase() === targetSymbol.toLowerCase())
+          }
+        }
+  
+        if (cryptoMatch) {
+          console.log(`Found crypto asset in crypto.json: ${cryptoMatch.symbol} (${cryptoMatch.name})`)
+  
+          // Try to get price data from FMP API
+          try {
+            const priceData = await getAssetPrice({
+              symbol: cryptoMatch.symbol,
+              name: cryptoMatch.name,
+              type: "crypto",
+            })
+            if (priceData) {
+              return {
+                id: cryptoMatch.symbol.replace("USD", ""),
+                name: cryptoMatch.name,
+                symbol: cryptoMatch.symbol, // Keep full symbol for API calls
+                displaySymbol: cryptoMatch.symbol.replace("USD", ""), // For display purposes
+                type: "crypto",
+                source: "fmp_crypto",
+                price: priceData,
+              }
+            }
+          } catch (priceError) {
+            console.error("Error getting crypto price data:", priceError)
+          }
+  
+          // Return the crypto asset even if price fetch fails
+          return {
+            id: cryptoMatch.symbol.replace("USD", ""),
+            name: cryptoMatch.name,
+            symbol: cryptoMatch.symbol, // Keep full symbol for API calls
+            displaySymbol: cryptoMatch.symbol.replace("USD", ""), // For display purposes
+            type: "crypto",
+            source: "crypto_json",
+          }
+        }
+  
+        console.log(`No crypto asset found in crypto.json for query: ${query}`)
+      } catch (cryptoError) {
+        console.error("Error loading crypto data:", cryptoError.message)
+      }
+  
+      // 2. Stocks from stocks.json
+      try {
+        const stocksData = fs.readFileSync("data/stocks.json", "utf8")
+        const stocksJson = JSON.parse(stocksData)
+  
+        if (stocksJson && stocksJson.tickers && Array.isArray(stocksJson.tickers)) {
+          // Look for exact symbol match (case-insensitive)
+          const stockMatch = stocksJson.tickers.find((ticker) => ticker.toLowerCase() === query.toLowerCase())
+  
+          if (stockMatch) {
+            console.log(`Found stock asset in stocks.json: ${stockMatch}`)
+  
+            // Try to get price data from FMP API
             try {
-                const stocksData = fs.readFileSync('data/stocks.json', 'utf8');
-                const stocksJson = JSON.parse(stocksData);
-                
-                if (stocksJson && stocksJson.tickers && Array.isArray(stocksJson.tickers)) {
-                    const stockMatch = stocksJson.tickers.find(ticker => 
-                        ticker.toLowerCase() === symbol.toLowerCase()
-                    );
-                    
-                    if (stockMatch) {
-                        console.log(`Found stock asset via extraction: ${stockMatch}`);
-                        
-                        try {
-                            const priceData = await getAssetPrice({ 
-                                symbol: stockMatch,
-                                name: stockMatch,
-                                type: 'stock'
-                            });
-                            if (priceData) {
-                                return {
-                                    id: stockMatch,
-                                    name: stockMatch,
-                                    symbol: stockMatch,
-                                    type: 'stock',
-                                    source: 'fmp_stock_extracted',
-                                    price: priceData
-                                };
-                            }
-                        } catch (priceError) {
-                            console.error('Error getting stock price data:', priceError);
-                        }
-                        
-                        // Return immediately when stock found via extraction
-                        return {
-                            id: stockMatch,
-                            name: stockMatch,
-                            symbol: stockMatch,
-                            type: 'stock',
-                            source: 'stocks_json_extracted'
-                        };
-                    }
-                }
-            } catch (stocksError) {
-                console.error('Error in stock extraction:', stocksError.message);
-            }
-            
-            // Try crypto detection for extracted symbols
-            try {
-                const cryptoData = fs.readFileSync('data/crypto.json', 'utf8');
-                const cryptoList = JSON.parse(cryptoData);
-                
-                const cryptoMatch = cryptoList.find(crypto => {
-                    const cleanSymbol = crypto.symbol.replace('USD', '').toLowerCase();
-                    return cleanSymbol === symbol.toLowerCase() || crypto.symbol.toLowerCase() === symbol.toLowerCase();
-                });
-                
-                if (cryptoMatch) {
-                    console.log(`Found crypto asset via extraction: ${cryptoMatch.symbol} (${cryptoMatch.name})`);
-                    
-                    try {
-                        const priceData = await getAssetPrice({ 
-                            symbol: cryptoMatch.symbol,
-                            name: cryptoMatch.name,
-                            type: 'crypto'
-                        });
-                        if (priceData) {
-                            return {
-                                id: cryptoMatch.symbol.replace('USD', ''),
-                                name: cryptoMatch.name,
-                                symbol: cryptoMatch.symbol,
-                                displaySymbol: cryptoMatch.symbol.replace('USD', ''),
-                                type: 'crypto',
-                                source: 'fmp_crypto_extracted',
-                                price: priceData
-                            };
-                        }
-                    } catch (priceError) {
-                        console.error('Error getting crypto price data:', priceError);
-                    }
-                    
-                    return {
-                        id: cryptoMatch.symbol.replace('USD', ''),
-                        name: cryptoMatch.name,
-                        symbol: cryptoMatch.symbol,
-                        displaySymbol: cryptoMatch.symbol.replace('USD', ''),
-                        type: 'crypto',
-                        source: 'crypto_json_extracted'
-                    };
-                }
-            } catch (cryptoError) {
-                console.error('Error in crypto extraction:', cryptoError.message);
-            }
-        }
-
-        // If no extraction worked, continue with original exact matching logic
-        console.log(`No assets found via extraction, trying exact matching for: ${query}`);
-
-        // 1. PRIORITY: Crypto assets from our crypto.json file
-        try {
-            const cryptoData = fs.readFileSync('data/crypto.json', 'utf8');
-            const cryptoList = JSON.parse(cryptoData);
-            
-            // Enhanced crypto matching with common abbreviation support
-            let cryptoMatch = null;
-                const queryLower = query.toLowerCase();
-            
-            // First try exact matches
-            cryptoMatch = cryptoList.find(crypto => {
-                const cleanSymbol = crypto.symbol.replace('USD', '').toLowerCase();
-                return cleanSymbol === queryLower || crypto.symbol.toLowerCase() === queryLower;
-            });
-            
-            // If no exact match, try common cryptocurrency abbreviations
-            if (!cryptoMatch) {
-                const cryptoAbbreviations = {
-                    'btc': 'BTCUSD',
-                    'bitcoin': 'BTCUSD',
-                    'eth': 'ETHUSD', 
-                    'ethereum': 'ETHUSD',
-                    'ada': 'ADAUSD',
-                    'cardano': 'ADAUSD',
-                    'dot': 'DOTUSD',
-                    'polkadot': 'DOTUSD',
-                    'bnb': 'BNBUSD',
-                    'binance coin': 'BNBUSD',
-                    'sol': 'SOLUSD',
-                    'solana': 'SOLUSD',
-                    'matic': 'MATICUSD',
-                    'polygon': 'MATICUSD',
-                    'avax': 'AVAXUSD',
-                    'avalanche': 'AVAXUSD',
-                    'link': 'LINKUSD',
-                    'chainlink': 'LINKUSD',
-                    'uni': 'UNIUSD',
-                    'uniswap': 'UNIUSD',
-                    'ltc': 'LTCUSD',
-                    'litecoin': 'LTCUSD',
-                    'bch': 'BCHUSD',
-                    'bitcoin cash': 'BCHUSD',
-                    'xrp': 'XRPUSD',
-                    'ripple': 'XRPUSD',
-                    'doge': 'DOGEUSD',
-                    'dogecoin': 'DOGEUSD'
-                };
-                
-                const targetSymbol = cryptoAbbreviations[queryLower];
-                if (targetSymbol) {
-                    console.log(`Converting crypto abbreviation "${query}" to "${targetSymbol}"`);
-                    cryptoMatch = cryptoList.find(crypto => 
-                        crypto.symbol.toLowerCase() === targetSymbol.toLowerCase()
-                    );
-                }
-            }
-            
-            if (cryptoMatch) {
-                console.log(`Found crypto asset in crypto.json: ${cryptoMatch.symbol} (${cryptoMatch.name})`);
-                
-                // Try to get price data from FMP API
-                try {
-                    const priceData = await getAssetPrice({ 
-                        symbol: cryptoMatch.symbol,
-                        name: cryptoMatch.name,
-                        type: 'crypto'
-                    });
-                    if (priceData) {
-                        return {
-                            id: cryptoMatch.symbol.replace('USD', ''),
-                            name: cryptoMatch.name,
-                            symbol: cryptoMatch.symbol, // Keep full symbol for API calls
-                            displaySymbol: cryptoMatch.symbol.replace('USD', ''), // For display purposes
-                            type: 'crypto',
-                            source: 'fmp_crypto',
-                            price: priceData
-                        };
-                    }
-                } catch (priceError) {
-                    console.error('Error getting crypto price data:', priceError);
-                }
-                
-                // Return the crypto asset even if price fetch fails
+              const priceData = await getAssetPrice({
+                symbol: stockMatch,
+                name: stockMatch,
+                type: "stock",
+              })
+              if (priceData) {
                 return {
-                    id: cryptoMatch.symbol.replace('USD', ''),
-                    name: cryptoMatch.name,
-                    symbol: cryptoMatch.symbol, // Keep full symbol for API calls
-                    displaySymbol: cryptoMatch.symbol.replace('USD', ''), // For display purposes
-                    type: 'crypto',
-                    source: 'crypto_json'
-                };
+                  id: stockMatch,
+                  name: stockMatch,
+                  symbol: stockMatch,
+                  type: "stock",
+                  source: "fmp_stock",
+                  price: priceData,
+                }
+              }
+            } catch (priceError) {
+              console.error("Error getting stock price data:", priceError)
             }
-            
-            console.log(`No crypto asset found in crypto.json for query: ${query}`);
-        } catch (cryptoError) {
-            console.error('Error loading crypto data:', cryptoError.message);
+  
+            // Return the stock asset even if price fetch fails
+            return {
+              id: stockMatch,
+              name: stockMatch,
+              symbol: stockMatch,
+              type: "stock",
+              source: "stocks_json",
+            }
+          }
         }
-
-        // 2. Stocks from stocks.json
+  
+        console.log(`No stock asset found in stocks.json for query: ${query}`)
+      } catch (stocksError) {
+        console.error("Error loading stocks data:", stocksError.message)
+      }
+  
+      // 3. Commodities from commodities.json
+      try {
+        const commoditiesData = fs.readFileSync("data/commodities.json", "utf8")
+        const commoditiesList = JSON.parse(commoditiesData)
+  
+        // Look for exact symbol matches in commodities.json (case-insensitive)
+        const commodityMatch = commoditiesList.find(
+          (commodity) =>
+            commodity.symbol.toLowerCase() === query.toLowerCase() ||
+            commodity.name.toLowerCase().includes(query.toLowerCase()),
+        )
+  
+        if (commodityMatch) {
+          console.log(`Found commodity asset in commodities.json: ${commodityMatch.symbol} (${commodityMatch.name})`)
+  
+          // Try to get price data from FMP API
+          try {
+            const priceData = await getAssetPrice({
+              symbol: commodityMatch.symbol,
+              name: commodityMatch.name,
+              type: "commodity",
+            })
+            if (priceData) {
+              return {
+                id: commodityMatch.symbol,
+                name: commodityMatch.name,
+                symbol: commodityMatch.symbol,
+                type: "commodity",
+                source: "fmp_commodity",
+                price: priceData,
+              }
+            }
+          } catch (priceError) {
+            console.error("Error getting commodity price data:", priceError)
+          }
+  
+          // Return the commodity asset even if price fetch fails
+          return {
+            id: commodityMatch.symbol,
+            name: commodityMatch.name,
+            symbol: commodityMatch.symbol,
+            type: "commodity",
+            source: "commodities_json",
+          }
+        }
+  
+        console.log(`No commodity asset found in commodities.json for query: ${query}`)
+      } catch (commoditiesError) {
+        console.error("Error loading commodities data:", commoditiesError.message)
+      }
+  
+      // 4. Indices from indices.json
+      try {
+        const indicesData = fs.readFileSync("data/indices.json", "utf8")
+        const indicesList = JSON.parse(indicesData)
+  
+        // Look for exact symbol matches in indices.json (case-insensitive)
+        const indexMatch = indicesList.find(
+          (index) =>
+            index.symbol.toLowerCase() === query.toLowerCase() || index.name.toLowerCase().includes(query.toLowerCase()),
+        )
+  
+        if (indexMatch) {
+          console.log(`Found index asset in indices.json: ${indexMatch.symbol} (${indexMatch.name})`)
+  
+          // Try to get price data from FMP API
+          try {
+            const priceData = await getAssetPrice({
+              symbol: indexMatch.symbol,
+              name: indexMatch.name,
+              type: "index",
+            })
+            if (priceData) {
+              return {
+                id: indexMatch.symbol,
+                name: indexMatch.name,
+                symbol: indexMatch.symbol,
+                type: "index",
+                source: "fmp_index",
+                price: priceData,
+              }
+            }
+          } catch (priceError) {
+            console.error("Error getting index price data:", priceError)
+          }
+  
+          // Return the index asset even if price fetch fails
+          return {
+            id: indexMatch.symbol,
+            name: indexMatch.name,
+            symbol: indexMatch.symbol,
+            type: "index",
+            source: "indices_json",
+          }
+        }
+  
+        console.log(`No index asset found in indices.json for query: ${query}`)
+      } catch (indicesError) {
+        console.error("Error loading indices data:", indicesError.message)
+      }
+  
+      // 5. Forex from forex.json
+      try {
+        const forexData = fs.readFileSync("data/forex.json", "utf8")
+        const forexList = JSON.parse(forexData)
+  
+        // Look for exact symbol matches in forex.json (case-insensitive)
+        const forexMatch = forexList.find(
+          (forex) =>
+            forex.symbol.toLowerCase() === query.toLowerCase() ||
+            `${forex.fromCurrency}${forex.toCurrency}`.toLowerCase() === query.toLowerCase() ||
+            `${forex.fromCurrency}/${forex.toCurrency}`.toLowerCase() === query.toLowerCase(),
+        )
+  
+        if (forexMatch) {
+          console.log(
+            `Found forex asset in forex.json: ${forexMatch.symbol} (${forexMatch.fromName} to ${forexMatch.toName})`,
+          )
+  
+          // Try to get price data from FMP API
+          try {
+            const priceData = await getAssetPrice({
+              symbol: forexMatch.symbol,
+              name: `${forexMatch.fromName} to ${forexMatch.toName}`,
+              type: "forex",
+            })
+            if (priceData) {
+              return {
+                id: forexMatch.symbol,
+                name: `${forexMatch.fromName} to ${forexMatch.toName}`,
+                symbol: forexMatch.symbol,
+                type: "forex",
+                source: "fmp_forex",
+                price: priceData,
+              }
+            }
+          } catch (priceError) {
+            console.error("Error getting forex price data:", priceError)
+          }
+  
+          // Return the forex asset even if price fetch fails
+          return {
+            id: forexMatch.symbol,
+            name: `${forexMatch.fromName} to ${forexMatch.toName}`,
+            symbol: forexMatch.symbol,
+            type: "forex",
+            source: "forex_json",
+          }
+        }
+  
+        console.log(`No forex asset found in forex.json for query: ${query}`)
+      } catch (forexError) {
+        console.error("Error loading forex data:", forexError.message)
+      }
+  
+      // Check if the query might be a contract address for a memecoin token
+      // These patterns detect contract addresses on different chains
+      const contractAddressPattern = /^(0x[a-fA-F0-9]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$/
+      const chainPrefixPattern = /^(0x1|0x38|0x89|0xa|0x2105)/
+      const pumpSuffixPattern = /pump$/i
+      const solanaAddressPattern = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
+  
+      // If the query matches a potential contract address pattern, try DexScreener API
+      if (
+        contractAddressPattern.test(query) ||
+        chainPrefixPattern.test(query) ||
+        pumpSuffixPattern.test(query) ||
+        solanaAddressPattern.test(query)
+      ) {
+        console.log(`Query "${query}" looks like a token contract address, searching DexScreener...`)
         try {
-            const stocksData = fs.readFileSync('data/stocks.json', 'utf8');
-            const stocksJson = JSON.parse(stocksData);
-            
-            if (stocksJson && stocksJson.tickers && Array.isArray(stocksJson.tickers)) {
-                // Look for exact symbol match (case-insensitive)
-                const stockMatch = stocksJson.tickers.find(ticker => 
-                    ticker.toLowerCase() === query.toLowerCase()
-                );
-                
-                if (stockMatch) {
-                    console.log(`Found stock asset in stocks.json: ${stockMatch}`);
-                    
-                    // Try to get price data from FMP API
-                    try {
-                        const priceData = await getAssetPrice({ 
-                            symbol: stockMatch,
-                            name: stockMatch,
-                            type: 'stock'
-                        });
-                        if (priceData) {
-                            return {
-                                id: stockMatch,
-                                name: stockMatch,
-                                symbol: stockMatch,
-                                type: 'stock',
-                                source: 'fmp_stock',
-                                price: priceData
-                            };
-                        }
-                    } catch (priceError) {
-                        console.error('Error getting stock price data:', priceError);
-                    }
-                    
-                    // Return the stock asset even if price fetch fails
-                    return {
-                        id: stockMatch,
-                        name: stockMatch,
-                        symbol: stockMatch,
-                        type: 'stock',
-                        source: 'stocks_json'
-                    };
-                }
+          // Search DexScreener API
+          const dexScreenerResponse = await axios.get("https://api.dexscreener.com/latest/dex/search", {
+            params: {
+              q: query,
+            },
+          })
+  
+          if (
+            dexScreenerResponse.data &&
+            dexScreenerResponse.data.pairs &&
+            Array.isArray(dexScreenerResponse.data.pairs) &&
+            dexScreenerResponse.data.pairs.length > 0
+          ) {
+            console.log(`Found ${dexScreenerResponse.data.pairs.length} liquidity pairs on DexScreener`)
+  
+            // Find the pair with the highest liquidity
+            let bestPair = dexScreenerResponse.data.pairs[0]
+  
+            if (dexScreenerResponse.data.pairs.length > 1) {
+              bestPair = dexScreenerResponse.data.pairs.reduce((best, current) => {
+                const bestLiquidity = best.liquidity?.usd || 0
+                const currentLiquidity = current.liquidity?.usd || 0
+                return currentLiquidity > bestLiquidity ? current : best
+              }, dexScreenerResponse.data.pairs[0])
             }
-            
-            console.log(`No stock asset found in stocks.json for query: ${query}`);
-        } catch (stocksError) {
-            console.error('Error loading stocks data:', stocksError.message);
-        }
-
-        // 3. Commodities from commodities.json
-        try {
-            const commoditiesData = fs.readFileSync('data/commodities.json', 'utf8');
-            const commoditiesList = JSON.parse(commoditiesData);
-            
-            // Look for exact symbol matches in commodities.json (case-insensitive)
-            const commodityMatch = commoditiesList.find(commodity => 
-                commodity.symbol.toLowerCase() === query.toLowerCase() ||
-                commodity.name.toLowerCase().includes(query.toLowerCase())
-            );
-            
-            if (commodityMatch) {
-                console.log(`Found commodity asset in commodities.json: ${commodityMatch.symbol} (${commodityMatch.name})`);
-                
-                // Try to get price data from FMP API
-                try {
-                    const priceData = await getAssetPrice({ 
-                        symbol: commodityMatch.symbol,
-                        name: commodityMatch.name,
-                        type: 'commodity'
-                    });
-                    if (priceData) {
-                        return {
-                            id: commodityMatch.symbol,
-                            name: commodityMatch.name,
-                            symbol: commodityMatch.symbol,
-                            type: 'commodity',
-                            source: 'fmp_commodity',
-                            price: priceData
-                        };
-                    }
-                } catch (priceError) {
-                    console.error('Error getting commodity price data:', priceError);
-                }
-                
-                // Return the commodity asset even if price fetch fails
-                return {
-                    id: commodityMatch.symbol,
-                    name: commodityMatch.name,
-                    symbol: commodityMatch.symbol,
-                    type: 'commodity',
-                    source: 'commodities_json'
-                };
+  
+            console.log(
+              `Selected pair with ${bestPair.liquidity?.usd || 0} USD liquidity on ${bestPair.chainId || "unknown chain"}`,
+            )
+  
+            // Create asset object from DexScreener data
+            const tokenSymbol = bestPair.baseToken?.symbol || query
+            const tokenName = bestPair.baseToken?.name || query
+  
+            const asset = {
+              id: tokenSymbol,
+              name: tokenName,
+              symbol: tokenSymbol,
+              type: "crypto",
+              source: "dexscreener",
+              priceUsd: bestPair.priceUsd,
+              priceNative: bestPair.priceNative,
+              volume24h: bestPair.volume?.h24 || 0,
+              priceChange24h: bestPair.priceChange?.h24 || 0,
+              liquidity: bestPair.liquidity?.usd || 0,
+              marketCap: bestPair.fdv || bestPair.marketCap || 0,
+              dexInfo: {
+                dexId: bestPair.dexId,
+                pairAddress: bestPair.pairAddress,
+                chainId: bestPair.chainId,
+                url: bestPair.url,
+                quoteToken: bestPair.quoteToken,
+                info: bestPair.info || {},
+              },
             }
-            
-            console.log(`No commodity asset found in commodities.json for query: ${query}`);
-        } catch (commoditiesError) {
-            console.error('Error loading commodities data:', commoditiesError.message);
-        }
-
-        // 4. Indices from indices.json
-        try {
-            const indicesData = fs.readFileSync('data/indices.json', 'utf8');
-            const indicesList = JSON.parse(indicesData);
-            
-            // Look for exact symbol matches in indices.json (case-insensitive)
-            const indexMatch = indicesList.find(index => 
-                index.symbol.toLowerCase() === query.toLowerCase() ||
-                index.name.toLowerCase().includes(query.toLowerCase())
-            );
-            
-            if (indexMatch) {
-                console.log(`Found index asset in indices.json: ${indexMatch.symbol} (${indexMatch.name})`);
-                
-                // Try to get price data from FMP API
-                try {
-                    const priceData = await getAssetPrice({ 
-                        symbol: indexMatch.symbol,
-                        name: indexMatch.name,
-                        type: 'index'
-                    });
-                    if (priceData) {
-                        return {
-                            id: indexMatch.symbol,
-                            name: indexMatch.name,
-                            symbol: indexMatch.symbol,
-                            type: 'index',
-                            source: 'fmp_index',
-                            price: priceData
-                        };
-                    }
-                } catch (priceError) {
-                    console.error('Error getting index price data:', priceError);
-                }
-                
-                // Return the index asset even if price fetch fails
-                return {
-                    id: indexMatch.symbol,
-                    name: indexMatch.name,
-                    symbol: indexMatch.symbol,
-                    type: 'index',
-                    source: 'indices_json'
-                };
-            }
-            
-            console.log(`No index asset found in indices.json for query: ${query}`);
-        } catch (indicesError) {
-            console.error('Error loading indices data:', indicesError.message);
-        }
-
-        // 5. Forex from forex.json
-        try {
-            const forexData = fs.readFileSync('data/forex.json', 'utf8');
-            const forexList = JSON.parse(forexData);
-            
-            // Look for exact symbol matches in forex.json (case-insensitive)
-            const forexMatch = forexList.find(forex => 
-                forex.symbol.toLowerCase() === query.toLowerCase() ||
-                `${forex.fromCurrency}${forex.toCurrency}`.toLowerCase() === query.toLowerCase() ||
-                `${forex.fromCurrency}/${forex.toCurrency}`.toLowerCase() === query.toLowerCase()
-            );
-            
-            if (forexMatch) {
-                console.log(`Found forex asset in forex.json: ${forexMatch.symbol} (${forexMatch.fromName} to ${forexMatch.toName})`);
-                
-                // Try to get price data from FMP API
-                try {
-                    const priceData = await getAssetPrice({ 
-                        symbol: forexMatch.symbol,
-                        name: `${forexMatch.fromName} to ${forexMatch.toName}`,
-                        type: 'forex'
-                    });
-                    if (priceData) {
-                        return {
-                            id: forexMatch.symbol,
-                            name: `${forexMatch.fromName} to ${forexMatch.toName}`,
-                            symbol: forexMatch.symbol,
-                            type: 'forex',
-                            source: 'fmp_forex',
-                            price: priceData
-                        };
-                    }
-                } catch (priceError) {
-                    console.error('Error getting forex price data:', priceError);
-                }
-                
-                // Return the forex asset even if price fetch fails
-                return {
-                    id: forexMatch.symbol,
-                    name: `${forexMatch.fromName} to ${forexMatch.toName}`,
-                    symbol: forexMatch.symbol,
-                    type: 'forex',
-                    source: 'forex_json'
-                };
-            }
-            
-            console.log(`No forex asset found in forex.json for query: ${query}`);
-        } catch (forexError) {
-            console.error('Error loading forex data:', forexError.message);
-        }
-
-        // Check if the query might be a contract address for a memecoin token
-        // These patterns detect contract addresses on different chains
-        const contractAddressPattern = /^(0x[a-fA-F0-9]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$/;
-        const chainPrefixPattern = /^(0x1|0x38|0x89|0xa|0x2105)/;
-        const pumpSuffixPattern = /pump$/i;
-        const solanaAddressPattern = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-
-        // If the query matches a potential contract address pattern, try DexScreener API
-        if (contractAddressPattern.test(query) || 
-            chainPrefixPattern.test(query) || 
-            pumpSuffixPattern.test(query) ||
-            solanaAddressPattern.test(query)) {
-                
-            console.log(`Query "${query}" looks like a token contract address, searching DexScreener...`);
-            try {
-                // Search DexScreener API
-                const dexScreenerResponse = await axios.get('https://api.dexscreener.com/latest/dex/search', {
-                    params: {
-                        q: query
-                    }
-                });
-                
-                if (dexScreenerResponse.data && 
-                    dexScreenerResponse.data.pairs && 
-                    Array.isArray(dexScreenerResponse.data.pairs) && 
-                    dexScreenerResponse.data.pairs.length > 0) {
-                    
-                    console.log(`Found ${dexScreenerResponse.data.pairs.length} liquidity pairs on DexScreener`);
-                    
-                    // Find the pair with the highest liquidity
-                    let bestPair = dexScreenerResponse.data.pairs[0];
-                    
-                    if (dexScreenerResponse.data.pairs.length > 1) {
-                        bestPair = dexScreenerResponse.data.pairs.reduce((best, current) => {
-                            const bestLiquidity = best.liquidity?.usd || 0;
-                            const currentLiquidity = current.liquidity?.usd || 0;
-                            return currentLiquidity > bestLiquidity ? current : best;
-                        }, dexScreenerResponse.data.pairs[0]);
-                    }
-                    
-                    console.log(`Selected pair with ${bestPair.liquidity?.usd || 0} USD liquidity on ${bestPair.chainId || 'unknown chain'}`);
-                    
-                    // Create asset object from DexScreener data
-                    const tokenSymbol = bestPair.baseToken?.symbol || query;
-                    const tokenName = bestPair.baseToken?.name || query;
-                    
-                    const asset = {
-                        id: tokenSymbol,
-                        name: tokenName,
-                        symbol: tokenSymbol,
-                        type: 'crypto',
-                        source: 'dexscreener',
-                        priceUsd: bestPair.priceUsd,
-                        priceNative: bestPair.priceNative,
-                        volume24h: bestPair.volume?.h24 || 0,
-                        priceChange24h: bestPair.priceChange?.h24 || 0,
-                        liquidity: bestPair.liquidity?.usd || 0,
-                        marketCap: bestPair.fdv || bestPair.marketCap || 0,
-                        dexInfo: {
-                            dexId: bestPair.dexId,
-                            pairAddress: bestPair.pairAddress,
-                            chainId: bestPair.chainId,
-                            url: bestPair.url,
-                            quoteToken: bestPair.quoteToken,
-                            info: bestPair.info || {}
-                        }
-                    };
-                    
-                    console.log(`Created asset from DexScreener: ${tokenSymbol} (${tokenName}) at $${bestPair.priceUsd}`);
-                    return asset;
-                } else {
-                    console.log(`No results found on DexScreener for query: ${query}`);
-                }
-            } catch (dexScreenerError) {
-                console.error('DexScreener API error:', dexScreenerError.message);
-            }
-        }
-
-        // If crypto not found in local data, try crypto symbols in DexScreener as a fallback
-        // This helps catch memecoins and new tokens that might not be in crypto.json
-        try {
-            console.log(`Trying DexScreener search for potential crypto token: ${query}`);
-            const dexScreenerResponse = await axios.get('https://api.dexscreener.com/latest/dex/search', {
-                params: {
-                    q: query
-                }
-            });
-            
-            if (dexScreenerResponse.data && 
-                dexScreenerResponse.data.pairs && 
-                Array.isArray(dexScreenerResponse.data.pairs) && 
-                dexScreenerResponse.data.pairs.length > 0) {
-                
-                // Look for exact symbol matches first
-                const exactMatch = dexScreenerResponse.data.pairs.find(pair => 
-                    pair.baseToken?.symbol?.toLowerCase() === query.toLowerCase()
-                );
-                
-                if (exactMatch) {
-                    console.log(`Found exact symbol match on DexScreener: ${exactMatch.baseToken.symbol}`);
-                    
-                    const tokenSymbol = exactMatch.baseToken?.symbol || query;
-                    const tokenName = exactMatch.baseToken?.name || query;
-                    
-                    const asset = {
-                        id: tokenSymbol,
-                        name: tokenName,
-                        symbol: tokenSymbol,
-                        type: 'crypto',
-                        source: 'dexscreener',
-                        priceUsd: exactMatch.priceUsd,
-                        priceNative: exactMatch.priceNative,
-                        volume24h: exactMatch.volume?.h24 || 0,
-                        priceChange24h: exactMatch.priceChange?.h24 || 0,
-                        liquidity: exactMatch.liquidity?.usd || 0,
-                        marketCap: exactMatch.fdv || exactMatch.marketCap || 0,
-                        dexInfo: {
-                            dexId: exactMatch.dexId,
-                            pairAddress: exactMatch.pairAddress,
-                            chainId: exactMatch.chainId,
-                            url: exactMatch.url,
-                            quoteToken: exactMatch.quoteToken,
-                            info: exactMatch.info || {}
-                        }
-                    };
-                    
-                    console.log(`Created crypto asset from DexScreener fallback: ${tokenSymbol} (${tokenName})`);
-                    return asset;
-                }
-            }
+  
+            console.log(`Created asset from DexScreener: ${tokenSymbol} (${tokenName}) at $${bestPair.priceUsd}`)
+            return asset
+          } else {
+            console.log(`No results found on DexScreener for query: ${query}`)
+          }
         } catch (dexScreenerError) {
-            console.error('DexScreener fallback search error:', dexScreenerError.message);
+          console.error("DexScreener API error:", dexScreenerError.message)
         }
-
-        // 6. FINAL FALLBACK: Gemini for any remaining unidentified assets
-        try {
-            console.log(`Falling back to Gemini for asset detection: ${query}`);
-            
-            const payload = {
-                contents: [{
-                    parts: [{
-                        text: `You are a financial asset detection assistant. Your task is to identify the primary financial asset being discussed in the query. 
-                        Return ONLY a JSON object with the following structure:
-                        {
-                            "symbol": "The ticker symbol (e.g., AAPL, GLD, EUR/USD, SPY)",
-                            "name": "Full name of the asset",
-                            "type": "Type of asset (stock, crypto, commodity, forex, index)"
-                        }
-                        
-                        Query: ${query}`
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.1,
-                    topK: 1,
-                    topP: 0.8,
-                    maxOutputTokens: 2048
-                }
-            };
-
-            const geminiResponse = await axios.post(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, payload, {
-                headers: { 'Content-Type': 'application/json' },
-                timeout: 10000
-            });
-
-            const content = geminiResponse.data.candidates[0]?.content?.parts[0]?.text || '';
-            const detectedAsset = JSON.parse(content);
-            console.log('Gemini detected asset:', detectedAsset);
-
-            if (detectedAsset && detectedAsset.symbol) {
-                // Try to get price data from FMP API
-                try {
-                    const priceData = await getAssetPrice({ 
-                        symbol: detectedAsset.symbol,
-                        name: detectedAsset.name,
-                        type: detectedAsset.type
-                    });
-                    if (priceData) {
-                        return {
-                            id: detectedAsset.symbol,
-                            name: detectedAsset.name,
-                            symbol: detectedAsset.symbol,
-                            type: detectedAsset.type,
-                            source: 'gemini_fmp',
-                            price: priceData
-                        };
-                    }
-                } catch (priceError) {
-                    console.error('Error getting price data:', priceError);
-                }
-                
-                // Return the asset even if price fetch fails
-                return {
-                    id: detectedAsset.symbol,
-                    name: detectedAsset.name,
-                    symbol: detectedAsset.symbol,
-                    type: detectedAsset.type,
-                    source: 'gemini'
-                };
+      }
+  
+      // If crypto not found in local data, try crypto symbols in DexScreener as a fallback
+      // This helps catch memecoins and new tokens that might not be in crypto.json
+      try {
+        console.log(`Trying DexScreener search for potential crypto token: ${query}`)
+        const dexScreenerResponse = await axios.get("https://api.dexscreener.com/latest/dex/search", {
+          params: {
+            q: query,
+          },
+        })
+  
+        if (
+          dexScreenerResponse.data &&
+          dexScreenerResponse.data.pairs &&
+          Array.isArray(dexScreenerResponse.data.pairs) &&
+          dexScreenerResponse.data.pairs.length > 0
+        ) {
+          // Look for exact symbol matches first
+          const exactMatch = dexScreenerResponse.data.pairs.find(
+            (pair) => pair.baseToken?.symbol?.toLowerCase() === query.toLowerCase(),
+          )
+  
+          if (exactMatch) {
+            console.log(`Found exact symbol match on DexScreener: ${exactMatch.baseToken.symbol}`)
+  
+            const tokenSymbol = exactMatch.baseToken?.symbol || query
+            const tokenName = exactMatch.baseToken?.name || query
+  
+            const asset = {
+              id: tokenSymbol,
+              name: tokenName,
+              symbol: tokenSymbol,
+              type: "crypto",
+              source: "dexscreener",
+              priceUsd: exactMatch.priceUsd,
+              priceNative: exactMatch.priceNative,
+              volume24h: exactMatch.volume?.h24 || 0,
+              priceChange24h: exactMatch.priceChange?.h24 || 0,
+              liquidity: exactMatch.liquidity?.usd || 0,
+              marketCap: exactMatch.fdv || exactMatch.marketCap || 0,
+              dexInfo: {
+                dexId: exactMatch.dexId,
+                pairAddress: exactMatch.pairAddress,
+                chainId: exactMatch.chainId,
+                url: exactMatch.url,
+                quoteToken: exactMatch.quoteToken,
+                info: exactMatch.info || {},
+              },
             }
-        } catch (geminiError) {
-            console.log('Gemini asset detection failed:', geminiError.message);
+  
+            console.log(`Created crypto asset from DexScreener fallback: ${tokenSymbol} (${tokenName})`)
+            return asset
+          }
         }
-
-        console.log('No asset detected through any method');
-        return null;
+      } catch (dexScreenerError) {
+        console.error("DexScreener fallback search error:", dexScreenerError.message)
+      }
+  
+      // 6. FINAL FALLBACK: Gemini for any remaining unidentified assets
+      try {
+        console.log(`Falling back to Gemini for asset detection: ${query}`)
+  
+        const payload = {
+          contents: [
+            {
+              parts: [
+                {
+                  text: `You are a financial asset detection assistant. Your task is to identify the primary financial asset being discussed in the query. 
+                          Return ONLY a JSON object with the following structure:
+                          {
+                              "symbol": "The ticker symbol (e.g., AAPL, GLD, EUR/USD, SPY)",
+                              "name": "Full name of the asset",
+                              "type": "Type of asset (stock, crypto, commodity, forex, index)"
+                          }
+                          
+                          Query: ${query}`,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.1,
+            topK: 1,
+            topP: 0.8,
+            maxOutputTokens: 2048,
+          },
+        }
+  
+        const geminiResponse = await axios.post(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, payload, {
+          headers: { "Content-Type": "application/json" },
+          timeout: 10000,
+        })
+  
+        const content = geminiResponse.data.candidates[0]?.content?.parts[0]?.text || ""
+        const detectedAsset = JSON.parse(content)
+        console.log("Gemini detected asset:", detectedAsset)
+  
+        if (detectedAsset && detectedAsset.symbol) {
+          // Try to get price data from FMP API
+          try {
+            const priceData = await getAssetPrice({
+              symbol: detectedAsset.symbol,
+              name: detectedAsset.name,
+              type: detectedAsset.type,
+            })
+            if (priceData) {
+              return {
+                id: detectedAsset.symbol,
+                name: detectedAsset.name,
+                symbol: detectedAsset.symbol,
+                type: detectedAsset.type,
+                source: "gemini_fmp",
+                price: priceData,
+              }
+            }
+          } catch (priceError) {
+            console.error("Error getting price data:", priceError)
+          }
+  
+          // Return the asset even if price fetch fails
+          return {
+            id: detectedAsset.symbol,
+            name: detectedAsset.name,
+            symbol: detectedAsset.symbol,
+            type: detectedAsset.type,
+            source: "gemini",
+          }
+        }
+      } catch (geminiError) {
+        console.log("Gemini asset detection failed:", geminiError.message)
+      }
+  
+      console.log("No asset detected through any method")
+      return null
     } catch (error) {
-        console.error('Error in detectAsset:', error);
-        return null;
+      console.error("Error in detectAsset:", error)
+      return null
     }
-};
+  }
+  
 
 // Updated getGeminiAnalysis function to incorporate enhanced financial data and news status
 const getGeminiAnalysis = async (asset, assetPrice, sentiment, userQuery) => {

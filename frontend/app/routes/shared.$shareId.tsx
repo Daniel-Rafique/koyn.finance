@@ -109,7 +109,7 @@ export default function SharedAnalysis() {
       />
       
       {/* Navigation */}
-      <Nav />
+      {/* <Nav /> */}
   
       
       <div className="container mx-auto px-4 py-8 relative" style={{ zIndex: 2 }}>
@@ -121,9 +121,9 @@ export default function SharedAnalysis() {
           </p>
           <a 
             href="/" 
-            className="inline-block mt-4 px-3 py-1 text-sm bg-white text-black rounded hover:bg-gray-200 transition-colors"
+            className="inline-flex items-center"
           >
-            Try Koyn.finance
+            <img src="/logo.jpg" alt="Koyn Logo" className="w-20 h-20" />
           </a>
         </div>
 

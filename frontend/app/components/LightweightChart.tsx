@@ -1,19 +1,252 @@
 "use client"
 
-import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
-import { 
-  ColorType, 
-  createChart, 
+import { useEffect, useRef, useState } from "react"
+import {
+  ColorType,
+  createChart,
   CandlestickSeries,
   LineSeries,
   HistogramSeries,
-  type Time, 
-  type IChartApi, 
-  type ISeriesApi, 
-  type SeriesType 
+  type Time,
+  type IChartApi,
+  type ISeriesApi,
 } from "lightweight-charts"
 import { useAuth } from "../context/AuthProvider"
-import { Loader } from "./Loader"
+
+// Skeleton Component for Chart Loading
+const ChartSkeleton = ({
+  height,
+  width,
+  symbol,
+  timeframe,
+}: {
+  height: number | string
+  width: number | string
+  symbol: string
+  timeframe: string
+}) => {
+  const [animatedBars, setAnimatedBars] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAnimatedBars((prev) => (prev + 1) % 20)
+    }, 100)
+
+    return () => clearInterval(interval)
+  }, [])
+
+  const generateSkeletonBars = () => {
+    const bars = []
+    const barCount = 50
+    const containerWidth = typeof width === "string" ? 600 : Number(width)
+    const containerHeight = typeof height === "string" ? 400 : Number(height)
+    const barWidth = Math.max(4, containerWidth / barCount - 2)
+    const maxBarHeight = containerHeight * 0.6
+
+    for (let i = 0; i < barCount; i++) {
+      const isAnimated = i === animatedBars || i === (animatedBars + 1) % barCount
+      const baseHeight = 20 + Math.random() * maxBarHeight
+      const barHeight = isAnimated ? baseHeight * 1.2 : baseHeight
+      const x = i * (barWidth + 2) + 20
+      const y = containerHeight - barHeight - 60
+
+      bars.push(
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            left: `${x}px`,
+            bottom: "60px",
+            width: `${barWidth}px`,
+            height: `${barHeight}px`,
+            background: isAnimated
+              ? "linear-gradient(180deg, rgba(70, 167, 88, 0.6) 0%, rgba(70, 167, 88, 0.2) 100%)"
+              : "linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%)",
+            borderRadius: "2px",
+            transition: "all 0.3s ease",
+            opacity: isAnimated ? 1 : 0.6,
+          }}
+        />,
+      )
+    }
+    return bars
+  }
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "#000000",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* Header skeleton */}
+      <div
+        style={{
+          position: "absolute",
+          top: "20px",
+          left: "20px",
+          right: "20px",
+          height: "40px",
+          display: "flex",
+          gap: "10px",
+          alignItems: "center",
+        }}
+      >
+        {/* Price skeleton */}
+        <div
+          style={{
+            width: "120px",
+            height: "24px",
+            background:
+              "linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.1) 100%)",
+            borderRadius: "4px",
+            animation: "shimmer 2s infinite",
+          }}
+        />
+        {/* Change skeleton */}
+        <div
+          style={{
+            width: "80px",
+            height: "20px",
+            background:
+              "linear-gradient(90deg, rgba(70, 167, 88, 0.1) 0%, rgba(70, 167, 88, 0.2) 50%, rgba(70, 167, 88, 0.1) 100%)",
+            borderRadius: "4px",
+            animation: "shimmer 2s infinite 0.5s",
+          }}
+        />
+      </div>
+
+      {/* Chart area with skeleton bars */}
+      <div
+        style={{
+          position: "relative",
+          flex: 1,
+          marginTop: "80px",
+          marginBottom: "40px",
+          paddingLeft: "20px",
+          paddingRight: "20px",
+        }}
+      >
+        {generateSkeletonBars()}
+
+        {/* Grid lines skeleton */}
+        {[...Array(5)].map((_, i) => (
+          <div
+            key={`grid-h-${i}`}
+            style={{
+              position: "absolute",
+              left: "20px",
+              right: "20px",
+              top: `${(i + 1) * 20}%`,
+              height: "1px",
+              background: "rgba(255, 255, 255, 0.05)",
+            }}
+          />
+        ))}
+
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={`grid-v-${i}`}
+            style={{
+              position: "absolute",
+              left: `${20 + (i + 1) * 12}%`,
+              top: "0",
+              bottom: "0",
+              width: "1px",
+              background: "rgba(255, 255, 255, 0.05)",
+            }}
+          />
+        ))}
+
+        {/* Y-axis labels skeleton */}
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={`y-label-${i}`}
+            style={{
+              position: "absolute",
+              right: "5px",
+              top: `${i * 16 + 10}%`,
+              width: "50px",
+              height: "12px",
+              background: "rgba(255, 255, 255, 0.1)",
+              borderRadius: "2px",
+              animation: `shimmer 2s infinite ${i * 0.2}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Bottom controls skeleton */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "10px",
+          left: "20px",
+          right: "20px",
+          height: "30px",
+          display: "flex",
+          gap: "8px",
+          alignItems: "center",
+        }}
+      >
+        {/* X-axis labels skeleton */}
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={`x-label-${i}`}
+            style={{
+              width: "60px",
+              height: "12px",
+              background: "rgba(255, 255, 255, 0.1)",
+              borderRadius: "2px",
+              animation: `shimmer 2s infinite ${i * 0.3}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Loading text */}
+      <div
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          color: "#46A758",
+          fontSize: "14px",
+          fontWeight: "500",
+          textAlign: "center",
+          zIndex: 10,
+        }}
+      >
+        <div style={{ marginBottom: "8px" }}>Loading chart data...</div>
+        <div style={{ fontSize: "12px", color: "#888", opacity: 0.8 }}>
+          {symbol} • {timeframe}
+        </div>
+      </div>
+
+      {/* CSS Animation */}
+      <style>
+        {`
+          @keyframes shimmer {
+            0% {
+              background-position: -200px 0;
+            }
+            100% {
+              background-position: calc(200px + 100%) 0;
+            }
+          }
+        `}
+      </style>
+    </div>
+  )
+}
 
 interface LightweightChartProps {
   symbol?: string
@@ -52,7 +285,7 @@ const getSubscriptionId = () => {
       const parsed = JSON.parse(subscription)
       return parsed.id || parsed.subscriptionId
     }
-    
+
     // Check for legacy typo-ed key as well
     const subscriptionTypo = localStorage.getItem("koyn_sbscripton")
     if (subscriptionTypo) {
@@ -133,7 +366,7 @@ function LightweightChart({
   const [currentData, setCurrentData] = useState<any>(null)
 
   // Indicator state variables
-  const [showVolume, setShowVolume] = useState(false)
+  const [showVolume, setShowVolume] = useState(true)
   const [showSMA20, setShowSMA20] = useState(true)
   const [showSMA50, setShowSMA50] = useState(true)
   const [showRSI, setShowRSI] = useState(false)
@@ -150,10 +383,12 @@ function LightweightChart({
 
   // Data cache state
   const [dataCache, setDataCache] = useState<Map<Timeframe, any>>(new Map())
-  
+
   // Indicator cache state (separate from main data cache)
-  const [indicatorCache, setIndicatorCache] = useState<Map<string, { data: any; timestamp: number; expiresAt: number }>>(new Map())
-  
+  const [indicatorCache, setIndicatorCache] = useState<
+    Map<string, { data: any; timestamp: number; expiresAt: number }>
+  >(new Map())
+
   // Technical indicators state
   const [activeIndicators, setActiveIndicators] = useState<string[]>([])
   const [showIndicators, setShowIndicators] = useState(false)
@@ -184,7 +419,9 @@ function LightweightChart({
       const expirationMs = getCacheExpirationMs(tf)
       const isExpired = Date.now() - cached.timestamp > expirationMs
       if (!isExpired) {
-        console.log(`Using cached data for ${symbol} ${tf} (${Math.round((expirationMs - (Date.now() - cached.timestamp)) / 1000)}s remaining)`)
+        console.log(
+          `Using cached data for ${symbol} ${tf} (${Math.round((expirationMs - (Date.now() - cached.timestamp)) / 1000)}s remaining)`,
+        )
         return cached.data
       } else {
         console.log(`Cache expired for ${symbol} ${tf}, will fetch fresh data`)
@@ -233,25 +470,25 @@ function LightweightChart({
       console.log(`Fetching fresh data for ${symbol} ${tf}...`)
 
       const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3001" : "https://koyn.finance:3001"
-      
+
       // Get JWT token for authentication using secure method
-      console.log('🔄 Attempting to get secure access token...')
+      console.log("🔄 Attempting to get secure access token...")
       const accessToken = await getSecureAccessToken()
-      console.log('🎫 getSecureAccessToken result:', accessToken ? `${accessToken.substring(0, 20)}...` : 'null')
-      
+      console.log("🎫 getSecureAccessToken result:", accessToken ? `${accessToken.substring(0, 20)}...` : "null")
+
       const headers: any = {}
-      
+
       if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`
-        console.log('✅ Set Authorization header with JWT token')
+        headers["Authorization"] = `Bearer ${accessToken}`
+        console.log("✅ Set Authorization header with JWT token")
       } else {
         // Fallback to legacy subscription ID for backward compatibility
         const subscriptionId = getSubscriptionId()
-        console.log('⚠️ No JWT token, checking legacy subscription ID:', subscriptionId)
+        console.log("⚠️ No JWT token, checking legacy subscription ID:", subscriptionId)
         if (subscriptionId) {
-          console.warn('⚠️  Using legacy subscription ID authentication')
+          console.warn("⚠️  Using legacy subscription ID authentication")
         } else {
-          console.warn('⚠️  No authentication available')
+          console.warn("⚠️  No authentication available")
         }
       }
 
@@ -259,38 +496,38 @@ function LightweightChart({
       const apiInterval = getApiSafeInterval(tf)
 
       console.log(`Fetching chart data for ${symbol} with timeframe ${tf} (API interval: ${apiInterval})`)
-      console.log('🌐 Request headers:', headers)
+      console.log("🌐 Request headers:", headers)
 
       if (tf === "1D") {
         // Use EOD endpoint for daily data
         const url = new URL(`${baseUrl}/api/chart/eod`)
-        url.searchParams.append('symbol', symbol)
-        
+        url.searchParams.append("symbol", symbol)
+
         // Only add legacy subscription ID if no JWT token
         if (!accessToken) {
           const subscriptionId = getSubscriptionId()
           if (subscriptionId) {
-            url.searchParams.append('id', subscriptionId)
+            url.searchParams.append("id", subscriptionId)
           }
         }
-        
-        console.log('📡 Making request to:', url.toString())
+
+        console.log("📡 Making request to:", url.toString())
         response = await fetch(url.toString(), { headers })
       } else {
         // Use regular chart endpoint for intraday data
         const url = new URL(`${baseUrl}/api/chart`)
-        url.searchParams.append('symbol', symbol)
-        url.searchParams.append('interval', apiInterval)
-        
+        url.searchParams.append("symbol", symbol)
+        url.searchParams.append("interval", apiInterval)
+
         // Only add legacy subscription ID if no JWT token
         if (!accessToken) {
           const subscriptionId = getSubscriptionId()
           if (subscriptionId) {
-            url.searchParams.append('id', subscriptionId)
+            url.searchParams.append("id", subscriptionId)
           }
         }
-        
-        console.log('📡 Making request to:', url.toString())
+
+        console.log("📡 Making request to:", url.toString())
         response = await fetch(url.toString(), { headers })
       }
 
@@ -1201,10 +1438,10 @@ function LightweightChart({
       // Get authentication using secure method
       const accessToken = await getSecureAccessToken()
       const headers: any = {}
-      
+
       if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`
-        console.log('Using secure JWT token authentication for indicators')
+        headers["Authorization"] = `Bearer ${accessToken}`
+        console.log("Using secure JWT token authentication for indicators")
       } else {
         const subscriptionId = getSubscriptionId()
         if (!subscriptionId) {
@@ -1214,8 +1451,8 @@ function LightweightChart({
       }
 
       const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3001" : "https://koyn.finance:3001"
-      const indicatorParam = indicatorTypes.join(',')
-      
+      const indicatorParam = indicatorTypes.join(",")
+
       // Check cache first
       const cacheKey = `${symbol}-${indicatorParam}-${timeframe}`
       const cached = indicatorCache.get(cacheKey)
@@ -1225,19 +1462,19 @@ function LightweightChart({
       }
 
       console.log(`Fetching technical indicators: ${indicatorParam} for ${symbol}`)
-      
+
       const url = new URL(`${baseUrl}/api/technical-indicators`)
-      url.searchParams.append('symbol', symbol)
-      url.searchParams.append('type', indicatorParam)
-      
+      url.searchParams.append("symbol", symbol)
+      url.searchParams.append("type", indicatorParam)
+
       // Only add legacy subscription ID if no JWT token
       if (!accessToken) {
         const subscriptionId = getSubscriptionId()
         if (subscriptionId) {
-          url.searchParams.append('id', subscriptionId)
+          url.searchParams.append("id", subscriptionId)
         }
       }
-      
+
       const response = await fetch(url.toString(), { headers })
 
       if (!response.ok) {
@@ -1249,20 +1486,26 @@ function LightweightChart({
       }
 
       const data = await response.json()
-      
+
       // Cache the data (5 minutes for most timeframes, 1 hour for daily)
       const expirationMs = timeframe === "1D" ? 60 * 60 * 1000 : 5 * 60 * 1000
       const expiresAt = Date.now() + expirationMs
 
-      setIndicatorCache(prev => new Map(prev.set(cacheKey, {
-        data,
-        timestamp: Date.now(),
-        expiresAt
-      })))
+      setIndicatorCache(
+        (prev) =>
+          new Map(
+            prev.set(cacheKey, {
+              data,
+              timestamp: Date.now(),
+              expiresAt,
+            }),
+          ),
+      )
 
-      console.log(`Cached indicator data for ${symbol} ${indicatorParam}, expires in ${Math.round(expirationMs / 1000)}s`)
+      console.log(
+        `Cached indicator data for ${symbol} ${indicatorParam}, expires in ${Math.round(expirationMs / 1000)}s`,
+      )
       return data
-
     } catch (error) {
       console.error("Error fetching technical indicators:", error)
       return null
@@ -1270,15 +1513,15 @@ function LightweightChart({
   }
 
   // Fetch specific technical indicator with detailed data
-  const fetchSpecificIndicator = async (indicatorType: string, periodLength: number = 14): Promise<any> => {
+  const fetchSpecificIndicator = async (indicatorType: string, periodLength = 14): Promise<any> => {
     try {
       // Get authentication using secure method
       const accessToken = await getSecureAccessToken()
       const headers: any = {}
-      
+
       if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`
-        console.log('Using secure JWT token authentication for specific indicator')
+        headers["Authorization"] = `Bearer ${accessToken}`
+        console.log("Using secure JWT token authentication for specific indicator")
       } else {
         const subscriptionId = getSubscriptionId()
         if (!subscriptionId) {
@@ -1288,7 +1531,7 @@ function LightweightChart({
       }
 
       const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3001" : "https://koyn.finance:3001"
-      
+
       // Check cache first
       const cacheKey = `${symbol}-${indicatorType}-${periodLength}-${timeframe}`
       const cached = indicatorCache.get(cacheKey)
@@ -1299,23 +1542,23 @@ function LightweightChart({
 
       // Map timeframe to API format
       const apiTimeframe = getApiSafeInterval(timeframe)
-      
+
       console.log(`Fetching specific indicator: ${indicatorType} for ${symbol} with period ${periodLength}`)
-      
+
       const url = new URL(`${baseUrl}/api/technical-indicator`)
-      url.searchParams.append('indicator', indicatorType)
-      url.searchParams.append('symbol', symbol)
-      url.searchParams.append('periodLength', periodLength.toString())
-      url.searchParams.append('timeframe', apiTimeframe)
-      
+      url.searchParams.append("indicator", indicatorType)
+      url.searchParams.append("symbol", symbol)
+      url.searchParams.append("periodLength", periodLength.toString())
+      url.searchParams.append("timeframe", apiTimeframe)
+
       // Only add legacy subscription ID if no JWT token
       if (!accessToken) {
         const subscriptionId = getSubscriptionId()
         if (subscriptionId) {
-          url.searchParams.append('id', subscriptionId)
+          url.searchParams.append("id", subscriptionId)
         }
       }
-      
+
       const response = await fetch(url.toString(), { headers })
 
       if (!response.ok) {
@@ -1327,24 +1570,28 @@ function LightweightChart({
       }
 
       const result = await response.json()
-      
+
       if (result.success && result.data) {
         // Cache the data
         const expirationMs = timeframe === "1D" ? 60 * 60 * 1000 : 5 * 60 * 1000
         const expiresAt = Date.now() + expirationMs
 
-        setIndicatorCache(prev => new Map(prev.set(cacheKey, {
-          data: result.data,
-          timestamp: Date.now(),
-          expiresAt
-        })))
+        setIndicatorCache(
+          (prev) =>
+            new Map(
+              prev.set(cacheKey, {
+                data: result.data,
+                timestamp: Date.now(),
+                expiresAt,
+              }),
+            ),
+        )
 
         console.log(`Cached specific indicator data for ${symbol} ${indicatorType}`)
         return result.data
       }
 
       return null
-
     } catch (error) {
       console.error("Error fetching specific indicator:", error)
       return null
@@ -1357,7 +1604,7 @@ function LightweightChart({
       dataType: typeof indicatorData,
       isArray: Array.isArray(indicatorData),
       length: indicatorData?.length,
-      sampleData: indicatorData?.slice?.(0, 3)
+      sampleData: indicatorData?.slice?.(0, 3),
     })
 
     if (!indicatorData || !Array.isArray(indicatorData)) {
@@ -1375,15 +1622,24 @@ function LightweightChart({
 
       if (item && (item.date || item.time)) {
         const dateField = item.date || item.time
-        const valueField = item.value !== undefined ? item.value : 
-          item[indicatorType?.toLowerCase()] || 
-          item.sma || item.ema || item.wma || item.dema || item.tema || 
-          item.rsi || item.standardDeviation || item.williams || item.adx
+        const valueField =
+          item.value !== undefined
+            ? item.value
+            : item[indicatorType?.toLowerCase()] ||
+              item.sma ||
+              item.ema ||
+              item.wma ||
+              item.dema ||
+              item.tema ||
+              item.rsi ||
+              item.standardDeviation ||
+              item.williams ||
+              item.adx
 
         if (valueField !== null && valueField !== undefined) {
           // Handle different date formats
           let timeValue: Time
-          
+
           if (timeframe === "1D") {
             // For daily data, use date string format
             if (typeof dateField === "string") {
@@ -1408,7 +1664,7 @@ function LightweightChart({
           if (!isNaN(value) && isFinite(value)) {
             chartData.push({
               time: timeValue,
-              value: Number(value.toFixed(indicatorType === 'rsi' ? 2 : 4))
+              value: Number(value.toFixed(indicatorType === "rsi" ? 2 : 4)),
             })
           } else {
             console.warn(`Invalid ${indicatorType} value at index ${index}:`, valueField)
@@ -1424,7 +1680,7 @@ function LightweightChart({
     // Sort by time to ensure proper order
     chartData.sort((a, b) => {
       let timeA: number, timeB: number
-      
+
       if (typeof a.time === "string" && typeof b.time === "string") {
         timeA = new Date(a.time).getTime()
         timeB = new Date(b.time).getTime()
@@ -1436,15 +1692,15 @@ function LightweightChart({
         timeA = typeof a.time === "string" ? new Date(a.time).getTime() : (a.time as number) * 1000
         timeB = typeof b.time === "string" ? new Date(b.time).getTime() : (b.time as number) * 1000
       }
-      
+
       return timeA - timeB
     })
 
     console.log(`Converted ${indicatorType} data: ${indicatorData.length} → ${chartData.length} chart points`, {
       firstPoint: chartData[0],
-      lastPoint: chartData[chartData.length - 1]
+      lastPoint: chartData[chartData.length - 1],
     })
-    
+
     return chartData
   }
 
@@ -1574,7 +1830,7 @@ function LightweightChart({
               }
               candlestickSeriesRef.current = null
             }
-            
+
             if (volumeSeriesRef.current) {
               try {
                 chartRef.current.removeSeries(volumeSeriesRef.current)
@@ -1583,7 +1839,7 @@ function LightweightChart({
               }
               volumeSeriesRef.current = null
             }
-            
+
             if (sma20SeriesRef.current) {
               try {
                 chartRef.current.removeSeries(sma20SeriesRef.current)
@@ -1592,7 +1848,7 @@ function LightweightChart({
               }
               sma20SeriesRef.current = null
             }
-            
+
             if (sma50SeriesRef.current) {
               try {
                 chartRef.current.removeSeries(sma50SeriesRef.current)
@@ -1601,7 +1857,7 @@ function LightweightChart({
               }
               sma50SeriesRef.current = null
             }
-            
+
             if (rsiSeriesRef.current) {
               try {
                 chartRef.current.removeSeries(rsiSeriesRef.current)
@@ -1610,7 +1866,7 @@ function LightweightChart({
               }
               rsiSeriesRef.current = null
             }
-            
+
             if (macdLineSeriesRef.current) {
               try {
                 chartRef.current.removeSeries(macdLineSeriesRef.current)
@@ -1619,7 +1875,7 @@ function LightweightChart({
               }
               macdLineSeriesRef.current = null
             }
-            
+
             if (macdSignalSeriesRef.current) {
               try {
                 chartRef.current.removeSeries(macdSignalSeriesRef.current)
@@ -1628,7 +1884,7 @@ function LightweightChart({
               }
               macdSignalSeriesRef.current = null
             }
-            
+
             if (macdHistogramSeriesRef.current) {
               try {
                 chartRef.current.removeSeries(macdHistogramSeriesRef.current)
@@ -1637,7 +1893,7 @@ function LightweightChart({
               }
               macdHistogramSeriesRef.current = null
             }
-            
+
             // Clean up additional indicator series
             if (ema20SeriesRef.current) {
               try {
@@ -1647,7 +1903,7 @@ function LightweightChart({
               }
               ema20SeriesRef.current = null
             }
-            
+
             if (ema50SeriesRef.current) {
               try {
                 chartRef.current.removeSeries(ema50SeriesRef.current)
@@ -1656,7 +1912,7 @@ function LightweightChart({
               }
               ema50SeriesRef.current = null
             }
-            
+
             if (wma20SeriesRef.current) {
               try {
                 chartRef.current.removeSeries(wma20SeriesRef.current)
@@ -1665,7 +1921,7 @@ function LightweightChart({
               }
               wma20SeriesRef.current = null
             }
-            
+
             if (dema20SeriesRef.current) {
               try {
                 chartRef.current.removeSeries(dema20SeriesRef.current)
@@ -1674,7 +1930,7 @@ function LightweightChart({
               }
               dema20SeriesRef.current = null
             }
-            
+
             if (tema20SeriesRef.current) {
               try {
                 chartRef.current.removeSeries(tema20SeriesRef.current)
@@ -1683,7 +1939,7 @@ function LightweightChart({
               }
               tema20SeriesRef.current = null
             }
-            
+
             if (stdDevSeriesRef.current) {
               try {
                 chartRef.current.removeSeries(stdDevSeriesRef.current)
@@ -1692,7 +1948,7 @@ function LightweightChart({
               }
               stdDevSeriesRef.current = null
             }
-            
+
             if (williamsSeriesRef.current) {
               try {
                 chartRef.current.removeSeries(williamsSeriesRef.current)
@@ -1701,7 +1957,7 @@ function LightweightChart({
               }
               williamsSeriesRef.current = null
             }
-            
+
             if (adxSeriesRef.current) {
               try {
                 chartRef.current.removeSeries(adxSeriesRef.current)
@@ -1710,7 +1966,7 @@ function LightweightChart({
               }
               adxSeriesRef.current = null
             }
-            
+
             // Finally remove the chart
             chartRef.current.remove()
           } catch (e) {
@@ -1786,7 +2042,9 @@ function LightweightChart({
         const candlestickSeries = chart.addSeries(CandlestickSeries, {
           upColor: "#46A758",
           downColor: "#E5484D",
-          borderVisible: false,
+          borderVisible: true,
+          borderUpColor: "#46A758",
+          borderDownColor: "#E5484D",
           wickUpColor: "#46A758",
           wickDownColor: "#E5484D",
           priceFormat: {
@@ -1823,7 +2081,7 @@ function LightweightChart({
             const sortedData = ultraSafeData.sort((a, b) => {
               try {
                 let timeA: number, timeB: number
-                
+
                 if (typeof a.time === "string" && typeof b.time === "string") {
                   // Both are date strings (daily data)
                   timeA = new Date(a.time).getTime()
@@ -1837,18 +2095,18 @@ function LightweightChart({
                   timeA = typeof a.time === "string" ? new Date(a.time).getTime() : (a.time as number) * 1000
                   timeB = typeof b.time === "string" ? new Date(b.time).getTime() : (b.time as number) * 1000
                 }
-                
+
                 // Validate the converted times
                 if (isNaN(timeA) || isNaN(timeB) || !isFinite(timeA) || !isFinite(timeB)) {
-                  console.warn("Invalid time values during sorting:", { 
-                    originalA: a.time, 
-                    originalB: b.time, 
-                    convertedA: timeA, 
-                    convertedB: timeB 
+                  console.warn("Invalid time values during sorting:", {
+                    originalA: a.time,
+                    originalB: b.time,
+                    convertedA: timeA,
+                    convertedB: timeB,
                   })
                   return 0
                 }
-                
+
                 return timeA - timeB
               } catch (sortError) {
                 console.warn("Error during time sorting:", sortError)
@@ -1858,8 +2116,9 @@ function LightweightChart({
 
             // Final validation of sorted data before setting
             const finalValidData = sortedData.filter((item, index) => {
-              const isValid = item && 
-                item.time !== null && 
+              const isValid =
+                item &&
+                item.time !== null &&
                 item.time !== undefined &&
                 typeof item.open === "number" &&
                 typeof item.high === "number" &&
@@ -1869,11 +2128,11 @@ function LightweightChart({
                 isFinite(item.high) &&
                 isFinite(item.low) &&
                 isFinite(item.close)
-              
+
               if (!isValid && index < 3) {
                 console.warn(`Final validation removing invalid item at index ${index}:`, item)
               }
-              
+
               return isValid
             })
 
@@ -1961,7 +2220,7 @@ function LightweightChart({
             const sortedVolumeData = ultraSafeVolumeData.sort((a, b) => {
               try {
                 let timeA: number, timeB: number
-                
+
                 if (typeof a.time === "string" && typeof b.time === "string") {
                   // Both are date strings (daily data)
                   timeA = new Date(a.time).getTime()
@@ -1975,18 +2234,18 @@ function LightweightChart({
                   timeA = typeof a.time === "string" ? new Date(a.time).getTime() : (a.time as number) * 1000
                   timeB = typeof b.time === "string" ? new Date(b.time).getTime() : (b.time as number) * 1000
                 }
-                
+
                 // Validate the converted times
                 if (isNaN(timeA) || isNaN(timeB) || !isFinite(timeA) || !isFinite(timeB)) {
-                  console.warn("Invalid volume time values during sorting:", { 
-                    originalA: a.time, 
-                    originalB: b.time, 
-                    convertedA: timeA, 
-                    convertedB: timeB 
+                  console.warn("Invalid volume time values during sorting:", {
+                    originalA: a.time,
+                    originalB: b.time,
+                    convertedA: timeA,
+                    convertedB: timeB,
                   })
                   return 0
                 }
-                
+
                 return timeA - timeB
               } catch (sortError) {
                 console.warn("Error during volume time sorting:", sortError)
@@ -2032,29 +2291,29 @@ function LightweightChart({
             // Use API for intraday data
             try {
               console.log(`Fetching SMA20 data for ${symbol} timeframe ${timeframe}`)
-              const smaData = await fetchSpecificIndicator('sma', 20)
-              
+              const smaData = await fetchSpecificIndicator("sma", 20)
+
               // Check if component is still mounted and chart is still valid
               if (!mounted || !chartRef.current) {
                 console.log("Component unmounted or chart disposed during SMA20 fetch")
                 return
               }
-              
+
               console.log("SMA20 API response:", {
                 dataType: typeof smaData,
                 isArray: Array.isArray(smaData),
                 length: smaData?.length,
                 sampleData: smaData?.slice?.(0, 3),
-                fullData: smaData
+                fullData: smaData,
               })
-              
+
               if (smaData && Array.isArray(smaData) && smaData.length > 0) {
-                const sma20ChartData = convertIndicatorToChartFormat(smaData, 'sma')
+                const sma20ChartData = convertIndicatorToChartFormat(smaData, "sma")
                 console.log("SMA20 converted chart data:", {
                   length: sma20ChartData.length,
-                  sampleData: sma20ChartData.slice(0, 3)
+                  sampleData: sma20ChartData.slice(0, 3),
                 })
-                
+
                 // Double-check chart is still valid before adding series
                 if (sma20ChartData.length > 0 && mounted && chartRef.current) {
                   const sma20Series = chart.addSeries(LineSeries, {
@@ -2071,7 +2330,7 @@ function LightweightChart({
                 console.warn("SMA20 API data is invalid or empty:", {
                   data: smaData,
                   isArray: Array.isArray(smaData),
-                  length: smaData?.length
+                  length: smaData?.length,
                 })
               }
             } catch (error) {
@@ -2079,7 +2338,7 @@ function LightweightChart({
                 error: error,
                 symbol: symbol,
                 timeframe: timeframe,
-                message: error instanceof Error ? error.message : 'Unknown error'
+                message: error instanceof Error ? error.message : "Unknown error",
               })
             }
           }
@@ -2114,17 +2373,17 @@ function LightweightChart({
           } else {
             // Use API for intraday data
             try {
-              const smaData = await fetchSpecificIndicator('sma', 50)
-              
+              const smaData = await fetchSpecificIndicator("sma", 50)
+
               // Check if component is still mounted and chart is still valid
               if (!mounted || !chartRef.current) {
                 console.log("Component unmounted or chart disposed during SMA50 fetch")
                 return
               }
-              
+
               if (smaData && Array.isArray(smaData)) {
-                const sma50ChartData = convertIndicatorToChartFormat(smaData, 'sma')
-                
+                const sma50ChartData = convertIndicatorToChartFormat(smaData, "sma")
+
                 // Double-check chart is still valid before adding series
                 if (sma50ChartData.length > 0 && mounted && chartRef.current) {
                   const sma50Series = chart.addSeries(LineSeries, {
@@ -2185,17 +2444,17 @@ function LightweightChart({
           } else {
             // Use API for intraday data
             try {
-              const rsiData = await fetchSpecificIndicator('rsi', 14)
-              
+              const rsiData = await fetchSpecificIndicator("rsi", 14)
+
               // Check if component is still mounted and chart is still valid
               if (!mounted || !chartRef.current) {
                 console.log("Component unmounted or chart disposed during RSI fetch")
                 return
               }
-              
+
               if (rsiData && Array.isArray(rsiData)) {
-                const rsiChartData = convertIndicatorToChartFormat(rsiData, 'rsi')
-                
+                const rsiChartData = convertIndicatorToChartFormat(rsiData, "rsi")
+
                 // Double-check chart is still valid before adding series
                 if (rsiChartData.length > 0 && mounted && chartRef.current) {
                   const rsiSeries = chart.addSeries(LineSeries, {
@@ -2353,16 +2612,16 @@ function LightweightChart({
             // Use API for intraday data
             try {
               console.log(`Fetching EMA20 data for ${symbol} timeframe ${timeframe}`)
-              const emaData = await fetchSpecificIndicator('ema', 20)
-              
+              const emaData = await fetchSpecificIndicator("ema", 20)
+
               if (!mounted || !chartRef.current) {
                 console.log("Component unmounted or chart disposed during EMA20 fetch")
                 return
               }
-              
+
               if (emaData && Array.isArray(emaData) && emaData.length > 0) {
-                const ema20ChartData = convertIndicatorToChartFormat(emaData, 'ema')
-                
+                const ema20ChartData = convertIndicatorToChartFormat(emaData, "ema")
+
                 if (ema20ChartData.length > 0 && mounted && chartRef.current) {
                   const ema20Series = chart.addSeries(LineSeries, {
                     color: "#10B981",
@@ -2408,16 +2667,16 @@ function LightweightChart({
           } else {
             // Use API for intraday data
             try {
-              const emaData = await fetchSpecificIndicator('ema', 50)
-              
+              const emaData = await fetchSpecificIndicator("ema", 50)
+
               if (!mounted || !chartRef.current) {
                 console.log("Component unmounted or chart disposed during EMA50 fetch")
                 return
               }
-              
+
               if (emaData && Array.isArray(emaData) && emaData.length > 0) {
-                const ema50ChartData = convertIndicatorToChartFormat(emaData, 'ema')
-                
+                const ema50ChartData = convertIndicatorToChartFormat(emaData, "ema")
+
                 if (ema50ChartData.length > 0 && mounted && chartRef.current) {
                   const ema50Series = chart.addSeries(LineSeries, {
                     color: "#F59E0B",
@@ -2437,16 +2696,16 @@ function LightweightChart({
         // Add WMA20 indicator
         if (showWMA20) {
           try {
-            const wmaData = await fetchSpecificIndicator('wma', 20)
-            
+            const wmaData = await fetchSpecificIndicator("wma", 20)
+
             if (!mounted || !chartRef.current) {
               console.log("Component unmounted or chart disposed during WMA20 fetch")
               return
             }
-            
+
             if (wmaData && Array.isArray(wmaData) && wmaData.length > 0) {
-              const wma20ChartData = convertIndicatorToChartFormat(wmaData, 'wma')
-              
+              const wma20ChartData = convertIndicatorToChartFormat(wmaData, "wma")
+
               if (wma20ChartData.length > 0 && mounted && chartRef.current) {
                 const wma20Series = chart.addSeries(LineSeries, {
                   color: "#8B5CF6",
@@ -2465,16 +2724,16 @@ function LightweightChart({
         // Add DEMA20 indicator
         if (showDEMA20) {
           try {
-            const demaData = await fetchSpecificIndicator('dema', 20)
-            
+            const demaData = await fetchSpecificIndicator("dema", 20)
+
             if (!mounted || !chartRef.current) {
               console.log("Component unmounted or chart disposed during DEMA20 fetch")
               return
             }
-            
+
             if (demaData && Array.isArray(demaData) && demaData.length > 0) {
-              const dema20ChartData = convertIndicatorToChartFormat(demaData, 'dema')
-              
+              const dema20ChartData = convertIndicatorToChartFormat(demaData, "dema")
+
               if (dema20ChartData.length > 0 && mounted && chartRef.current) {
                 const dema20Series = chart.addSeries(LineSeries, {
                   color: "#EF4444",
@@ -2493,16 +2752,16 @@ function LightweightChart({
         // Add TEMA20 indicator
         if (showTEMA20) {
           try {
-            const temaData = await fetchSpecificIndicator('tema', 20)
-            
+            const temaData = await fetchSpecificIndicator("tema", 20)
+
             if (!mounted || !chartRef.current) {
               console.log("Component unmounted or chart disposed during TEMA20 fetch")
               return
             }
-            
+
             if (temaData && Array.isArray(temaData) && temaData.length > 0) {
-              const tema20ChartData = convertIndicatorToChartFormat(temaData, 'tema')
-              
+              const tema20ChartData = convertIndicatorToChartFormat(temaData, "tema")
+
               if (tema20ChartData.length > 0 && mounted && chartRef.current) {
                 const tema20Series = chart.addSeries(LineSeries, {
                   color: "#06B6D4",
@@ -2521,16 +2780,16 @@ function LightweightChart({
         // Add Standard Deviation indicator
         if (showStdDev) {
           try {
-            const stdDevData = await fetchSpecificIndicator('standarddeviation', 20)
-            
+            const stdDevData = await fetchSpecificIndicator("standarddeviation", 20)
+
             if (!mounted || !chartRef.current) {
               console.log("Component unmounted or chart disposed during StdDev fetch")
               return
             }
-            
+
             if (stdDevData && Array.isArray(stdDevData) && stdDevData.length > 0) {
-              const stdDevChartData = convertIndicatorToChartFormat(stdDevData, 'standardDeviation')
-              
+              const stdDevChartData = convertIndicatorToChartFormat(stdDevData, "standardDeviation")
+
               if (stdDevChartData.length > 0 && mounted && chartRef.current) {
                 const stdDevSeries = chart.addSeries(LineSeries, {
                   color: "#F97316",
@@ -2560,16 +2819,16 @@ function LightweightChart({
         // Add Williams %R indicator
         if (showWilliams) {
           try {
-            const williamsData = await fetchSpecificIndicator('williams', 14)
-            
+            const williamsData = await fetchSpecificIndicator("williams", 14)
+
             if (!mounted || !chartRef.current) {
               console.log("Component unmounted or chart disposed during Williams fetch")
               return
             }
-            
+
             if (williamsData && Array.isArray(williamsData) && williamsData.length > 0) {
-              const williamsChartData = convertIndicatorToChartFormat(williamsData, 'williams')
-              
+              const williamsChartData = convertIndicatorToChartFormat(williamsData, "williams")
+
               if (williamsChartData.length > 0 && mounted && chartRef.current) {
                 const williamsSeries = chart.addSeries(LineSeries, {
                   color: "#EC4899",
@@ -2599,16 +2858,16 @@ function LightweightChart({
         // Add ADX indicator
         if (showADX) {
           try {
-            const adxData = await fetchSpecificIndicator('adx', 14)
-            
+            const adxData = await fetchSpecificIndicator("adx", 14)
+
             if (!mounted || !chartRef.current) {
               console.log("Component unmounted or chart disposed during ADX fetch")
               return
             }
-            
+
             if (adxData && Array.isArray(adxData) && adxData.length > 0) {
-              const adxChartData = convertIndicatorToChartFormat(adxData, 'adx')
-              
+              const adxChartData = convertIndicatorToChartFormat(adxData, "adx")
+
               if (adxChartData.length > 0 && mounted && chartRef.current) {
                 const adxSeries = chart.addSeries(LineSeries, {
                   color: "#84CC16",
@@ -2685,12 +2944,12 @@ function LightweightChart({
                     // Both are date strings (daily data)
                     const startDate = new Date(startTime)
                     const endDate = new Date(endTime)
-                    
+
                     if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
                       console.warn("Invalid date strings in time range")
                       return false
                     }
-                    
+
                     // If start is after end, swap them
                     if (startDate > endDate) {
                       console.log("Swapping date range: start was after end")
@@ -2698,7 +2957,7 @@ function LightweightChart({
                       startTime = endTime
                       endTime = temp
                     }
-                    
+
                     return true
                   } else if (typeof startTime === "number" && typeof endTime === "number") {
                     // Both are Unix timestamps (intraday data)
@@ -2706,21 +2965,21 @@ function LightweightChart({
                       console.warn("Invalid timestamp values in time range")
                       return false
                     }
-                    
+
                     // If start is after end, swap them
                     if (startTime > endTime) {
                       console.log("Swapping timestamp range: start was after end", {
                         originalStart: startTime,
-                        originalEnd: endTime
+                        originalEnd: endTime,
                       })
                       const temp = startTime
                       startTime = endTime
                       endTime = temp
                     }
-                    
+
                     return true
                   }
-                  
+
                   console.warn("Mixed time types in range validation")
                   return false
                 }
@@ -2807,7 +3066,7 @@ function LightweightChart({
               // Series may already be disposed
             }
           }
-          
+
           if (volumeSeriesRef.current) {
             try {
               chartRef.current.removeSeries(volumeSeriesRef.current)
@@ -2815,7 +3074,7 @@ function LightweightChart({
               // Series may already be disposed
             }
           }
-          
+
           if (sma20SeriesRef.current) {
             try {
               chartRef.current.removeSeries(sma20SeriesRef.current)
@@ -2823,7 +3082,7 @@ function LightweightChart({
               // Series may already be disposed
             }
           }
-          
+
           if (sma50SeriesRef.current) {
             try {
               chartRef.current.removeSeries(sma50SeriesRef.current)
@@ -2831,7 +3090,7 @@ function LightweightChart({
               // Series may already be disposed
             }
           }
-          
+
           if (rsiSeriesRef.current) {
             try {
               chartRef.current.removeSeries(rsiSeriesRef.current)
@@ -2839,7 +3098,7 @@ function LightweightChart({
               // Series may already be disposed
             }
           }
-          
+
           if (macdLineSeriesRef.current) {
             try {
               chartRef.current.removeSeries(macdLineSeriesRef.current)
@@ -2847,7 +3106,7 @@ function LightweightChart({
               // Series may already be disposed
             }
           }
-          
+
           if (macdSignalSeriesRef.current) {
             try {
               chartRef.current.removeSeries(macdSignalSeriesRef.current)
@@ -2855,7 +3114,7 @@ function LightweightChart({
               // Series may already be disposed
             }
           }
-          
+
           if (macdHistogramSeriesRef.current) {
             try {
               chartRef.current.removeSeries(macdHistogramSeriesRef.current)
@@ -2863,7 +3122,7 @@ function LightweightChart({
               // Series may already be disposed
             }
           }
-          
+
           // Clean up additional indicator series
           if (ema20SeriesRef.current) {
             try {
@@ -2873,7 +3132,7 @@ function LightweightChart({
             }
             ema20SeriesRef.current = null
           }
-          
+
           if (ema50SeriesRef.current) {
             try {
               chartRef.current.removeSeries(ema50SeriesRef.current)
@@ -2882,7 +3141,7 @@ function LightweightChart({
             }
             ema50SeriesRef.current = null
           }
-          
+
           if (wma20SeriesRef.current) {
             try {
               chartRef.current.removeSeries(wma20SeriesRef.current)
@@ -2891,7 +3150,7 @@ function LightweightChart({
             }
             wma20SeriesRef.current = null
           }
-          
+
           if (dema20SeriesRef.current) {
             try {
               chartRef.current.removeSeries(dema20SeriesRef.current)
@@ -2900,7 +3159,7 @@ function LightweightChart({
             }
             dema20SeriesRef.current = null
           }
-          
+
           if (tema20SeriesRef.current) {
             try {
               chartRef.current.removeSeries(tema20SeriesRef.current)
@@ -2909,7 +3168,7 @@ function LightweightChart({
             }
             tema20SeriesRef.current = null
           }
-          
+
           if (stdDevSeriesRef.current) {
             try {
               chartRef.current.removeSeries(stdDevSeriesRef.current)
@@ -2918,7 +3177,7 @@ function LightweightChart({
             }
             stdDevSeriesRef.current = null
           }
-          
+
           if (williamsSeriesRef.current) {
             try {
               chartRef.current.removeSeries(williamsSeriesRef.current)
@@ -2927,7 +3186,7 @@ function LightweightChart({
             }
             williamsSeriesRef.current = null
           }
-          
+
           if (adxSeriesRef.current) {
             try {
               chartRef.current.removeSeries(adxSeriesRef.current)
@@ -2936,13 +3195,13 @@ function LightweightChart({
             }
             adxSeriesRef.current = null
           }
-          
+
           // Finally remove the chart
           chartRef.current.remove()
         } catch (e) {
           console.warn("Error cleaning up chart on unmount:", e)
         }
-        
+
         // Clear all references
         chartRef.current = null
         candlestickSeriesRef.current = null
@@ -2963,7 +3222,23 @@ function LightweightChart({
         adxSeriesRef.current = null
       }
     }
-  }, [timeframe, showVolume, showSMA20, showSMA50, showRSI, showMACD, showEMA20, showEMA50, showWMA20, showDEMA20, showTEMA20, showStdDev, showWilliams, showADX, chartData])
+  }, [
+    timeframe,
+    showVolume,
+    showSMA20,
+    showSMA50,
+    showRSI,
+    showMACD,
+    showEMA20,
+    showEMA50,
+    showWMA20,
+    showDEMA20,
+    showTEMA20,
+    showStdDev,
+    showWilliams,
+    showADX,
+    chartData,
+  ])
 
   // Handle clicking outside indicators dropdown to close it
   useEffect(() => {
@@ -2972,7 +3247,7 @@ function LightweightChart({
         const target = event.target as HTMLElement
         const dropdownButton = target.closest('[data-indicators-dropdown="true"]')
         const dropdownMenu = target.closest('[data-indicators-menu="true"]')
-        
+
         // Close dropdown if clicking outside both button and menu
         if (!dropdownButton && !dropdownMenu) {
           setShowIndicatorsDropdown(false)
@@ -2981,38 +3256,16 @@ function LightweightChart({
     }
 
     if (showIndicatorsDropdown) {
-      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener("mousedown", handleClickOutside)
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener("mousedown", handleClickOutside)
     }
   }, [showIndicatorsDropdown])
 
   if (error) {
     return (
-        <div
-          style={{
-            position: "relative",
-            height: height,
-            width: width,
-            background: "#000000",
-            margin: 0,
-            padding: 0,
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#E5484D",
-            fontSize: "14px",
-          }}
-        >
-          Error loading chart: {error}
-        </div>
-      )
-  }
-
-  return (
       <div
         style={{
           position: "relative",
@@ -3022,314 +3275,422 @@ function LightweightChart({
           margin: 0,
           padding: 0,
           overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#E5484D",
+          fontSize: "14px",
         }}
       >
-        {/* Chart Controls */}
-        <div
-          style={{
-            position: "absolute",
-            top: "10px",
-            left: "10px",
-            zIndex: 1000,
-            display: "flex",
-            gap: "10px",
-            flexWrap: "wrap",
-            alignItems: "center",
-          }}
-        >
-          {/* Timeframe Buttons */}
-          <div style={{ display: "flex", gap: "5px" }}>
-            {(["1m", "5m", "15m", "30m", "1H", "4H", "1D"] as Timeframe[]).map((tf) => {
-              // Implement asset type-based timeframe restrictions
-              let isDisabled = false
-
-              // Auto-detect asset type if not provided
-              let detectedAssetType = assetType
-              if (!detectedAssetType && symbol) {
-                // Auto-detect crypto assets from symbol
-                if (
-                  symbol.endsWith("USD") ||
-                  symbol.endsWith("USDT") ||
-                  symbol.includes("BTC") ||
-                  symbol.includes("ETH")
-                ) {
-                  detectedAssetType = "crypto"
-                }
-                // Auto-detect forex pairs
-                else if (/^[A-Z]{3}[A-Z]{3}$/.test(symbol)) {
-                  detectedAssetType = "forex"
-                }
-                // Default to stock if not detected
-                else {
-                  detectedAssetType = "stock"
-                }
-              }
-
-              // Apply timeframe restrictions based on asset type
-              if (
-                detectedAssetType === "crypto" ||
-                detectedAssetType === "forex" ||
-                detectedAssetType === "commodity" ||
-                detectedAssetType === "index"
-              ) {
-                // These asset types only support: 1min, 5min, 1hour, 1D
-                isDisabled = !["1m", "5m", "1H", "1D"].includes(tf)
-              } else {
-                // Stock asset type supports all timeframes: 1min, 5min, 15min, 30min, 1hour, 4hour, 1D
-                isDisabled = false
-              }
-
-              return (
-                <button
-                  key={tf}
-                  onClick={() => !isDisabled && setTimeframe(tf)}
-                  disabled={isDisabled}
-                  style={{
-                    padding: "4px 8px",
-                    fontSize: "12px",
-                    border: "1px solid #333",
-                    borderRadius: "4px",
-                    background: timeframe === tf ? "#46A758" : isDisabled ? "#333" : "#1a1a1a",
-                    color: timeframe === tf ? "#000" : isDisabled ? "#666" : "#fff",
-                    cursor: isDisabled ? "not-allowed" : "pointer",
-                    transition: "all 0.2s",
-                    opacity: isDisabled ? 0.5 : 1,
-                  }}
-                  title={
-                    isDisabled
-                      ? `${tf} timeframe is not supported for ${detectedAssetType || "this"} assets`
-                      : `Switch to ${tf} timeframe`
-                  }
-                >
-                  {tf}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Indicators Dropdown */}
-          <div style={{ position: "relative" }}>
-            <button
-              onClick={() => setShowIndicatorsDropdown(!showIndicatorsDropdown)}
-              data-indicators-dropdown="true"
-              style={{
-                padding: "4px 8px",
-                fontSize: "12px",
-                border: "1px solid #333",
-                borderRadius: "4px",
-                background: "#1a1a1a",
-                color: "#fff",
-                cursor: "pointer",
-                transition: "all 0.2s",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-              }}
-            >
-              Indicators
-              <span style={{ fontSize: "10px" }}>
-                {showIndicatorsDropdown ? "▲" : "▼"}
-              </span>
-            </button>
-
-            {showIndicatorsDropdown && (
-              <div
-                data-indicators-menu="true"
-                style={{
-                  position: "absolute",
-                  top: "100%",
-                  left: "0",
-                  marginTop: "2px",
-                  background: "#1a1a1a",
-                  border: "1px solid #333",
-                  borderRadius: "4px",
-                  padding: "8px",
-                  minWidth: "200px",
-                  maxHeight: "300px",
-                  overflowY: "auto",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
-                  zIndex: 1001,
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showVolume}
-                      onChange={(e) => setShowVolume(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    Volume
-                  </label>
-
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showSMA20}
-                      onChange={(e) => setShowSMA20(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    SMA 20
-                  </label>
-
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showSMA50}
-                      onChange={(e) => setShowSMA50(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    SMA 50
-                  </label>
-
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showEMA20}
-                      onChange={(e) => setShowEMA20(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    EMA 20
-                  </label>
-
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showEMA50}
-                      onChange={(e) => setShowEMA50(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    EMA 50
-                  </label>
-
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showWMA20}
-                      onChange={(e) => setShowWMA20(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    WMA 20
-                  </label>
-
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showDEMA20}
-                      onChange={(e) => setShowDEMA20(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    DEMA 20
-                  </label>
-
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showTEMA20}
-                      onChange={(e) => setShowTEMA20(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    TEMA 20
-                  </label>
-
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showRSI}
-                      onChange={(e) => setShowRSI(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    RSI
-                  </label>
-
-                  <label style={{ 
-                    fontSize: "12px", 
-                    color: timeframe !== "1D" ? "#666" : "#fff", 
-                    display: "flex", 
-                    alignItems: "center", 
-                    gap: "4px", 
-                    cursor: timeframe !== "1D" ? "not-allowed" : "pointer",
-                    opacity: timeframe !== "1D" ? 0.5 : 1,
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={showMACD}
-                      onChange={(e) => setShowMACD(e.target.checked)}
-                      disabled={timeframe !== "1D"}
-                      style={{ margin: 0, opacity: timeframe !== "1D" ? 0.5 : 1 }}
-                    />
-                    MACD {timeframe !== "1D" ? "(1D only)" : ""}
-                  </label>
-
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showStdDev}
-                      onChange={(e) => setShowStdDev(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    Std Dev
-                  </label>
-
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showWilliams}
-                      onChange={(e) => setShowWilliams(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    Williams %R
-                  </label>
-
-                  <label style={{ fontSize: "12px", color: "#fff", display: "flex", alignItems: "center", gap: "4px", cursor: "pointer" }}>
-                    <input
-                      type="checkbox"
-                      checked={showADX}
-                      onChange={(e) => setShowADX(e.target.checked)}
-                      style={{ margin: 0 }}
-                    />
-                    ADX
-                  </label>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {isLoading && (
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: "rgba(0, 0, 0, 0.8)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#46A758",
-              fontSize: "14px",
-              zIndex: 1000,
-              backdropFilter: "blur(2px)",
-            }}
-          >
-            <Loader />
-            <div style={{ marginTop: "16px", color: "#FFFFFF" }}>Loading {symbol} chart data...</div>
-          </div>
-        )}
-        <div
-          ref={chartContainerRef}
-          style={{
-            height: "100%",
-            width: "100%",
-            background: "#000000",
-          }}
-        />
+        Error loading chart: {error}
       </div>
     )
+  }
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        height: height,
+        width: width,
+        background: "#000000",
+        margin: 0,
+        padding: 0,
+        overflow: "hidden",
+      }}
+    >
+      {/* Chart Controls */}
+      <div
+        style={{
+          position: "absolute",
+          top: "10px",
+          left: "10px",
+          zIndex: 1000,
+          display: "flex",
+          gap: "10px",
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        {/* Timeframe Buttons */}
+        <div style={{ display: "flex", gap: "5px" }}>
+          {(["1m", "5m", "15m", "30m", "1H", "4H", "1D"] as Timeframe[]).map((tf) => {
+            // Implement asset type-based timeframe restrictions
+            let isDisabled = false
+
+            // Auto-detect asset type if not provided
+            let detectedAssetType = assetType
+            if (!detectedAssetType && symbol) {
+              // Auto-detect crypto assets from symbol
+              if (
+                symbol.endsWith("USD") ||
+                symbol.endsWith("USDT") ||
+                symbol.includes("BTC") ||
+                symbol.includes("ETH")
+              ) {
+                detectedAssetType = "crypto"
+              }
+              // Auto-detect forex pairs
+              else if (/^[A-Z]{3}[A-Z]{3}$/.test(symbol)) {
+                detectedAssetType = "forex"
+              }
+              // Default to stock if not detected
+              else {
+                detectedAssetType = "stock"
+              }
+            }
+
+            // Apply timeframe restrictions based on asset type
+            if (
+              detectedAssetType === "crypto" ||
+              detectedAssetType === "forex" ||
+              detectedAssetType === "commodity" ||
+              detectedAssetType === "index"
+            ) {
+              // These asset types only support: 1min, 5min, 1hour, 1D
+              isDisabled = !["1m", "5m", "1H", "1D"].includes(tf)
+            } else {
+              // Stock asset type supports all timeframes: 1min, 5min, 15min, 30min, 1hour, 4hour, 1D
+              isDisabled = false
+            }
+
+            return (
+              <button
+                key={tf}
+                onClick={() => !isDisabled && setTimeframe(tf)}
+                disabled={isDisabled}
+                style={{
+                  padding: "4px 8px",
+                  fontSize: "12px",
+                  border: "1px solid #333",
+                  borderRadius: "4px",
+                  background: timeframe === tf ? "#46A758" : isDisabled ? "#333" : "#1a1a1a",
+                  color: timeframe === tf ? "#000" : isDisabled ? "#666" : "#fff",
+                  cursor: isDisabled ? "not-allowed" : "pointer",
+                  transition: "all 0.2s",
+                  opacity: isDisabled ? 0.5 : 1,
+                }}
+                title={
+                  isDisabled
+                    ? `${tf} timeframe is not supported for ${detectedAssetType || "this"} assets`
+                    : `Switch to ${tf} timeframe`
+                }
+              >
+                {tf}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Indicators Dropdown */}
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={() => setShowIndicatorsDropdown(!showIndicatorsDropdown)}
+            data-indicators-dropdown="true"
+            style={{
+              padding: "4px 8px",
+              fontSize: "12px",
+              border: "1px solid #333",
+              borderRadius: "4px",
+              background: "#1a1a1a",
+              color: "#fff",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+          >
+            Indicators
+            <span style={{ fontSize: "10px" }}>{showIndicatorsDropdown ? "▲" : "▼"}</span>
+          </button>
+
+          {showIndicatorsDropdown && (
+            <div
+              data-indicators-menu="true"
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: "0",
+                marginTop: "2px",
+                background: "#1a1a1a",
+                border: "1px solid #333",
+                borderRadius: "4px",
+                padding: "8px",
+                minWidth: "200px",
+                maxHeight: "300px",
+                overflowY: "auto",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
+                zIndex: 1001,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showVolume}
+                    onChange={(e) => setShowVolume(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  Volume
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showSMA20}
+                    onChange={(e) => setShowSMA20(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  SMA 20
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showSMA50}
+                    onChange={(e) => setShowSMA50(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  SMA 50
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showEMA20}
+                    onChange={(e) => setShowEMA20(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  EMA 20
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showEMA50}
+                    onChange={(e) => setShowEMA50(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  EMA 50
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showWMA20}
+                    onChange={(e) => setShowWMA20(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  WMA 20
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showDEMA20}
+                    onChange={(e) => setShowDEMA20(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  DEMA 20
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showTEMA20}
+                    onChange={(e) => setShowTEMA20(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  TEMA 20
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showRSI}
+                    onChange={(e) => setShowRSI(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  RSI
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: timeframe !== "1D" ? "#666" : "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: timeframe !== "1D" ? "not-allowed" : "pointer",
+                    opacity: timeframe !== "1D" ? 0.5 : 1,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showMACD}
+                    onChange={(e) => setShowMACD(e.target.checked)}
+                    disabled={timeframe !== "1D"}
+                    style={{ margin: 0, opacity: timeframe !== "1D" ? 0.5 : 1 }}
+                  />
+                  MACD {timeframe !== "1D" ? "(1D only)" : ""}
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showStdDev}
+                    onChange={(e) => setShowStdDev(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  Std Dev
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showWilliams}
+                    onChange={(e) => setShowWilliams(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  Williams %R
+                </label>
+
+                <label
+                  style={{
+                    fontSize: "12px",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showADX}
+                    onChange={(e) => setShowADX(e.target.checked)}
+                    style={{ margin: 0 }}
+                  />
+                  ADX
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isLoading && <ChartSkeleton height={height} width={width} symbol={symbol} timeframe={timeframe} />}
+      <div
+        ref={chartContainerRef}
+        style={{
+          height: "100%",
+          width: "100%",
+          background: "#000000",
+        }}
+      />
+    </div>
+  )
 }
 
 export default LightweightChart
