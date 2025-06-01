@@ -13,7 +13,7 @@ import {
   type SeriesType 
 } from "lightweight-charts"
 import { useAuth } from "../context/AuthProvider"
-import { Loader } from "./Loader"
+// import { Loader } from "./Loader"
 
 interface LightweightChartProps {
   symbol?: string
@@ -3316,7 +3316,7 @@ function LightweightChart({
               backdropFilter: "blur(2px)",
             }}
           >
-            <Loader />
+            {/* <Loader /> */}
             <div style={{ marginTop: "16px", color: "#FFFFFF" }}>Loading {symbol} chart data...</div>
           </div>
         )}
