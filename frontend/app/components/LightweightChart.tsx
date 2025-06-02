@@ -2960,97 +2960,97 @@ function LightweightChart({
         }
 
         // Then apply default zoom to show recent data clearly
-        setTimeout(() => {
-          if (candlestickData.length > 0) {
-            try {
-              const dataLength = candlestickData.length
-              
-              // For 1D timeframe, just use fitContent to show all data without animation
-              if (timeframe === "1D") {
-                chart.timeScale().fitContent()
-                return
-              }
-              
-              // For intraday timeframes, show recent data immediately
-              let visibleDataPoints = 50
+        // setTimeout(() => {
+        //   if (candlestickData.length > 0) {
+        //     try {
+        //       const dataLength = candlestickData.length
+        //       
+        //       // For 1D timeframe, just use fitContent to show all data without animation
+        //       if (timeframe === "1D") {
+        //         chart.timeScale().fitContent()
+        //         return
+        //       }
+        //       
+        //       // For intraday timeframes, show recent data immediately
+        //       let visibleDataPoints = 50
 
-              // Adjust visible points based on timeframe to show relevant recent data
-              switch (timeframe) {
-                case "1m":
-                  visibleDataPoints = 60 // Show last hour for 1-minute data
-                  break
-                case "5m":
-                  visibleDataPoints = 72 // Show last 6 hours for 5-minute data
-                  break
-                case "15m":
-                  visibleDataPoints = 64 // Show last 16 hours for 15-minute data
-                  break
-                case "30m":
-                  visibleDataPoints = 48 // Show last 24 hours for 30-minute data
-                  break
-                case "1H":
-                  visibleDataPoints = 48 // Show last 2 days for 1-hour data
-                  break
-                case "4H":
-                  visibleDataPoints = 42 // Show last week for 4-hour data
-                  break
-              }
+        //       // Adjust visible points based on timeframe to show relevant recent data
+        //       switch (timeframe) {
+        //         case "1m":
+        //           visibleDataPoints = 60 // Show last hour for 1-minute data
+        //           break
+        //         case "5m":
+        //           visibleDataPoints = 72 // Show last 6 hours for 5-minute data
+        //           break
+        //         case "15m":
+        //           visibleDataPoints = 64 // Show last 16 hours for 15-minute data
+        //           break
+        //         case "30m":
+        //           visibleDataPoints = 48 // Show last 24 hours for 30-minute data
+        //           break
+        //         case "1H":
+        //           visibleDataPoints = 48 // Show last 2 days for 1-hour data
+        //           break
+        //         case "4H":
+        //           visibleDataPoints = 42 // Show last week for 4-hour data
+        //           break
+        //       }
 
-              // Ensure we don't try to show more data than we have
-              const startIndex = Math.max(0, dataLength - visibleDataPoints)
-              const endIndex = dataLength - 1
+        //       // Ensure we don't try to show more data than we have
+        //       const startIndex = Math.max(0, dataLength - visibleDataPoints)
+        //       const endIndex = dataLength - 1
 
-              if (startIndex < endIndex && candlestickData[startIndex] && candlestickData[endIndex]) {
-                let startTime = candlestickData[startIndex].time
-                let endTime = candlestickData[endIndex].time
+        //       if (startIndex < endIndex && candlestickData[startIndex] && candlestickData[endIndex]) {
+        //         let startTime = candlestickData[startIndex].time
+        //         let endTime = candlestickData[endIndex].time
 
-                // Enhanced time validation and correction
-                const validateAndCorrectTimeRange = () => {
-                  if (typeof startTime === "number" && typeof endTime === "number") {
-                    // Both are Unix timestamps (intraday data)
-                    if (!isFinite(startTime) || !isFinite(endTime)) {
-                      console.warn("Invalid timestamp values in time range")
-                      return false
-                    }
+        //         // Enhanced time validation and correction
+        //         const validateAndCorrectTimeRange = () => {
+        //           if (typeof startTime === "number" && typeof endTime === "number") {
+        //             // Both are Unix timestamps (intraday data)
+        //             if (!isFinite(startTime) || !isFinite(endTime)) {
+        //               console.warn("Invalid timestamp values in time range")
+        //               return false
+        //             }
 
-                    // If start is after end, swap them
-                    if (startTime > endTime) {
-                      console.log("Swapping timestamp range: start was after end", {
-                        originalStart: startTime,
-                        originalEnd: endTime,
-                      })
-                      const temp = startTime
-                      startTime = endTime
-                      endTime = temp
-                    }
+        //             // If start is after end, swap them
+        //             if (startTime > endTime) {
+        //               console.log("Swapping timestamp range: start was after end", {
+        //                 originalStart: startTime,
+        //                 originalEnd: endTime,
+        //               })
+        //               const temp = startTime
+        //               startTime = endTime
+        //               endTime = temp
+        //             }
 
-                    return true
-                  }
+        //             return true
+        //           }
 
-                  console.warn("Non-numeric time types for intraday data")
-                  return false
-                }
+        //           console.warn("Non-numeric time types for intraday data")
+        //           return false
+        //         }
 
-                if (validateAndCorrectTimeRange()) {
-                  console.log(`Setting visible range for ${timeframe} from ${startTime} to ${endTime}`)
-                  chart.timeScale().setVisibleRange({
-                    from: startTime,
-                    to: endTime,
-                  })
-                } else {
-                  console.warn("Could not validate/correct time range, using fitContent")
-                  chart.timeScale().fitContent()
-                }
-              } else {
-                console.log("Invalid start/end indices, using fitContent")
-                chart.timeScale().fitContent()
-              }
-            } catch (rangeError) {
-              console.warn("Error setting visible range, falling back to fitContent:", rangeError)
-              chart.timeScale().fitContent()
-            }
-          }
-        }, 50) // Reduced delay for faster initial display
+        //         if (validateAndCorrectTimeRange()) {
+        //           console.log(`Setting visible range for ${timeframe} from ${startTime} to ${endTime}`)
+        //           chart.timeScale().setVisibleRange({
+        //             from: startTime,
+        //             to: endTime,
+        //           })
+        //         } else {
+        //           console.warn("Could not validate/correct time range, using fitContent")
+        //           chart.timeScale().fitContent()
+        //         }
+        //       } else {
+        //         console.log("Invalid start/end indices, using fitContent")
+        //         chart.timeScale().fitContent()
+        //       }
+        //     } catch (rangeError) {
+        //       console.warn("Error setting visible range, falling back to fitContent:", rangeError)
+        //       chart.timeScale().fitContent()
+        //     }
+        //   }
+        // }, 50) // Reduced delay for faster initial display
 
         // Handle resize
         const handleResize = () => {
