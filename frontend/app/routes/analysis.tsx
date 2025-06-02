@@ -840,36 +840,6 @@ function AnalysisContent() {
       ></canvas>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10 min-h-[calc(100vh-160px)] flex flex-col pb-32">
-        {/* Page Header */}
-        <div className="text-center mb-8 max-w-4xl mx-auto">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            {query ? (
-              <>
-                <span className="text-[#a099d8]">{query.charAt(0).toUpperCase() + query.slice(1)}</span> Analysis
-              </>
-            ) : (
-              <>Market <span className="text-[#a099d8]">Analysis</span></>
-            )}
-          </h1>
-          <p className="text-gray-300 text-lg md:text-xl leading-relaxed">
-            {query ? (
-              <>
-                Analysis with real-time market sentiment, 
-                price predictions, and news insights for <span className="text-[#cf30aa] font-medium">{query}</span>.
-              </>
-            ) : (
-              <>
-                Financial intelligence with real-time sentiment tracking, 
-                price predictions, and comprehensive market insights for cryptocurrencies, stocks, forex, and commodities.
-              </>
-            )}
-          </p>
-          {!query && (
-            <p className="text-[#a099d8] text-sm mt-2">
-              Use the search form below to get started with your market analysis
-            </p>
-          )}
-        </div>
 
         {isFirstLoad &&
         isLoading &&
