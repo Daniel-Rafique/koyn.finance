@@ -40,26 +40,14 @@ const ChartSkeleton = ({
     const barCount = 50
     const containerWidth = typeof width === "string" ? 600 : Number(width)
     const containerHeight = typeof height === "string" ? 400 : Number(height)
-    
-    // Calculate available width for bars (subtract padding from both sides)
-    const leftPadding = 20
-    const rightPadding = 20
-    const availableWidth = containerWidth - leftPadding - rightPadding
-    
-    // Calculate bar width and spacing to fill the entire available width
-    const totalSpacing = (barCount - 1) * 2 // 2px gap between bars
-    const barWidth = Math.max(4, (availableWidth - totalSpacing) / barCount)
-    const actualSpacing = barCount > 1 ? (availableWidth - (barWidth * barCount)) / (barCount - 1) : 0
-    
+    const barWidth = Math.max(4, containerWidth / barCount - 2)
     const maxBarHeight = containerHeight * 0.6
 
     for (let i = 0; i < barCount; i++) {
       const isAnimated = i === animatedBars || i === (animatedBars + 1) % barCount
       const baseHeight = 20 + Math.random() * maxBarHeight
       const barHeight = isAnimated ? baseHeight * 1.2 : baseHeight
-      
-      // Position bars to fill the entire available width
-      const x = leftPadding + i * (barWidth + actualSpacing)
+      const x = i * (barWidth + 2) + 20
       const y = containerHeight - barHeight - 60
 
       bars.push(
@@ -1716,6 +1704,28 @@ function LightweightChart({
     return chartData
   }
 
+  // Calculate optimal number of visible candles for professional appearance
+  const getOptimalVisibleCandles = (tf: Timeframe): number => {
+    switch (tf) {
+      case "1m":
+        return 100 // Show ~1.5 hours
+      case "5m":
+        return 120 // Show ~10 hours
+      case "15m":
+        return 96 // Show ~24 hours
+      case "30m":
+        return 96 // Show ~2 days
+      case "1H":
+        return 72 // Show ~3 days
+      case "4H":
+        return 84 // Show ~2 weeks
+      case "1D":
+        return 60 // Show ~2 months
+      default:
+        return 80
+    }
+  }
+
   useEffect(() => {
     let mounted = true
     let initializationPromise: Promise<void> | null = null
@@ -1995,38 +2005,77 @@ function LightweightChart({
           width: chartContainerRef.current.clientWidth,
           height: chartContainerRef.current.clientHeight,
           layout: {
-            background: { type: ColorType.Solid, color: "#000000" },
-            textColor: "#FFFFFF",
+            background: { type: ColorType.Solid, color: "#131722" },
+            textColor: "#d1d4dc",
+            fontSize: 12,
+            fontFamily: "'Trebuchet MS', Roboto, Ubuntu, sans-serif",
           },
           grid: {
-            vertLines: { color: "#1a1a1a" },
-            horzLines: { color: "#1a1a1a" },
+            vertLines: {
+              color: "#363c4e",
+              style: 2,
+              visible: true,
+            },
+            horzLines: {
+              color: "#363c4e",
+              style: 2,
+              visible: true,
+            },
           },
           crosshair: {
-            mode: 1, // Normal crosshair mode
+            mode: 1,
             vertLine: {
+              width: 1,
+              color: "#758696",
+              style: 3,
               labelVisible: true,
-              labelBackgroundColor: "#333333",
+              labelBackgroundColor: "#4c525e",
             },
             horzLine: {
+              width: 1,
+              color: "#758696",
+              style: 3,
               labelVisible: true,
-              labelBackgroundColor: "#333333",
+              labelBackgroundColor: "#4c525e",
             },
           },
           rightPriceScale: {
-            borderColor: "#333333",
-            mode: 0, // Normal price scale mode
-            autoScale: true,
+            borderColor: "#485c7b",
+            textColor: "#b2b5be",
+            entireTextOnly: false,
+            visible: true,
+            borderVisible: true,
+            scaleMargins: {
+              top: 0.05,
+              bottom: 0.05,
+            },
+          },
+          leftPriceScale: {
+            visible: false,
           },
           timeScale: {
-            borderColor: "#333333",
+            borderColor: "#485c7b",
             timeVisible: true,
             secondsVisible: false,
-            rightOffset: 5,
-            barSpacing: 10,
+            rightOffset: 12,
+            barSpacing: 6,
             fixLeftEdge: false,
             fixRightEdge: false,
-            lockVisibleTimeRangeOnResize: false,
+            lockVisibleTimeRangeOnResize: true,
+            rightBarStaysOnScroll: true,
+            borderVisible: true,
+            visible: true,
+          },
+          handleScroll: {
+            mouseWheel: true,
+            pressedMouseMove: true,
+            horzTouchDrag: true,
+            vertTouchDrag: true,
+          },
+          handleScale: {
+            axisPressedMouseMove: true,
+            mouseWheel: true,
+            pinch: true,
           },
         })
 
@@ -2050,15 +2099,15 @@ function LightweightChart({
           }
         })
 
-        // Add candlestick series
+        // Add candlestick series with professional styling
         const candlestickSeries = chart.addSeries(CandlestickSeries, {
-          upColor: "#46A758",
-          downColor: "#E5484D",
+          upColor: "#26a69a",
+          downColor: "#ef5350",
           borderVisible: true,
-          borderUpColor: "#46A758",
-          borderDownColor: "#E5484D",
-          wickUpColor: "#46A758",
-          wickDownColor: "#E5484D",
+          wickUpColor: "#26a69a",
+          wickDownColor: "#ef5350",
+          borderUpColor: "#26a69a",
+          borderDownColor: "#ef5350",
           priceFormat: {
             type: "price",
             precision: 2,
@@ -2148,35 +2197,11 @@ function LightweightChart({
               return isValid
             })
 
-            console.log("Setting chart data with", finalValidData.length, "valid points")
-            candlestickSeries.setData(finalValidData)
-            
             // Set initial visible range immediately to show recent data without animation
-            if (timeframe !== "1D" && finalValidData.length > 0) {
+            if (finalValidData.length > 0) {
               const dataLength = finalValidData.length
-              let visibleDataPoints = 50
-
-              // Adjust visible points based on timeframe
-              switch (timeframe) {
-                case "1m":
-                  visibleDataPoints = 60
-                  break
-                case "5m":
-                  visibleDataPoints = 72
-                  break
-                case "15m":
-                  visibleDataPoints = 64
-                  break
-                case "30m":
-                  visibleDataPoints = 48
-                  break
-                case "1H":
-                  visibleDataPoints = 48
-                  break
-                case "4H":
-                  visibleDataPoints = 42
-                  break
-              }
+              const optimalCandles = getOptimalVisibleCandles(timeframe)
+              const visibleDataPoints = Math.min(optimalCandles, dataLength)
 
               const startIndex = Math.max(0, dataLength - visibleDataPoints)
               const endIndex = dataLength - 1
@@ -2185,16 +2210,31 @@ function LightweightChart({
                 const startTime = finalValidData[startIndex].time
                 const endTime = finalValidData[endIndex].time
 
-                if (typeof startTime === "number" && typeof endTime === "number" && 
-                    isFinite(startTime) && isFinite(endTime) && startTime <= endTime) {
+                // Set visible range immediately for professional appearance
+                if (
+                  typeof startTime === "number" &&
+                  typeof endTime === "number" &&
+                  isFinite(startTime) &&
+                  isFinite(endTime) &&
+                  startTime <= endTime
+                ) {
                   chart.timeScale().setVisibleRange({
                     from: startTime,
                     to: endTime,
                   })
-                  console.log(`Set initial visible range for ${timeframe}: ${startTime} to ${endTime}`)
+                  console.log(`Set professional visible range for ${timeframe}: showing ${visibleDataPoints} candles`)
+                } else if (typeof startTime === "string" && typeof endTime === "string") {
+                  chart.timeScale().setVisibleRange({
+                    from: startTime,
+                    to: endTime,
+                  })
+                  console.log(`Set professional visible range for ${timeframe}: showing ${visibleDataPoints} candles`)
                 }
               }
             }
+
+            console.log("Setting chart data with", finalValidData.length, "valid points")
+            candlestickSeries.setData(finalValidData)
           } else {
             throw new Error("All candlestick data points were invalid after ultra-safe filtering")
           }
@@ -2205,19 +2245,20 @@ function LightweightChart({
         // Add volume series if enabled with enhanced validation
         if (showVolume && volumeData.length > 0) {
           const volumeSeries = chart.addSeries(HistogramSeries, {
-            color: "#46A758",
+            color: "#26a69a",
             priceFormat: {
               type: "volume",
             },
             priceScaleId: "volume",
           })
 
-          // Configure the volume price scale to limit height to bottom 20%
+          // Configure the volume price scale
           chart.priceScale("volume").applyOptions({
             scaleMargins: {
-              top: 0.8,
+              top: 0.7,
               bottom: 0,
             },
+            mode: 1,
           })
 
           volumeSeriesRef.current = volumeSeries
@@ -2954,103 +2995,7 @@ function LightweightChart({
         // Fit content to show all data first
         chart.timeScale().fitContent()
 
-        // For 1D timeframe, ensure we show all data properly
-        if (timeframe === "1D") {
-          chart.timeScale().fitContent()
-        }
-
         // Then apply default zoom to show recent data clearly
-        // setTimeout(() => {
-        //   if (candlestickData.length > 0) {
-        //     try {
-        //       const dataLength = candlestickData.length
-        //       
-        //       // For 1D timeframe, just use fitContent to show all data without animation
-        //       if (timeframe === "1D") {
-        //         chart.timeScale().fitContent()
-        //         return
-        //       }
-        //       
-        //       // For intraday timeframes, show recent data immediately
-        //       let visibleDataPoints = 50
-
-        //       // Adjust visible points based on timeframe to show relevant recent data
-        //       switch (timeframe) {
-        //         case "1m":
-        //           visibleDataPoints = 60 // Show last hour for 1-minute data
-        //           break
-        //         case "5m":
-        //           visibleDataPoints = 72 // Show last 6 hours for 5-minute data
-        //           break
-        //         case "15m":
-        //           visibleDataPoints = 64 // Show last 16 hours for 15-minute data
-        //           break
-        //         case "30m":
-        //           visibleDataPoints = 48 // Show last 24 hours for 30-minute data
-        //           break
-        //         case "1H":
-        //           visibleDataPoints = 48 // Show last 2 days for 1-hour data
-        //           break
-        //         case "4H":
-        //           visibleDataPoints = 42 // Show last week for 4-hour data
-        //           break
-        //       }
-
-        //       // Ensure we don't try to show more data than we have
-        //       const startIndex = Math.max(0, dataLength - visibleDataPoints)
-        //       const endIndex = dataLength - 1
-
-        //       if (startIndex < endIndex && candlestickData[startIndex] && candlestickData[endIndex]) {
-        //         let startTime = candlestickData[startIndex].time
-        //         let endTime = candlestickData[endIndex].time
-
-        //         // Enhanced time validation and correction
-        //         const validateAndCorrectTimeRange = () => {
-        //           if (typeof startTime === "number" && typeof endTime === "number") {
-        //             // Both are Unix timestamps (intraday data)
-        //             if (!isFinite(startTime) || !isFinite(endTime)) {
-        //               console.warn("Invalid timestamp values in time range")
-        //               return false
-        //             }
-
-        //             // If start is after end, swap them
-        //             if (startTime > endTime) {
-        //               console.log("Swapping timestamp range: start was after end", {
-        //                 originalStart: startTime,
-        //                 originalEnd: endTime,
-        //               })
-        //               const temp = startTime
-        //               startTime = endTime
-        //               endTime = temp
-        //             }
-
-        //             return true
-        //           }
-
-        //           console.warn("Non-numeric time types for intraday data")
-        //           return false
-        //         }
-
-        //         if (validateAndCorrectTimeRange()) {
-        //           console.log(`Setting visible range for ${timeframe} from ${startTime} to ${endTime}`)
-        //           chart.timeScale().setVisibleRange({
-        //             from: startTime,
-        //             to: endTime,
-        //           })
-        //         } else {
-        //           console.warn("Could not validate/correct time range, using fitContent")
-        //           chart.timeScale().fitContent()
-        //         }
-        //       } else {
-        //         console.log("Invalid start/end indices, using fitContent")
-        //         chart.timeScale().fitContent()
-        //       }
-        //     } catch (rangeError) {
-        //       console.warn("Error setting visible range, falling back to fitContent:", rangeError)
-        //       chart.timeScale().fitContent()
-        //     }
-        //   }
-        // }, 50) // Reduced delay for faster initial display
 
         // Handle resize
         const handleResize = () => {
@@ -3340,7 +3285,7 @@ function LightweightChart({
         position: "relative",
         height: height,
         width: width,
-        background: "#000000",
+        background: "#131722",
         margin: 0,
         padding: 0,
         overflow: "hidden",
@@ -3733,7 +3678,7 @@ function LightweightChart({
         style={{
           height: "100%",
           width: "100%",
-          background: "#000000",
+          background: "#131722",
         }}
       />
     </div>
