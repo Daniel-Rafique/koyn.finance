@@ -68,8 +68,6 @@ export default function SearchForm({
     "What's the sentiment on Amazon stock?",
     "Analyze S&P 500 market conditions",
     "What's the forecast for XAUUSD prices?",
-    "How will interest rates affect the market?",
-    "Is it a good time to buy tech stocks?",
     "What's the analysis for NVIDIA stock?",
     "Explain the recent trends in oil prices",
     "What's driving the Dow Jones today?",
