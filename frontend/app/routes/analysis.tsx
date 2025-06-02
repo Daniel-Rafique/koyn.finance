@@ -152,6 +152,8 @@ function AnalysisContent() {
   const [isScrolling, setIsScrolling] = useState(false);
   const [isHoveringSearch, setIsHoveringSearch] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastScrollY = useRef(0);
+  const scrollDirection = useRef<'up' | 'down' | null>(null);
 
   const query = searchParams.get("q");
 
@@ -747,6 +749,71 @@ function AnalysisContent() {
     }
   }, [showHistoryDropdown]);
 
+  // Add scroll event listener for search form transparency
+  useEffect(() => {
+    if (!isClientMounted) return;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollDelta = currentScrollY - lastScrollY.current;
+      
+      // Only react to significant scroll movements (prevents jitter)
+      if (Math.abs(scrollDelta) < 5) return;
+      
+      // Determine scroll direction
+      if (scrollDelta > 0) {
+        scrollDirection.current = 'down';
+      } else if (scrollDelta < 0) {
+        scrollDirection.current = 'up';
+      }
+      
+      lastScrollY.current = currentScrollY;
+      
+      // Clear existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      // Set scrolling state
+      setIsScrolling(true);
+      
+      // Update opacity based on scroll direction and hover state
+      if (scrollDirection.current === 'down' && !isHoveringSearch) {
+        setSearchOpacity(0.3); // More transparent when scrolling down
+      } else if (scrollDirection.current === 'up' || isHoveringSearch) {
+        setSearchOpacity(1); // Fully visible when scrolling up or hovering
+      }
+      
+      // Reset scrolling state after a delay
+      scrollTimeoutRef.current = setTimeout(() => {
+        setIsScrolling(false);
+        if (!isHoveringSearch) {
+          setSearchOpacity(1); // Return to full opacity when not scrolling
+        }
+      }, 150);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [isClientMounted, isHoveringSearch]);
+
+  // Reset search opacity when hovering changes
+  useEffect(() => {
+    if (isHoveringSearch) {
+      setSearchOpacity(1);
+    } else if (!isScrolling) {
+      setSearchOpacity(1);
+    } else if (scrollDirection.current === 'down') {
+      setSearchOpacity(0.3);
+    }
+  }, [isHoveringSearch, isScrolling]);
+
   return (
     <div className="min-h-screen bg-[rgb(0,0,0)] overflow-y-auto">
       <Nav />
@@ -895,13 +962,13 @@ function AnalysisContent() {
                     {/* History Dropdown */}
                     {showHistoryDropdown && (
                       <div
-                        className="fixed right-auto mt-2 w-64 bg-[rgb(13,10,33)] rounded-md shadow-lg z-[99999] transition-all duration-200 ease-out history-dropdown"
+                        className="fixed right-auto mt-2 w-64 bg-[rgb(13,10,33)] rounded-md shadow-lg z-[500] transition-all duration-200 ease-out history-dropdown"
                         style={{
                           top: "auto",
                           position: "absolute",
                           right: 0,
                           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.8)",
-                          zIndex: 99999,
+                          zIndex: 500,
                           opacity: dropdownAnimation.opacity,
                           transform: dropdownAnimation.transform,
                         }}
@@ -1172,7 +1239,15 @@ function AnalysisContent() {
         )}
       </main>
 
-      <div className="fixed bottom-20 left-0 w-full flex justify-center px-4 z-20">
+      <div 
+        className="fixed bottom-20 left-0 w-full flex justify-center px-4 transition-opacity duration-300 ease-in-out"
+        style={{ 
+          zIndex: 15, // Lower than NewsCarousel tooltip (999999) 
+          opacity: searchOpacity 
+        }}
+        onMouseEnter={() => setIsHoveringSearch(true)}
+        onMouseLeave={() => setIsHoveringSearch(false)}
+      >
         <div className="w-full max-w-3xl floating-search-bar py-6">
           <SearchForm
             onSubscribeClick={() => {
@@ -1185,7 +1260,7 @@ function AnalysisContent() {
           />
         </div>
       </div>
-      <div className="fixed bottom-0 left-0 w-full z-10 bg-black">
+      <div className="fixed bottom-0 left-0 w-full z-50 bg-black">
         <NewsCarousel 
           accounts={["business", "bitcoin", "crypto", "economics", "markets", "solana", "koynlabs", "koyn_ai"]} 
         />

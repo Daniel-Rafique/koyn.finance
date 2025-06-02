@@ -37,6 +37,7 @@ const popoverStyles = `
     backdrop-filter: blur(4px);
     margin-top: -15px;
     will-change: transform, opacity;
+    pointer-events: auto;
   }
   
   .news-carousel {
