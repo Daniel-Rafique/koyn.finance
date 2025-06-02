@@ -1223,6 +1223,14 @@ const getNewsMaxAgeByAssetType = (assetType) => {
         /\b(sp500|s&p500|spy|spx)\b/gi,
         /\b(nasdaq|qqq|ndx)\b/gi,
         /\b(dow|dji|dia)\b/gi,
+        /\b(nasdaq100|ndx100)\b/gi,
+        /\b(us30|dji)\b/gi,
+        /\b(sp400|spx400)\b/gi,
+        /\b(sp600|spx600)\b/gi,
+        /\b(sp100|spx100)\b/gi,
+        /\b(sp200|spx200)\b/gi,
+        /\b(sp500|spx500)\b/gi,
+        /\b(sp1000|spx1000)\b/gi,
         /\b(eurusd|eur\/usd|gbpusd|gbp\/usd|usdjpy|usd\/jpy)\b/gi,
   
         // PRIORITY 2: Direct symbol matches from our asset databases
