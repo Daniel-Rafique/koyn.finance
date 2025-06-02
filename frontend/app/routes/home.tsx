@@ -340,27 +340,14 @@ export default function Home() {
         {/* Loading skeleton while authentication is being verified */}
         {contextLoading && (
           <div className="text-center mb-8 max-w-4xl mx-auto animate-pulse">
-            {/* Skeleton for header */}
-            <div className="mb-6">
-              <div className="h-12 md:h-16 lg:h-20 bg-gray-800 rounded-lg mb-4 mx-auto w-3/4"></div>
-              <div className="h-12 md:h-16 lg:h-20 bg-gray-800 rounded-lg mb-6 mx-auto w-2/3"></div>
+            {/* Skeleton for rotating categories text */}
+            <div className="mb-4">
+              <div className="h-16 md:h-20 lg:h-24 bg-gray-800 rounded-lg mb-4 mx-auto w-3/4"></div>
             </div>
             
-            {/* Skeleton for description */}
-            <div className="space-y-3 mb-6">
-              <div className="h-6 bg-gray-800 rounded mx-auto w-full"></div>
-              <div className="h-6 bg-gray-800 rounded mx-auto w-5/6"></div>
-              <div className="h-6 bg-gray-800 rounded mx-auto w-4/5"></div>
-            </div>
-            
-            {/* Skeleton for subtitle */}
-            <div className="h-6 bg-gray-800 rounded mx-auto w-1/2 mb-4"></div>
-            
-            {/* Skeleton for features */}
-            <div className="flex flex-wrap justify-center gap-4">
-              <div className="h-6 bg-gray-800 rounded w-32"></div>
-              <div className="h-6 bg-gray-800 rounded w-36"></div>
-              <div className="h-6 bg-gray-800 rounded w-32"></div>
+            {/* Skeleton for user status */}
+            <div className="flex justify-center">
+              <div className="h-5 bg-gray-800 rounded w-64"></div>
             </div>
           </div>
         )}
