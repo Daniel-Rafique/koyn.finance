@@ -1159,6 +1159,13 @@ const getNewsMaxAgeByAssetType = (assetType) => {
         indicesList.forEach((index) => {
           allAssetSymbols.add(index.symbol.toUpperCase())
           symbolToAssetMap.set(index.symbol.toUpperCase(), { symbol: index.symbol, type: "index", name: index.name })
+          
+          // Also add the version without caret prefix for better matching
+          if (index.symbol.startsWith('^')) {
+            const cleanSymbol = index.symbol.substring(1).toUpperCase()
+            allAssetSymbols.add(cleanSymbol)
+            symbolToAssetMap.set(cleanSymbol, { symbol: index.symbol, type: "index", name: index.name })
+          }
         })
   
         // Load forex
@@ -1294,11 +1301,10 @@ const getNewsMaxAgeByAssetType = (assetType) => {
               "GBP/USD": "GBPUSD",
               USDJPY: "USDJPY",
               "USD/JPY": "USDJPY",
-              US30: "US30",
-              "US30USD": "US30",
-              "US30/USD": "US30",
-              "US30/US": "US30",
-              "US30/US": "US30",
+              US30: "^US30",
+              "US30USD": "^US30",
+              "US30/USD": "^US30",
+              "US30/US": "^US30",
             }
   
             if (normalizations[normalized]) {
@@ -1834,7 +1840,16 @@ const getNewsMaxAgeByAssetType = (assetType) => {
         })
   
         const content = geminiResponse.data.candidates[0]?.content?.parts[0]?.text || ""
-        const detectedAsset = JSON.parse(content)
+        
+        // Clean the content if it's wrapped in markdown code blocks
+        let cleanContent = content.trim()
+        if (cleanContent.startsWith('```json')) {
+          cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '')
+        } else if (cleanContent.startsWith('```')) {
+          cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '')
+        }
+        
+        const detectedAsset = JSON.parse(cleanContent)
         console.log("Gemini detected asset:", detectedAsset)
   
         if (detectedAsset && detectedAsset.symbol) {
