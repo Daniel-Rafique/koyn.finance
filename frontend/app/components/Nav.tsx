@@ -137,7 +137,7 @@ export default function Nav({ onSubscribeClick }: NavProps) {
               
               <div className="input-main" style={{ width: '40px', height: '40px' }}>
                 <a 
-                  href="https://x.com/koyn_ai"
+                  href="https://x.com/koyn_finance"
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Follow us on X"
