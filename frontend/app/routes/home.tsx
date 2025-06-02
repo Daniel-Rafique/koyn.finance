@@ -400,18 +400,17 @@ export default function Home() {
             </div>
           </div>
         )}
-      </main>
-      
-      {/* Fixed Search Form at Bottom - Same position as analysis page */}
-      <div className="fixed bottom-20 left-0 w-full flex justify-center px-4 z-15">
-        {/* What's moving question for logged in users - above search */}
+
         {/* Rotating categories display for subscribed users */}
         {isSubscribed && isClientMounted && (
           <div className="text-center mb-8">
             <RotatingCategories />
           </div>
         )}
-        
+      </main>
+      
+      {/* Fixed Search Form at Bottom - Same position as analysis page */}
+      <div className="fixed bottom-20 left-0 w-full flex justify-center px-4 z-15">
         <div className="w-full max-w-3xl floating-search-bar py-6">
           <SearchForm 
             onSubscribeClick={() => openSubscriptionModal()}
