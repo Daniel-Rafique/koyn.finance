@@ -337,43 +337,25 @@ export default function Home() {
           </div>
         )}
         
-        {/* Rotating categories display for non-logged in users */}
-        {!isSubscribed && isClientMounted && (
-          <div className="text-center mb-8">
-            <RotatingCategories />
-          </div>
-        )}
         
-        {/* Page Header */}
-        <div className="text-center mb-8 max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
-            Realtime <span className="text-[#a099d8]">Market</span>
-            <br />
-            <span className="text-[#cf30aa]">Intelligence</span>
-          </h1>
-          
-          <p className="text-gray-300 text-lg md:text-xl lg:text-2xl leading-relaxed mb-6">
-            Professional financial analysis with real-time sentiment tracking, 
-            price predictions, and comprehensive market insights for 
-            <span className="text-[#a099d8] font-medium"> cryptocurrencies</span>, 
-            <span className="text-[#cf30aa] font-medium"> stocks</span>, 
-            <span className="text-[#a099d8] font-medium"> forex</span>, and 
-            <span className="text-[#cf30aa] font-medium"> commodities</span>.
-          </p>
-          
-          {isSubscribed ? (
-            <div className="flex flex-col items-center">
-              <p className="text-[#a099d8] text-lg mb-4">
-                Welcome back! Ready for your next analysis?
-              </p>
-              <div className="flex items-center text-sm text-gray-400">
-                <svg className="w-4 h-4 mr-2 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Premium subscriber - {user?.email}
-              </div>
-            </div>
-          ) : (
+        {/* Page Header - Only show when NOT logged in */}
+        {!isSubscribed && (
+          <div className="text-center mb-8 max-w-4xl mx-auto">            
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+              Realtime <span className="text-[#a099d8]">Market</span>
+              <br />
+              <span className="text-[#cf30aa]">Intelligence</span>
+            </h1>
+            
+            <p className="text-gray-300 text-lg md:text-xl lg:text-2xl leading-relaxed mb-6">
+              Professional financial analysis with sentiment tracking, 
+              price predictions, and market insights for 
+              <span className="text-[#a099d8] font-medium"> cryptocurrencies</span>, 
+              <span className="text-[#cf30aa] font-medium"> stocks</span>, 
+              <span className="text-[#a099d8] font-medium"> forex</span>, and 
+              <span className="text-[#cf30aa] font-medium"> commodities</span>.
+            </p>
+            
             <div className="space-y-4">
               <p className="text-[#a099d8] text-lg">
                 Get started with institutional-grade market intelligence
@@ -399,17 +381,38 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          )}
-        </div>
-        
-        {/* Centered Search Form */}
-        <div className="w-full max-w-3xl">
+          </div>
+        )}
+
+        {/* Welcome message for logged in users */}
+        {isSubscribed && (
+          <>
+            <div className="text-center mb-4">
+              <RotatingCategories />
+            </div>
+          <div className="text-center mb-8 max-w-4xl mx-auto">
+            <div className="flex flex-col items-center">
+              <div className="flex items-center text-sm text-gray-400">
+                <svg className="w-4 h-4 mr-2 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                Premium subscriber - {user?.email}
+              </div>
+            </div>
+          </div>
+          </>
+        )}
+      </main>
+      
+      {/* Fixed Search Form at Bottom - Same position as analysis page */}
+      <div className="fixed bottom-20 left-0 w-full flex justify-center px-4 z-15">
+        <div className="w-full max-w-3xl floating-search-bar py-6">
           <SearchForm 
             onSubscribeClick={() => openSubscriptionModal()}
             isSubscribed={isSubscribed} 
           />
         </div>
-      </main>
+      </div>
       
       {/* Subscription Modal */}
       <SubscriptionModal 
@@ -419,7 +422,7 @@ export default function Home() {
       />
       
       {/* News Ticker at the bottom */}
-      <div className="fixed bottom-0 left-0 w-full z-10">
+      <div className="fixed bottom-0 left-0 w-full z-50">
         <NewsCarousel 
           accounts={["business", "bitcoin", "crypto", "economics", "markets", "solana", "koynlabs", "koyn_ai"]} 
         />
