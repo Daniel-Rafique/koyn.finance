@@ -144,6 +144,12 @@
     "currency": "USD"
   },
   {
+    "symbol": "^US30",
+    "name": "Dow Jones U.S. 30 Index",
+    "exchange": "NASDAQ",
+    "currency": "USD"
+  },
+  {
     "symbol": "^GSPTSE",
     "name": "S&P/TSX Composite Index",
     "exchange": "TSX",
