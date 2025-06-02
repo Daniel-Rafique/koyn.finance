@@ -2150,6 +2150,51 @@ function LightweightChart({
 
             console.log("Setting chart data with", finalValidData.length, "valid points")
             candlestickSeries.setData(finalValidData)
+            
+            // Set initial visible range immediately to show recent data without animation
+            if (timeframe !== "1D" && finalValidData.length > 0) {
+              const dataLength = finalValidData.length
+              let visibleDataPoints = 50
+
+              // Adjust visible points based on timeframe
+              switch (timeframe) {
+                case "1m":
+                  visibleDataPoints = 60
+                  break
+                case "5m":
+                  visibleDataPoints = 72
+                  break
+                case "15m":
+                  visibleDataPoints = 64
+                  break
+                case "30m":
+                  visibleDataPoints = 48
+                  break
+                case "1H":
+                  visibleDataPoints = 48
+                  break
+                case "4H":
+                  visibleDataPoints = 42
+                  break
+              }
+
+              const startIndex = Math.max(0, dataLength - visibleDataPoints)
+              const endIndex = dataLength - 1
+
+              if (startIndex < endIndex && finalValidData[startIndex] && finalValidData[endIndex]) {
+                const startTime = finalValidData[startIndex].time
+                const endTime = finalValidData[endIndex].time
+
+                if (typeof startTime === "number" && typeof endTime === "number" && 
+                    isFinite(startTime) && isFinite(endTime) && startTime <= endTime) {
+                  chart.timeScale().setVisibleRange({
+                    from: startTime,
+                    to: endTime,
+                  })
+                  console.log(`Set initial visible range for ${timeframe}: ${startTime} to ${endTime}`)
+                }
+              }
+            }
           } else {
             throw new Error("All candlestick data points were invalid after ultra-safe filtering")
           }
@@ -2909,15 +2954,27 @@ function LightweightChart({
         // Fit content to show all data first
         chart.timeScale().fitContent()
 
+        // For 1D timeframe, ensure we show all data properly
+        if (timeframe === "1D") {
+          chart.timeScale().fitContent()
+        }
+
         // Then apply default zoom to show recent data clearly
         setTimeout(() => {
           if (candlestickData.length > 0) {
             try {
               const dataLength = candlestickData.length
-              // Show last 50-100 data points depending on timeframe
+              
+              // For 1D timeframe, just use fitContent to show all data without animation
+              if (timeframe === "1D") {
+                chart.timeScale().fitContent()
+                return
+              }
+              
+              // For intraday timeframes, show recent data immediately
               let visibleDataPoints = 50
 
-              // Adjust visible points based on timeframe
+              // Adjust visible points based on timeframe to show relevant recent data
               switch (timeframe) {
                 case "1m":
                   visibleDataPoints = 60 // Show last hour for 1-minute data
@@ -2937,9 +2994,6 @@ function LightweightChart({
                 case "4H":
                   visibleDataPoints = 42 // Show last week for 4-hour data
                   break
-                case "1D":
-                  visibleDataPoints = 30 // Show last month for daily data
-                  break
               }
 
               // Ensure we don't try to show more data than we have
@@ -2952,26 +3006,7 @@ function LightweightChart({
 
                 // Enhanced time validation and correction
                 const validateAndCorrectTimeRange = () => {
-                  if (typeof startTime === "string" && typeof endTime === "string") {
-                    // Both are date strings (daily data)
-                    const startDate = new Date(startTime)
-                    const endDate = new Date(endTime)
-
-                    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-                      console.warn("Invalid date strings in time range")
-                      return false
-                    }
-
-                    // If start is after end, swap them
-                    if (startDate > endDate) {
-                      console.log("Swapping date range: start was after end")
-                      const temp = startTime
-                      startTime = endTime
-                      endTime = temp
-                    }
-
-                    return true
-                  } else if (typeof startTime === "number" && typeof endTime === "number") {
+                  if (typeof startTime === "number" && typeof endTime === "number") {
                     // Both are Unix timestamps (intraday data)
                     if (!isFinite(startTime) || !isFinite(endTime)) {
                       console.warn("Invalid timestamp values in time range")
@@ -2992,12 +3027,12 @@ function LightweightChart({
                     return true
                   }
 
-                  console.warn("Mixed time types in range validation")
+                  console.warn("Non-numeric time types for intraday data")
                   return false
                 }
 
                 if (validateAndCorrectTimeRange()) {
-                  console.log(`Setting visible range from ${startTime} to ${endTime}`)
+                  console.log(`Setting visible range for ${timeframe} from ${startTime} to ${endTime}`)
                   chart.timeScale().setVisibleRange({
                     from: startTime,
                     to: endTime,
@@ -3015,7 +3050,7 @@ function LightweightChart({
               chart.timeScale().fitContent()
             }
           }
-        }, 100) // Small delay to ensure chart is fully rendered
+        }, 50) // Reduced delay for faster initial display
 
         // Handle resize
         const handleResize = () => {
