@@ -1301,10 +1301,10 @@ const getNewsMaxAgeByAssetType = (assetType) => {
               "GBP/USD": "GBPUSD",
               USDJPY: "USDJPY",
               "USD/JPY": "USDJPY",
-              US30: "^US30",
-              "US30USD": "^US30",
-              "US30/USD": "^US30",
-              "US30/US": "^US30",
+              US30: "DJI",
+              "US30USD": "DJI",
+              "US30/USD": "DJI",
+              "US30/US": "DJI",
             }
   
             if (normalizations[normalized]) {
