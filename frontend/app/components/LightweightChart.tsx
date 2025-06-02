@@ -2210,26 +2210,60 @@ function LightweightChart({
                 const startTime = finalValidData[startIndex].time
                 const endTime = finalValidData[endIndex].time
 
-                // Set visible range immediately for professional appearance
-                if (
-                  typeof startTime === "number" &&
-                  typeof endTime === "number" &&
-                  isFinite(startTime) &&
-                  isFinite(endTime) &&
-                  startTime <= endTime
-                ) {
-                  chart.timeScale().setVisibleRange({
-                    from: startTime,
-                    to: endTime,
-                  })
-                  console.log(`Set professional visible range for ${timeframe}: showing ${visibleDataPoints} candles`)
-                } else if (typeof startTime === "string" && typeof endTime === "string") {
-                  chart.timeScale().setVisibleRange({
-                    from: startTime,
-                    to: endTime,
-                  })
-                  console.log(`Set professional visible range for ${timeframe}: showing ${visibleDataPoints} candles`)
+                // Enhanced validation to prevent null value errors
+                try {
+                  if (
+                    startTime !== null &&
+                    startTime !== undefined &&
+                    endTime !== null &&
+                    endTime !== undefined &&
+                    startTime !== "" &&
+                    endTime !== "" &&
+                    startTime !== "Invalid Date" &&
+                    endTime !== "Invalid Date"
+                  ) {
+                    // Set visible range immediately for professional appearance
+                    if (
+                      typeof startTime === "number" &&
+                      typeof endTime === "number" &&
+                      isFinite(startTime) &&
+                      isFinite(endTime) &&
+                      startTime > 0 &&
+                      endTime > 0 &&
+                      startTime <= endTime
+                    ) {
+                      chart.timeScale().setVisibleRange({
+                        from: startTime,
+                        to: endTime,
+                      })
+                      console.log(`Set professional visible range for ${timeframe}: showing ${visibleDataPoints} candles`)
+                    } else if (
+                      typeof startTime === "string" &&
+                      typeof endTime === "string" &&
+                      startTime.length > 0 &&
+                      endTime.length > 0 &&
+                      startTime <= endTime
+                    ) {
+                      chart.timeScale().setVisibleRange({
+                        from: startTime,
+                        to: endTime,
+                      })
+                      console.log(`Set professional visible range for ${timeframe}: showing ${visibleDataPoints} candles`)
+                    } else {
+                      console.warn("Invalid time range values, using fitContent:", { startTime, endTime })
+                      chart.timeScale().fitContent()
+                    }
+                  } else {
+                    console.warn("Null or invalid time values detected, using fitContent:", { startTime, endTime })
+                    chart.timeScale().fitContent()
+                  }
+                } catch (rangeError) {
+                  console.warn("Error setting visible range, falling back to fitContent:", rangeError)
+                  chart.timeScale().fitContent()
                 }
+              } else {
+                console.log("Invalid indices or data points, using fitContent")
+                chart.timeScale().fitContent()
               }
             }
 
