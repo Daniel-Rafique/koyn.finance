@@ -40,14 +40,26 @@ const ChartSkeleton = ({
     const barCount = 50
     const containerWidth = typeof width === "string" ? 600 : Number(width)
     const containerHeight = typeof height === "string" ? 400 : Number(height)
-    const barWidth = Math.max(4, containerWidth / barCount - 2)
+    
+    // Calculate available width for bars (subtract padding from both sides)
+    const leftPadding = 20
+    const rightPadding = 20
+    const availableWidth = containerWidth - leftPadding - rightPadding
+    
+    // Calculate bar width and spacing to fill the entire available width
+    const totalSpacing = (barCount - 1) * 2 // 2px gap between bars
+    const barWidth = Math.max(4, (availableWidth - totalSpacing) / barCount)
+    const actualSpacing = barCount > 1 ? (availableWidth - (barWidth * barCount)) / (barCount - 1) : 0
+    
     const maxBarHeight = containerHeight * 0.6
 
     for (let i = 0; i < barCount; i++) {
       const isAnimated = i === animatedBars || i === (animatedBars + 1) % barCount
       const baseHeight = 20 + Math.random() * maxBarHeight
       const barHeight = isAnimated ? baseHeight * 1.2 : baseHeight
-      const x = i * (barWidth + 2) + 20
+      
+      // Position bars to fill the entire available width
+      const x = leftPadding + i * (barWidth + actualSpacing)
       const y = containerHeight - barHeight - 60
 
       bars.push(
