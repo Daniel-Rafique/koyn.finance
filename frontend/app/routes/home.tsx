@@ -339,7 +339,7 @@ export default function Home() {
         
         {/* Loading skeleton while authentication is being verified */}
         {contextLoading && (
-          <div className="text-center mb-8 max-w-4xl mx-auto animate-pulse">
+          <div className="text-center mb-8 max-w-5xl mx-auto animate-pulse">
             {/* Skeleton for rotating categories text */}
             <div className="mb-4">
               <div className="h-16 md:h-20 lg:h-24 bg-gray-800 rounded-lg mb-4 mx-auto w-3/4"></div>
