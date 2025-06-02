@@ -337,9 +337,36 @@ export default function Home() {
           </div>
         )}
         
+        {/* Loading skeleton while authentication is being verified */}
+        {contextLoading && (
+          <div className="text-center mb-8 max-w-4xl mx-auto animate-pulse">
+            {/* Skeleton for header */}
+            <div className="mb-6">
+              <div className="h-12 md:h-16 lg:h-20 bg-gray-800 rounded-lg mb-4 mx-auto w-3/4"></div>
+              <div className="h-12 md:h-16 lg:h-20 bg-gray-800 rounded-lg mb-6 mx-auto w-2/3"></div>
+            </div>
+            
+            {/* Skeleton for description */}
+            <div className="space-y-3 mb-6">
+              <div className="h-6 bg-gray-800 rounded mx-auto w-full"></div>
+              <div className="h-6 bg-gray-800 rounded mx-auto w-5/6"></div>
+              <div className="h-6 bg-gray-800 rounded mx-auto w-4/5"></div>
+            </div>
+            
+            {/* Skeleton for subtitle */}
+            <div className="h-6 bg-gray-800 rounded mx-auto w-1/2 mb-4"></div>
+            
+            {/* Skeleton for features */}
+            <div className="flex flex-wrap justify-center gap-4">
+              <div className="h-6 bg-gray-800 rounded w-32"></div>
+              <div className="h-6 bg-gray-800 rounded w-36"></div>
+              <div className="h-6 bg-gray-800 rounded w-32"></div>
+            </div>
+          </div>
+        )}
         
-        {/* Page Header - Only show when NOT logged in */}
-        {!isSubscribed && (
+        {/* Page Header - Only show when NOT logged in and not loading */}
+        {!contextLoading && !isSubscribed && (
           <div className="text-center mb-8 max-w-4xl mx-auto">            
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
               Realtime <span className="text-[#a099d8]">Market</span>
@@ -384,22 +411,22 @@ export default function Home() {
           </div>
         )}
 
-        {/* Welcome message for logged in users */}
-        {isSubscribed && (
+        {/* Welcome message for logged in users - Only show when not loading */}
+        {!contextLoading && isSubscribed && (
           <>
             <div className="text-center mb-4">
               <RotatingCategories />
             </div>
-          <div className="text-center mb-8 max-w-4xl mx-auto">
-            <div className="flex flex-col items-center">
-              <div className="flex items-center text-sm text-gray-400">
-                <svg className="w-4 h-4 mr-2 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Premium subscriber - {user?.email}
+            <div className="text-center mb-8 max-w-4xl mx-auto">
+              <div className="flex flex-col items-center">
+                <div className="flex items-center text-sm text-gray-400">
+                  <svg className="w-4 h-4 mr-2 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Premium subscriber - {user?.email}
+                </div>
               </div>
             </div>
-          </div>
           </>
         )}
       </main>
