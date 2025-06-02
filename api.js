@@ -1159,6 +1159,13 @@ const getNewsMaxAgeByAssetType = (assetType) => {
         indicesList.forEach((index) => {
           allAssetSymbols.add(index.symbol.toUpperCase())
           symbolToAssetMap.set(index.symbol.toUpperCase(), { symbol: index.symbol, type: "index", name: index.name })
+          
+          // Also add the version without caret prefix for better matching
+          if (index.symbol.startsWith('^')) {
+            const cleanSymbol = index.symbol.substring(1).toUpperCase()
+            allAssetSymbols.add(cleanSymbol)
+            symbolToAssetMap.set(cleanSymbol, { symbol: index.symbol, type: "index", name: index.name })
+          }
         })
   
         // Load forex
@@ -1223,6 +1230,14 @@ const getNewsMaxAgeByAssetType = (assetType) => {
         /\b(sp500|s&p500|spy|spx)\b/gi,
         /\b(nasdaq|qqq|ndx)\b/gi,
         /\b(dow|dji|dia)\b/gi,
+        /\b(nasdaq100|ndx100)\b/gi,
+        /\b(us30|dji)\b/gi,
+        /\b(sp400|spx400)\b/gi,
+        /\b(sp600|spx600)\b/gi,
+        /\b(sp100|spx100)\b/gi,
+        /\b(sp200|spx200)\b/gi,
+        /\b(sp500|spx500)\b/gi,
+        /\b(sp1000|spx1000)\b/gi,
         /\b(eurusd|eur\/usd|gbpusd|gbp\/usd|usdjpy|usd\/jpy)\b/gi,
   
         // PRIORITY 2: Direct symbol matches from our asset databases
@@ -1286,6 +1301,10 @@ const getNewsMaxAgeByAssetType = (assetType) => {
               "GBP/USD": "GBPUSD",
               USDJPY: "USDJPY",
               "USD/JPY": "USDJPY",
+              US30: "DJI",
+              "US30USD": "DJI",
+              "US30/USD": "DJI",
+              "US30/US": "DJI",
             }
   
             if (normalizations[normalized]) {
@@ -1821,7 +1840,16 @@ const getNewsMaxAgeByAssetType = (assetType) => {
         })
   
         const content = geminiResponse.data.candidates[0]?.content?.parts[0]?.text || ""
-        const detectedAsset = JSON.parse(content)
+        
+        // Clean the content if it's wrapped in markdown code blocks
+        let cleanContent = content.trim()
+        if (cleanContent.startsWith('```json')) {
+          cleanContent = cleanContent.replace(/^```json\s*/, '').replace(/\s*```$/, '')
+        } else if (cleanContent.startsWith('```')) {
+          cleanContent = cleanContent.replace(/^```\s*/, '').replace(/\s*```$/, '')
+        }
+        
+        const detectedAsset = JSON.parse(cleanContent)
         console.log("Gemini detected asset:", detectedAsset)
   
         if (detectedAsset && detectedAsset.symbol) {

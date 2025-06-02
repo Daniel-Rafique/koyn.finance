@@ -24,7 +24,7 @@ const popoverStyles = `
   
   .tweet-popover {
     position: fixed;
-    z-index: 9999;
+    z-index: 999999;
     background-color: #000000;
     border: 1px solid rgba(255, 255, 255, 0.5);
     border-radius: 0.5rem;
