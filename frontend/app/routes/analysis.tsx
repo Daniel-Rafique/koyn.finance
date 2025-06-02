@@ -848,18 +848,18 @@ function AnalysisContent() {
                 <span className="text-[#a099d8]">{query.charAt(0).toUpperCase() + query.slice(1)}</span> Analysis
               </>
             ) : (
-              <>AI Market <span className="text-[#a099d8]">Analysis</span></>
+              <>Market <span className="text-[#a099d8]">Analysis</span></>
             )}
           </h1>
           <p className="text-gray-300 text-lg md:text-xl leading-relaxed">
             {query ? (
               <>
-                Comprehensive AI-powered analysis with real-time market sentiment, 
+                Analysis with real-time market sentiment, 
                 price predictions, and news insights for <span className="text-[#cf30aa] font-medium">{query}</span>.
               </>
             ) : (
               <>
-                Professional AI-powered financial intelligence with real-time sentiment tracking, 
+                Financial intelligence with real-time sentiment tracking, 
                 price predictions, and comprehensive market insights for cryptocurrencies, stocks, forex, and commodities.
               </>
             )}
