@@ -386,6 +386,10 @@ export default function Home() {
 
         {/* Welcome message for logged in users */}
         {isSubscribed && (
+          <>
+            <div className="text-center mb-8">
+              <RotatingCategories />
+            </div>
           <div className="text-center mb-8 max-w-4xl mx-auto">
             <div className="flex flex-col items-center">
               <p className="text-[#a099d8] text-lg mb-4">
@@ -399,13 +403,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-        )}
-
-        {/* Rotating categories display for subscribed users */}
-        {isSubscribed && isClientMounted && (
-          <div className="text-center mb-8">
-            <RotatingCategories />
-          </div>
+          </>
         )}
       </main>
       
