@@ -13,12 +13,12 @@ export default function Nav({ onSubscribeClick }: NavProps) {
         <div className="nav-item flex items-center">
           <a href={Routes.HOME} className="flex items-center">
             <img
-              className="site-logo h-8 rounded-md object-cover h-8 w-auto mr-2"
+              className="site-logo h-8 rounded-md object-cover h-8 w-auto mr-1"
               src="/logo.jpg"
               alt="Koyn.Finance"
             />
             <span className="site-name text-lg font-semibold text-white">
-              <span className="text-xs">finance</span>
+              <span className="text-xs">beta</span>
             </span>
           </a>
         </div>

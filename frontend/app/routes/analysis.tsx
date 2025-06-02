@@ -18,23 +18,39 @@ export const meta = ({ location }: { location: { search: string } }) => {
   const query = searchParams.get("q");
 
   if (query) {
+    // Specific search query - dynamic title and description
+    const cleanQuery = query.charAt(0).toUpperCase() + query.slice(1);
     return [
-      { title: `Analysis: ${query} - koyn.finance` },
+      { title: `${cleanQuery} Analysis & Market Insights | koyn.finance` },
       {
         name: "description",
-        content: `AI-powered financial analysis and market sentiment for ${query}. Get real-time insights, price trends, and social sentiment analysis.`,
+        content: `Comprehensive AI-powered analysis for ${cleanQuery}. Get real-time market sentiment, price predictions, technical analysis, and news insights. Professional-grade financial intelligence powered by advanced algorithms.`,
       },
+      { name: "keywords", content: `${cleanQuery}, market analysis, financial insights, AI trading, sentiment analysis, price prediction, crypto analysis, stock analysis` },
       { name: "robots", content: "noindex, nofollow" }, // Don't index specific searches
+      { property: "og:title", content: `${cleanQuery} Analysis | koyn.finance` },
+      { property: "og:description", content: `AI-powered market analysis and insights for ${cleanQuery}` },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: `${cleanQuery} Analysis | koyn.finance` },
+      { name: "twitter:description", content: `AI-powered market analysis for ${cleanQuery}` },
     ];
   }
 
+  // General analysis page
   return [
-    { title: "Market Analysis - koyn.finance" },
+    { title: "AI Market Analysis & Financial Intelligence | koyn.finance" },
     {
       name: "description",
-      content:
-        "AI-powered financial market analysis with real-time sentiment tracking, price predictions, and comprehensive market insights for cryptocurrencies and stocks.",
+      content: "Professional AI-powered financial market analysis with real-time sentiment tracking, price predictions, and comprehensive insights for cryptocurrencies, stocks, forex, and commodities. Advanced algorithms deliver institutional-grade market intelligence.",
     },
+    { name: "keywords", content: "market analysis, AI trading, financial intelligence, sentiment analysis, price prediction, crypto analysis, stock market, forex trading, commodity analysis, financial insights" },
+    { property: "og:title", content: "AI Market Analysis | koyn.finance" },
+    { property: "og:description", content: "Professional AI-powered financial market analysis and intelligence platform" },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: "AI Market Analysis | koyn.finance" },
+    { name: "twitter:description", content: "Professional AI-powered financial market analysis platform" },
   ];
 };
 
@@ -152,6 +168,8 @@ function AnalysisContent() {
   const [isScrolling, setIsScrolling] = useState(false);
   const [isHoveringSearch, setIsHoveringSearch] = useState(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastScrollY = useRef(0);
+  const scrollDirection = useRef<'up' | 'down' | null>(null);
 
   const query = searchParams.get("q");
 
@@ -747,6 +765,71 @@ function AnalysisContent() {
     }
   }, [showHistoryDropdown]);
 
+  // Add scroll event listener for search form transparency
+  useEffect(() => {
+    if (!isClientMounted) return;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const scrollDelta = currentScrollY - lastScrollY.current;
+      
+      // Only react to significant scroll movements (prevents jitter)
+      if (Math.abs(scrollDelta) < 5) return;
+      
+      // Determine scroll direction
+      if (scrollDelta > 0) {
+        scrollDirection.current = 'down';
+      } else if (scrollDelta < 0) {
+        scrollDirection.current = 'up';
+      }
+      
+      lastScrollY.current = currentScrollY;
+      
+      // Clear existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      // Set scrolling state
+      setIsScrolling(true);
+      
+      // Update opacity based on scroll direction and hover state
+      if (scrollDirection.current === 'down' && !isHoveringSearch) {
+        setSearchOpacity(0.3); // More transparent when scrolling down
+      } else if (scrollDirection.current === 'up' || isHoveringSearch) {
+        setSearchOpacity(1); // Fully visible when scrolling up or hovering
+      }
+      
+      // Reset scrolling state after a delay
+      scrollTimeoutRef.current = setTimeout(() => {
+        setIsScrolling(false);
+        if (!isHoveringSearch) {
+          setSearchOpacity(1); // Return to full opacity when not scrolling
+        }
+      }, 150);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [isClientMounted, isHoveringSearch]);
+
+  // Reset search opacity when hovering changes
+  useEffect(() => {
+    if (isHoveringSearch) {
+      setSearchOpacity(1);
+    } else if (!isScrolling) {
+      setSearchOpacity(1);
+    } else if (scrollDirection.current === 'down') {
+      setSearchOpacity(0.3);
+    }
+  }, [isHoveringSearch, isScrolling]);
+
   return (
     <div className="min-h-screen bg-[rgb(0,0,0)] overflow-y-auto">
       <Nav />
@@ -757,6 +840,37 @@ function AnalysisContent() {
       ></canvas>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10 min-h-[calc(100vh-160px)] flex flex-col pb-32">
+        {/* Page Header */}
+        <div className="text-center mb-8 max-w-4xl mx-auto">
+          <h1 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            {query ? (
+              <>
+                <span className="text-[#a099d8]">{query.charAt(0).toUpperCase() + query.slice(1)}</span> Analysis
+              </>
+            ) : (
+              <>AI Market <span className="text-[#a099d8]">Analysis</span></>
+            )}
+          </h1>
+          <p className="text-gray-300 text-lg md:text-xl leading-relaxed">
+            {query ? (
+              <>
+                Comprehensive AI-powered analysis with real-time market sentiment, 
+                price predictions, and news insights for <span className="text-[#cf30aa] font-medium">{query}</span>.
+              </>
+            ) : (
+              <>
+                Professional AI-powered financial intelligence with real-time sentiment tracking, 
+                price predictions, and comprehensive market insights for cryptocurrencies, stocks, forex, and commodities.
+              </>
+            )}
+          </p>
+          {!query && (
+            <p className="text-[#a099d8] text-sm mt-2">
+              Use the search form below to get started with your market analysis
+            </p>
+          )}
+        </div>
+
         {isFirstLoad &&
         isLoading &&
         (!currentEntry || !currentEntry.results) ? (
@@ -856,15 +970,16 @@ function AnalysisContent() {
                       )}
                     </div>
 
-                    <h1 className="text-xl font-medium text-white">
-                      Results for:{" "}
-                      <span
-                        className="font-bold break-words"
-                        title={currentEntry.query}
-                      >
-                        {truncateQuery(currentEntry.query, 60)}
-                      </span>
-                    </h1>
+                    {/* Navigation Summary */}
+                    <div className="text-sm text-gray-400">
+                      {resultsArray.length > 1 ? (
+                        <span>
+                          {currentIndex + 1} of {resultsArray.length} searches
+                        </span>
+                      ) : (
+                        <span>Current analysis</span>
+                      )}
+                    </div>
                   </div>
 
                   {/* History Controls */}
@@ -895,13 +1010,13 @@ function AnalysisContent() {
                     {/* History Dropdown */}
                     {showHistoryDropdown && (
                       <div
-                        className="fixed right-auto mt-2 w-64 bg-[rgb(13,10,33)] rounded-md shadow-lg z-[99999] transition-all duration-200 ease-out history-dropdown"
+                        className="fixed right-auto mt-2 w-64 bg-[rgb(13,10,33)] rounded-md shadow-lg z-[500] transition-all duration-200 ease-out history-dropdown"
                         style={{
                           top: "auto",
                           position: "absolute",
                           right: 0,
                           boxShadow: "0 4px 20px rgba(0, 0, 0, 0.8)",
-                          zIndex: 99999,
+                          zIndex: 500,
                           opacity: dropdownAnimation.opacity,
                           transform: dropdownAnimation.transform,
                         }}
@@ -1172,7 +1287,15 @@ function AnalysisContent() {
         )}
       </main>
 
-      <div className="fixed bottom-20 left-0 w-full flex justify-center px-4 z-20">
+      <div 
+        className="fixed bottom-20 left-0 w-full flex justify-center px-4 transition-opacity duration-300 ease-in-out"
+        style={{ 
+          zIndex: 15, // Lower than NewsCarousel tooltip (999999) 
+          opacity: searchOpacity 
+        }}
+        onMouseEnter={() => setIsHoveringSearch(true)}
+        onMouseLeave={() => setIsHoveringSearch(false)}
+      >
         <div className="w-full max-w-3xl floating-search-bar py-6">
           <SearchForm
             onSubscribeClick={() => {
@@ -1185,7 +1308,7 @@ function AnalysisContent() {
           />
         </div>
       </div>
-      <div className="fixed bottom-0 left-0 w-full z-10 bg-black">
+      <div className="fixed bottom-0 left-0 w-full z-50 bg-black">
         <NewsCarousel 
           accounts={["business", "bitcoin", "crypto", "economics", "markets", "solana", "koynlabs", "koyn_ai"]} 
         />

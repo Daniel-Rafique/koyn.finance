@@ -14,8 +14,22 @@ import RotatingCategories from "../components/RotatingCategories";
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Koyn - Financial Analysis for Crypto, Stocks, and more" },
-    { name: "description", content: "Get real-time insights on cryptocurrencies and financial markets" },
+    { title: "Koyn.finance - Professional AI Market Analysis & Financial Intelligence" },
+    { 
+      name: "description", 
+      content: "Professional AI-powered financial market analysis with real-time sentiment tracking, price predictions, and comprehensive insights for cryptocurrencies, stocks, forex, and commodities. Get institutional-grade market intelligence." 
+    },
+    { name: "keywords", content: "AI market analysis, cryptocurrency analysis, stock market insights, financial intelligence, sentiment analysis, price prediction, trading signals, market research, crypto trading, financial data" },
+    { property: "og:title", content: "Koyn.finance - AI Market Analysis & Financial Intelligence" },
+    { property: "og:description", content: "Professional AI-powered financial market analysis platform with real-time insights for crypto, stocks, and more" },
+    { property: "og:type", content: "website" },
+    { property: "og:url", content: "https://koyn.finance" },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: "Koyn.finance - AI Market Analysis" },
+    { name: "twitter:description", content: "Professional AI-powered financial analysis platform" },
+    { name: "robots", content: "index, follow" },
+    { name: "author", content: "Koyn.finance" },
+    { name: "viewport", content: "width=device-width, initial-scale=1" },
   ];
 }
 
@@ -329,6 +343,64 @@ export default function Home() {
             <RotatingCategories />
           </div>
         )}
+        
+        {/* Page Header */}
+        <div className="text-center mb-8 max-w-4xl mx-auto">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+            Realtime <span className="text-[#a099d8]">Market</span>
+            <br />
+            <span className="text-[#cf30aa]">Intelligence</span>
+          </h1>
+          
+          <p className="text-gray-300 text-lg md:text-xl lg:text-2xl leading-relaxed mb-6">
+            Professional financial analysis with real-time sentiment tracking, 
+            price predictions, and comprehensive market insights for 
+            <span className="text-[#a099d8] font-medium"> cryptocurrencies</span>, 
+            <span className="text-[#cf30aa] font-medium"> stocks</span>, 
+            <span className="text-[#a099d8] font-medium"> forex</span>, and 
+            <span className="text-[#cf30aa] font-medium"> commodities</span>.
+          </p>
+          
+          {isSubscribed ? (
+            <div className="flex flex-col items-center">
+              <p className="text-[#a099d8] text-lg mb-4">
+                Welcome back! Ready for your next analysis?
+              </p>
+              <div className="flex items-center text-sm text-gray-400">
+                <svg className="w-4 h-4 mr-2 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                Premium subscriber - {user?.email}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-[#a099d8] text-lg">
+                Get started with institutional-grade market intelligence
+              </p>
+              <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-400">
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 mr-1 text-[#a099d8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Real-time Analysis
+                </div>
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 mr-1 text-[#cf30aa]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Sentiment Tracking
+                </div>
+                <div className="flex items-center">
+                  <svg className="w-4 h-4 mr-1 text-[#a099d8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                  </svg>
+                  Price Predictions
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
         
         {/* Centered Search Form */}
         <div className="w-full max-w-3xl">
