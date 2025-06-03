@@ -377,9 +377,6 @@ export default function Home() {
             </p>
             
             <div className="space-y-4">
-              <p className="text-[#a099d8] text-lg">
-                Get started with institutional-grade market intelligence
-              </p>
               <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-400">
                 <div className="flex items-center">
                   <svg className="w-4 h-4 mr-1 text-[#a099d8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
