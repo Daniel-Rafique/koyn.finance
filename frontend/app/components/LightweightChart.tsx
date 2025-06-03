@@ -1787,7 +1787,7 @@ function LightweightChart({
           })
 
           if (retryCount < maxRetries - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 200)) // Wait 200ms before retry
+            await new Promise((resolve) => setTimeout(resolve, 500)) // Wait 200ms before retry
           }
           retryCount++
         }
@@ -3003,7 +3003,7 @@ function LightweightChart({
               chart.timeScale().fitContent()
             }
           }
-        }, 100) // Small delay to ensure chart is fully rendered
+        }, 500) // Small delay to ensure chart is fully rendered
 
         // Handle resize
         const handleResize = () => {
@@ -3043,7 +3043,7 @@ function LightweightChart({
           const cleanup = await initializeChart()
           resizeCleanup = cleanup || null
           resolve()
-        }, 100)
+        }, 500)
       })
     }
 
