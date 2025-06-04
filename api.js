@@ -6207,3 +6207,65 @@ const getCryptoPrice = async (asset) => {
     return null;
   }
 };
+
+// Enhanced subscription validation endpoint
+app.get('/api/user/access', rateLimitMiddleware, (req, res) => {
+  try {
+    const subscriptionId = getSubscriptionId(req);
+    
+    if (!subscriptionId) {
+      return res.status(401).json({ 
+        error: 'No subscription ID provided',
+        hasAccess: false,
+        isSubscribed: false
+      });
+    }
+
+    const isActive = isSubscriptionActive(subscriptionId);
+    const userEmail = req.query.email || req.headers['x-user-email'];
+    const isUserSubscribed = isSubscribed(userEmail, subscriptionId);
+
+    res.json({
+      hasAccess: isActive && isUserSubscribed,
+      isSubscribed: isUserSubscribed,
+      isActive: isActive,
+      subscriptionId: subscriptionId,
+      email: userEmail
+    });
+  } catch (error) {
+    console.error('Error in user access endpoint:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      hasAccess: false,
+      isSubscribed: false
+    });
+  }
+});
+
+// FMP API Key endpoint for WebSocket connections
+app.get('/api/fmp-key', rateLimitMiddleware, (req, res) => {
+  try {
+    // Return FMP API key for WebSocket connections (no authentication required for streaming)
+    const fmpApiKey = process.env.FMP_API_KEY || process.env.FINANCIAL_MODELING_PREP_API_KEY;
+    
+    if (!fmpApiKey) {
+      console.error('FMP API key not found in environment variables');
+      return res.status(500).json({ 
+        error: 'WebSocket streaming temporarily unavailable',
+        apiKey: null
+      });
+    }
+
+    res.json({
+      apiKey: fmpApiKey,
+      streaming: true
+    });
+
+  } catch (error) {
+    console.error('Error in FMP API key endpoint:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      apiKey: null
+    });
+  }
+});

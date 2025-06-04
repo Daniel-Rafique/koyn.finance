@@ -275,6 +275,20 @@ interface LineData {
   value: number
 }
 
+// WebSocket message types
+interface WebSocketPriceData {
+  s: string // symbol
+  t: number // timestamp (nanoseconds for stocks, milliseconds for crypto/forex)
+  type: string // "Q" for quote, "T" for trade
+  ap?: number // ask price
+  as?: number // ask size
+  bp?: number // bid price
+  bs?: number // bid size
+  lp?: number // last price
+  ls?: number // last size
+  e?: string // exchange (crypto only)
+}
+
 type Timeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D"
 
 const getSubscriptionId = () => {
@@ -296,6 +310,98 @@ const getSubscriptionId = () => {
     console.warn("Error reading legacy subscription data:", error)
   }
   return null
+}
+
+// Asset type detection for WebSocket endpoints
+const detectAssetType = (symbol: string): 'stock' | 'crypto' | 'forex' | 'unknown' => {
+  if (!symbol) return 'unknown'
+  
+  const upperSymbol = symbol.toUpperCase()
+  
+  // Crypto detection
+  if (
+    upperSymbol.endsWith('USD') ||
+    upperSymbol.endsWith('USDT') ||
+    upperSymbol.endsWith('BTC') ||
+    upperSymbol.endsWith('ETH') ||
+    upperSymbol.includes('BTC') ||
+    upperSymbol.includes('ETH') ||
+    upperSymbol === 'BTCUSD' ||
+    upperSymbol === 'ETHUSD'
+  ) {
+    return 'crypto'
+  }
+  
+  // Forex detection (6-character pairs like EURUSD, GBPJPY)
+  if (/^[A-Z]{6}$/.test(upperSymbol) && upperSymbol.length === 6) {
+    const firstCurrency = upperSymbol.slice(0, 3)
+    const secondCurrency = upperSymbol.slice(3, 6)
+    const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD', 'SEK', 'NOK', 'DKK']
+    
+    if (currencies.includes(firstCurrency) && currencies.includes(secondCurrency)) {
+      return 'forex'
+    }
+  }
+  
+  // Default to stock for everything else
+  return 'stock'
+}
+
+// Get appropriate WebSocket URL based on asset type
+const getWebSocketUrl = (assetType: 'stock' | 'crypto' | 'forex' | 'unknown'): string => {
+  switch (assetType) {
+    case 'crypto':
+      return 'wss://crypto.financialmodelingprep.com'
+    case 'forex':
+      return 'wss://forex.financialmodelingprep.com'
+    case 'stock':
+    default:
+      return 'wss://websockets.financialmodelingprep.com'
+  }
+}
+
+// Convert symbol for WebSocket subscription
+const getWebSocketSymbol = (symbol: string, assetType: 'stock' | 'crypto' | 'forex' | 'unknown'): string => {
+  if (!symbol) return symbol
+  
+  const lowerSymbol = symbol.toLowerCase()
+  
+  switch (assetType) {
+    case 'crypto':
+      // For crypto, keep as is but ensure lowercase
+      return lowerSymbol
+    case 'forex':
+      // For forex, keep as is but ensure lowercase
+      return lowerSymbol
+    case 'stock':
+    default:
+      // For stocks, ensure lowercase
+      return lowerSymbol
+  }
+}
+
+// Get FMP API key from backend
+const getFMPApiKey = async (): Promise<string | null> => {
+  try {
+    const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3001" : "https://koyn.finance:3001"
+    const response = await fetch(`${baseUrl}/api/fmp-key`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      return data.apiKey || null
+    }
+    
+    console.warn('Failed to get FMP API key from backend')
+    return null
+  } catch (error) {
+    console.error('Error fetching FMP API key:', error)
+    return null
+  }
 }
 
 // Enhanced validation function for volume data points
@@ -355,6 +461,16 @@ function LightweightChart({
   const williamsSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const adxSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
 
+  // WebSocket related refs and state
+  const wsRef = useRef<WebSocket | null>(null)
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false)
+  const [lastPrice, setLastPrice] = useState<number | null>(null)
+  const [priceChange, setPriceChange] = useState<number>(0)
+  const [wsReconnectAttempts, setWsReconnectAttempts] = useState(0)
+  const maxReconnectAttempts = 5
+
   // Get auth context for secure token access
   const { getSecureAccessToken } = useAuth()
 
@@ -393,6 +509,252 @@ function LightweightChart({
   const [activeIndicators, setActiveIndicators] = useState<string[]>([])
   const [showIndicators, setShowIndicators] = useState(false)
   const [indicatorPanelPosition, setIndicatorPanelPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // Real-time streaming state - automatically enable for supported configurations
+  const [enableStreaming, setEnableStreaming] = useState(false)
+
+  // Detect asset type for current symbol
+  const detectedAssetType = assetType || detectAssetType(symbol)
+
+  // Check if streaming should be enabled (only for real-time timeframes)
+  const canStream = ['1m', '5m'].includes(timeframe) && ['stock', 'crypto', 'forex'].includes(detectedAssetType)
+
+  // Automatically enable streaming when conditions are met
+  useEffect(() => {
+    if (canStream) {
+      setEnableStreaming(true)
+      console.log(`Auto-enabling streaming for ${detectedAssetType} ${symbol} on ${timeframe} timeframe`)
+    } else {
+      setEnableStreaming(false)
+      console.log(`Streaming not available for ${detectedAssetType} ${symbol} on ${timeframe} timeframe`)
+    }
+  }, [canStream, detectedAssetType, symbol, timeframe])
+
+  // WebSocket connection management
+  const connectWebSocket = async () => {
+    if (!canStream) {
+      console.log('WebSocket streaming not available for current configuration', {
+        canStream,
+        timeframe,
+        detectedAssetType
+      })
+      return
+    }
+
+    try {
+      // Get API key from backend
+      const apiKey = await getFMPApiKey()
+      if (!apiKey) {
+        console.warn('No FMP API key available for WebSocket streaming')
+        return
+      }
+
+      // Close existing connection
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
+      }
+
+      const wsUrl = getWebSocketUrl(detectedAssetType as any)
+      const wsSymbol = getWebSocketSymbol(symbol, detectedAssetType as any)
+
+      console.log(`Auto-connecting to WebSocket: ${wsUrl} for symbol: ${wsSymbol}`)
+
+      const ws = new WebSocket(wsUrl)
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        console.log(`WebSocket auto-connected for ${detectedAssetType}: ${wsSymbol}`)
+        setIsWebSocketConnected(true)
+        setWsReconnectAttempts(0)
+
+        // Send login message
+        const loginMessage = {
+          event: 'login',
+          data: {
+            apiKey: apiKey
+          }
+        }
+        ws.send(JSON.stringify(loginMessage))
+
+        // Send subscribe message
+        const subscribeMessage = {
+          event: 'subscribe',
+          data: {
+            ticker: wsSymbol
+          }
+        }
+        ws.send(JSON.stringify(subscribeMessage))
+
+        // Set up ping interval to keep connection alive
+        pingIntervalRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ event: 'ping' }))
+          }
+        }, 30000) // Ping every 30 seconds
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const data: WebSocketPriceData = JSON.parse(event.data)
+          handleWebSocketData(data)
+        } catch (error) {
+          console.warn('Error parsing WebSocket message:', error)
+        }
+      }
+
+      ws.onclose = (event) => {
+        console.log(`WebSocket closed for ${detectedAssetType}: ${wsSymbol}`, event.code, event.reason)
+        setIsWebSocketConnected(false)
+
+        // Clear ping interval
+        if (pingIntervalRef.current) {
+          clearInterval(pingIntervalRef.current)
+          pingIntervalRef.current = null
+        }
+
+        // Attempt to reconnect if not intentionally closed and we haven't exceeded max attempts
+        if (event.code !== 1000 && wsReconnectAttempts < maxReconnectAttempts && canStream) {
+          const delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts), 10000) // Exponential backoff, max 10s
+          console.log(`Attempting to reconnect WebSocket in ${delay}ms (attempt ${wsReconnectAttempts + 1}/${maxReconnectAttempts})`)
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            setWsReconnectAttempts(prev => prev + 1)
+            connectWebSocket()
+          }, delay)
+        }
+      }
+
+      ws.onerror = (error) => {
+        console.error(`WebSocket error for ${detectedAssetType}:`, error)
+      }
+
+    } catch (error) {
+      console.error('Error connecting to WebSocket:', error)
+    }
+  }
+
+  // Handle incoming WebSocket price data
+  const handleWebSocketData = (data: WebSocketPriceData) => {
+    if (!data || data.s?.toLowerCase() !== symbol.toLowerCase()) {
+      return // Ignore data for other symbols
+    }
+
+    console.log('Received WebSocket data:', data)
+
+    // Extract price from the message
+    let currentPrice: number | undefined
+
+    if (data.type === 'Q') {
+      // Quote message - use last price or mid price
+      if (data.lp !== undefined) {
+        currentPrice = data.lp
+      } else if (data.ap !== undefined && data.bp !== undefined) {
+        currentPrice = (data.ap + data.bp) / 2 // Mid price
+      } else if (data.ap !== undefined) {
+        currentPrice = data.ap
+      } else if (data.bp !== undefined) {
+        currentPrice = data.bp
+      }
+    } else if (data.type === 'T') {
+      // Trade message - use last price
+      currentPrice = data.lp
+    }
+
+    if (currentPrice !== undefined && currentPrice > 0) {
+      // Update price state
+      if (lastPrice !== null) {
+        setPriceChange(currentPrice - lastPrice)
+      }
+      setLastPrice(currentPrice)
+
+      // Update chart with real-time price
+      updateChartWithRealTimePrice(currentPrice, data.t)
+    }
+  }
+
+  // Update chart with real-time price data
+  const updateChartWithRealTimePrice = (price: number, timestamp: number) => {
+    if (!candlestickSeriesRef.current) return
+
+    try {
+      // Convert timestamp to chart time format
+      let chartTime: Time
+
+      if (detectedAssetType === 'stock') {
+        // Stock timestamps are in nanoseconds, convert to seconds
+        chartTime = Math.floor(timestamp / 1000000000) as Time
+      } else {
+        // Crypto/forex timestamps are in milliseconds, convert to seconds
+        chartTime = Math.floor(timestamp / 1000) as Time
+      }
+
+      // For real-time updates, we can add a new candlestick or update the last one
+      // This is a simplified approach - in a production system, you'd want to aggregate
+      // the price updates into proper OHLC candlesticks based on the timeframe
+
+      const newCandle: CandlestickData = {
+        time: chartTime,
+        open: price,
+        high: price,
+        low: price,
+        close: price
+      }
+
+      // Update the chart (this will add a new point)
+      candlestickSeriesRef.current.update(newCandle)
+
+      console.log(`Updated chart with real-time price: ${price} at ${chartTime}`)
+    } catch (error) {
+      console.warn('Error updating chart with real-time price:', error)
+    }
+  }
+
+  // Disconnect WebSocket
+  const disconnectWebSocket = () => {
+    console.log('Disconnecting WebSocket')
+
+    // Clear reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+    }
+
+    // Clear ping interval
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current)
+      pingIntervalRef.current = null
+    }
+
+    // Close WebSocket
+    if (wsRef.current) {
+      wsRef.current.close(1000, 'Intentional disconnect')
+      wsRef.current = null
+    }
+
+    setIsWebSocketConnected(false)
+    setWsReconnectAttempts(0)
+  }
+
+  // Effect to manage WebSocket connection based on streaming settings
+  useEffect(() => {
+    if (enableStreaming && canStream) {
+      connectWebSocket()
+    } else {
+      disconnectWebSocket()
+    }
+
+    return () => {
+      disconnectWebSocket()
+    }
+  }, [enableStreaming, symbol, timeframe, detectedAssetType])
+
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      disconnectWebSocket()
+    }
+  }, [])
 
   // Memoized values for cache management
   const getCacheExpirationMs = (tf: Timeframe): number => {
@@ -552,15 +914,15 @@ function LightweightChart({
         }
       }
 
-      const data = await response.json()
-      if (!data || (!data.data && !Array.isArray(data))) {
+      const responseData = await response.json()
+      if (!responseData || (!responseData.data && !Array.isArray(responseData))) {
         throw new Error("Invalid data format received")
       }
 
       // Validate that we have usable data before caching
       let hasValidData = false
-      if (data.format === "eod" && Array.isArray(data.data) && data.data.length > 0) {
-        hasValidData = data.data.some(
+      if (responseData.format === "eod" && Array.isArray(responseData.data) && responseData.data.length > 0) {
+        hasValidData = responseData.data.some(
           (item: any) =>
             item &&
             typeof item.open === "number" &&
@@ -569,12 +931,12 @@ function LightweightChart({
             typeof item.close === "number",
         )
       } else if (
-        data.data &&
-        data.data.datasets &&
-        data.data.datasets[0]?.ohlc &&
-        data.data.datasets[0].ohlc.length > 0
+        responseData.data &&
+        responseData.data.datasets &&
+        responseData.data.datasets[0]?.ohlc &&
+        responseData.data.datasets[0].ohlc.length > 0
       ) {
-        hasValidData = data.data.datasets[0].ohlc.some(
+        hasValidData = responseData.data.datasets[0].ohlc.some(
           (item: any) =>
             item &&
             typeof item.open === "number" &&
@@ -582,12 +944,12 @@ function LightweightChart({
             typeof item.low === "number" &&
             typeof item.close === "number",
         )
-      } else if (data.data && data.data.datasets && data.data.datasets[0]?.data && data.data.labels) {
+      } else if (responseData.data && responseData.data.datasets && responseData.data.datasets[0]?.data && responseData.data.labels) {
         // Validate line chart data format (single price values that can be converted to candlestick)
         hasValidData =
-          data.data.datasets[0].data.length > 0 &&
-          data.data.datasets[0].data.some((price: any) => typeof price === "number" && price > 0) &&
-          data.data.labels.length === data.data.datasets[0].data.length
+          responseData.data.datasets[0].data.length > 0 &&
+          responseData.data.datasets[0].data.some((price: any) => typeof price === "number" && price > 0) &&
+          responseData.data.labels.length === responseData.data.datasets[0].data.length
       }
 
       if (!hasValidData) {
@@ -595,17 +957,17 @@ function LightweightChart({
       }
 
       console.log(`Successfully fetched chart data for ${symbol} ${tf}:`, {
-        dataType: typeof data,
-        hasData: !!data.data,
-        format: data.format,
-        dataLength: data.data ? (Array.isArray(data.data) ? data.data.length : "not array") : "no data",
+        dataType: typeof responseData,
+        hasData: !!responseData.data,
+        format: responseData.format,
+        dataLength: responseData.data ? (Array.isArray(responseData.data) ? responseData.data.length : "not array") : "no data",
         hasValidOHLC: hasValidData,
       })
 
       // Cache the validated data
-      setCachedData(tf, data)
+      setCachedData(tf, responseData)
 
-      return data
+      return responseData
     } catch (error) {
       console.error(`Error fetching ${tf} data for ${symbol}:`, error)
       throw error
@@ -3312,6 +3674,40 @@ function LightweightChart({
           alignItems: "center",
         }}
       >
+        {/* Live Price Display - shown when streaming is active */}
+        {enableStreaming && lastPrice !== null && (
+          <div style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "8px",
+            padding: "4px 8px",
+            fontSize: "12px",
+            background: "#1a1a1a",
+            border: "1px solid #333",
+            borderRadius: "4px",
+            color: "#fff"
+          }}>
+            <span style={{ 
+              width: "6px", 
+              height: "6px", 
+              borderRadius: "50%", 
+              background: isWebSocketConnected ? "#46A758" : "#E5484D",
+              animation: isWebSocketConnected ? "pulse 2s infinite" : "none"
+            }} />
+            <span style={{ color: "#888", fontSize: "10px" }}>LIVE</span>
+            <span style={{ color: "#888" }}>$</span>
+            <span style={{ fontWeight: "bold" }}>{lastPrice.toFixed(2)}</span>
+            {priceChange !== 0 && (
+              <span style={{ 
+                color: priceChange > 0 ? "#46A758" : "#E5484D",
+                fontSize: "10px"
+              }}>
+                {priceChange > 0 ? '+' : ''}{priceChange.toFixed(2)}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Timeframe Buttons */}
         <div style={{ display: "flex", gap: "5px" }}>
           {(["1m", "5m", "15m", "30m", "1H", "4H", "1D"] as Timeframe[]).map((tf) => {
@@ -3319,33 +3715,14 @@ function LightweightChart({
             let isDisabled = false
 
             // Auto-detect asset type if not provided
-            let detectedAssetType = assetType
-            if (!detectedAssetType && symbol) {
-              // Auto-detect crypto assets from symbol
-              if (
-                symbol.endsWith("USD") ||
-                symbol.endsWith("USDT") ||
-                symbol.includes("BTC") ||
-                symbol.includes("ETH")
-              ) {
-                detectedAssetType = "crypto"
-              }
-              // Auto-detect forex pairs
-              else if (/^[A-Z]{3}[A-Z]{3}$/.test(symbol)) {
-                detectedAssetType = "forex"
-              }
-              // Default to stock if not detected
-              else {
-                detectedAssetType = "stock"
-              }
-            }
+            let currentDetectedAssetType = detectedAssetType
 
             // Apply timeframe restrictions based on asset type
             if (
-              detectedAssetType === "crypto" ||
-              detectedAssetType === "forex" ||
-              detectedAssetType === "commodity" ||
-              detectedAssetType === "index"
+              currentDetectedAssetType === "crypto" ||
+              currentDetectedAssetType === "forex" ||
+              currentDetectedAssetType === "commodity" ||
+              currentDetectedAssetType === "index"
             ) {
               // These asset types only support: 1min, 5min, 1hour, 1D
               isDisabled = !["1m", "5m", "1H", "1D"].includes(tf)
@@ -3353,6 +3730,8 @@ function LightweightChart({
               // Stock asset type supports all timeframes: 1min, 5min, 15min, 30min, 1hour, 4hour, 1D
               isDisabled = false
             }
+
+            const isStreamingTimeframe = ['1m', '5m'].includes(tf)
 
             return (
               <button
@@ -3369,14 +3748,29 @@ function LightweightChart({
                   cursor: isDisabled ? "not-allowed" : "pointer",
                   transition: "all 0.2s",
                   opacity: isDisabled ? 0.5 : 1,
+                  position: "relative",
                 }}
                 title={
                   isDisabled
-                    ? `${tf} timeframe is not supported for ${detectedAssetType || "this"} assets`
+                    ? `${tf} timeframe is not supported for ${currentDetectedAssetType || "this"} assets`
+                    : isStreamingTimeframe
+                    ? `${tf} timeframe with live streaming`
                     : `Switch to ${tf} timeframe`
                 }
               >
                 {tf}
+                {isStreamingTimeframe && (
+                  <span style={{
+                    position: "absolute",
+                    top: "-2px",
+                    right: "-2px",
+                    width: "4px",
+                    height: "4px",
+                    borderRadius: "50%",
+                    background: "#46A758",
+                    fontSize: "6px"
+                  }} />
+                )}
               </button>
             )
           })}
@@ -3680,6 +4074,42 @@ function LightweightChart({
         </div>
       </div>
 
+      {/* Connection Status Display */}
+      {enableStreaming && !lastPrice && (
+        <div
+          style={{
+            position: "absolute",
+            top: "10px",
+            right: "10px",
+            zIndex: 1000,
+            fontSize: "11px",
+            color: "#888",
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "4px 8px",
+            background: "#1a1a1a",
+            border: "1px solid #333",
+            borderRadius: "4px",
+          }}
+        >
+          <span style={{ 
+            width: "6px", 
+            height: "6px", 
+            borderRadius: "50%", 
+            background: isWebSocketConnected ? "#46A758" : "#E5484D",
+            animation: isWebSocketConnected ? "pulse 2s infinite" : "none"
+          }} />
+          <span>{isWebSocketConnected ? 'Streaming' : 'Connecting...'}</span>
+          <span style={{ 
+            fontSize: "8px",
+            color: "#666"
+          }}>
+            {detectedAssetType.toUpperCase()}
+          </span>
+        </div>
+      )}
+
       {isLoading && <ChartSkeleton height={height} width={width} symbol={symbol} timeframe={timeframe} />}
       <div
         ref={chartContainerRef}
@@ -3689,6 +4119,20 @@ function LightweightChart({
           background: "#000000",
         }}
       />
+
+      {/* CSS Animation for streaming indicator */}
+      <style>
+        {`
+          @keyframes pulse {
+            0%, 100% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.5;
+            }
+          }
+        `}
+      </style>
     </div>
   )
 }
