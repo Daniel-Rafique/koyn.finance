@@ -6243,7 +6243,7 @@ app.get('/api/user/access', rateLimitMiddleware, (req, res) => {
 });
 
 // FMP API Key endpoint for WebSocket connections
-app.get('/api/fmp-key', rateLimitMiddleware, (req, res) => {
+app.get('/api/fmp-key', (req, res) => {
   try {
     // Return FMP API key for WebSocket connections (no authentication required for streaming)
     const fmpApiKey = process.env.FMP_API_KEY || process.env.FINANCIAL_MODELING_PREP_API_KEY;
