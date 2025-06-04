@@ -673,40 +673,157 @@ function LightweightChart({
     }
   }
 
+  // State for tracking current candle formation
+  const [currentCandle, setCurrentCandle] = useState<CandlestickData | null>(null)
+  const [currentCandleStartTime, setCurrentCandleStartTime] = useState<number | null>(null)
+
+  // Get the timeframe interval in milliseconds
+  const getTimeframeMs = (tf: Timeframe): number => {
+    switch (tf) {
+      case "1m": return 60 * 1000
+      case "5m": return 5 * 60 * 1000
+      case "15m": return 15 * 60 * 1000
+      case "30m": return 30 * 60 * 1000
+      case "1H": return 60 * 60 * 1000
+      case "4H": return 4 * 60 * 60 * 1000
+      case "1D": return 24 * 60 * 60 * 1000
+      default: return 60 * 1000
+    }
+  }
+
+  // Get the start time for the current timeframe period
+  const getTimeframePeriodStart = (timestamp: number, tf: Timeframe): number => {
+    const date = new Date(timestamp)
+    
+    switch (tf) {
+      case "1m":
+        date.setSeconds(0, 0)
+        return date.getTime()
+      case "5m":
+        const minutes5 = Math.floor(date.getMinutes() / 5) * 5
+        date.setMinutes(minutes5, 0, 0)
+        return date.getTime()
+      case "15m":
+        const minutes15 = Math.floor(date.getMinutes() / 15) * 15
+        date.setMinutes(minutes15, 0, 0)
+        return date.getTime()
+      case "30m":
+        const minutes30 = Math.floor(date.getMinutes() / 30) * 30
+        date.setMinutes(minutes30, 0, 0)
+        return date.getTime()
+      case "1H":
+        date.setMinutes(0, 0, 0)
+        return date.getTime()
+      case "4H":
+        const hours4 = Math.floor(date.getHours() / 4) * 4
+        date.setHours(hours4, 0, 0, 0)
+        return date.getTime()
+      case "1D":
+        date.setHours(0, 0, 0, 0)
+        return date.getTime()
+      default:
+        date.setSeconds(0, 0)
+        return date.getTime()
+    }
+  }
+
   // Update chart with real-time price data
   const updateChartWithRealTimePrice = (price: number, timestamp: number) => {
     if (!candlestickSeriesRef.current) return
 
     try {
-      // Convert timestamp to chart time format
-      let chartTime: Time
-
+      // Convert timestamp based on asset type
+      let chartTimestamp: number
       if (detectedAssetType === 'stock') {
-        // Stock timestamps are in nanoseconds, convert to seconds
-        chartTime = Math.floor(timestamp / 1000000000) as Time
+        // Stock timestamps are in nanoseconds, convert to milliseconds
+        chartTimestamp = Math.floor(timestamp / 1000000)
       } else {
-        // Crypto/forex timestamps are in milliseconds, convert to seconds
-        chartTime = Math.floor(timestamp / 1000) as Time
+        // Crypto/forex timestamps are in milliseconds
+        chartTimestamp = timestamp
       }
 
-      // For real-time updates, we can add a new candlestick or update the last one
-      // This is a simplified approach - in a production system, you'd want to aggregate
-      // the price updates into proper OHLC candlesticks based on the timeframe
+      console.log('📊 Updating chart with real-time price:', {
+        price,
+        originalTimestamp: timestamp,
+        chartTimestamp,
+        timeframe,
+        assetType: detectedAssetType
+      })
 
-      const newCandle: CandlestickData = {
-        time: chartTime,
-        open: price,
-        high: price,
-        low: price,
-        close: price
+      // Get the current timeframe period start
+      const periodStart = getTimeframePeriodStart(chartTimestamp, timeframe)
+      const chartTime = Math.floor(periodStart / 1000) as Time // Convert to seconds for chart
+
+      console.log('🕐 Timeframe period calculation:', {
+        periodStart: new Date(periodStart).toISOString(),
+        chartTime,
+        currentCandleStartTime,
+        isNewPeriod: currentCandleStartTime !== periodStart
+      })
+
+      // Check if we're in a new timeframe period
+      if (currentCandleStartTime !== periodStart) {
+        console.log('🆕 Starting new candle period')
+        
+        // Starting a new candle period
+        const newCandle: CandlestickData = {
+          time: chartTime,
+          open: price,
+          high: price,
+          low: price,
+          close: price
+        }
+
+        setCurrentCandle(newCandle)
+        setCurrentCandleStartTime(periodStart)
+        
+        // Update the chart with the new candle
+        candlestickSeriesRef.current.update(newCandle)
+        
+        console.log('📈 Created new candle:', newCandle)
+      } else if (currentCandle) {
+        console.log('🔄 Updating existing candle')
+        
+        // Update the existing candle for the current period
+        const updatedCandle: CandlestickData = {
+          time: chartTime,
+          open: currentCandle.open, // Keep original open
+          high: Math.max(currentCandle.high, price), // Update high
+          low: Math.min(currentCandle.low, price), // Update low
+          close: price // Update close to current price
+        }
+
+        setCurrentCandle(updatedCandle)
+        
+        // Update the chart with the modified candle
+        candlestickSeriesRef.current.update(updatedCandle)
+        
+        console.log('📊 Updated candle:', {
+          original: currentCandle,
+          updated: updatedCandle,
+          priceChange: price - currentCandle.open
+        })
+      } else {
+        console.log('🚀 Initializing first candle')
+        
+        // Initialize the first candle if currentCandle is null
+        const newCandle: CandlestickData = {
+          time: chartTime,
+          open: price,
+          high: price,
+          low: price,
+          close: price
+        }
+
+        setCurrentCandle(newCandle)
+        setCurrentCandleStartTime(periodStart)
+        candlestickSeriesRef.current.update(newCandle)
+        
+        console.log('🎯 Initialized first candle:', newCandle)
       }
 
-      // Update the chart (this will add a new point)
-      candlestickSeriesRef.current.update(newCandle)
-
-      console.log(`Updated chart with real-time price: ${price} at ${chartTime}`)
     } catch (error) {
-      console.warn('Error updating chart with real-time price:', error)
+      console.warn('❌ Error updating chart with real-time price:', error)
     }
   }
 
@@ -736,11 +853,20 @@ function LightweightChart({
     setWsReconnectAttempts(0)
   }
 
+  // Reset current candle state when timeframe changes
+  useEffect(() => {
+    console.log('⏰ Timeframe changed to:', timeframe, '- Resetting candle state')
+    setCurrentCandle(null)
+    setCurrentCandleStartTime(null)
+  }, [timeframe])
+
   // Effect to manage WebSocket connection based on streaming settings
   useEffect(() => {
     if (enableStreaming && canStream) {
+      console.log('🔌 Connecting WebSocket for real-time candle painting')
       connectWebSocket()
     } else {
+      console.log('🔌 Disconnecting WebSocket')
       disconnectWebSocket()
     }
 
@@ -3705,6 +3831,58 @@ function LightweightChart({
                 {priceChange > 0 ? '+' : ''}{priceChange.toFixed(2)}
               </span>
             )}
+            {currentCandle && (
+              <span style={{ 
+                fontSize: "8px", 
+                color: "#666",
+                marginLeft: "4px"
+              }}>
+                O:{currentCandle.open.toFixed(2)} H:{currentCandle.high.toFixed(2)} L:{currentCandle.low.toFixed(2)}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Connection Status Display - moved to left and enhanced with debugging */}
+        {enableStreaming && (
+          <div
+            style={{
+              position: "absolute",
+              top: "10px",
+              left: "10px",
+              zIndex: 999,
+              fontSize: "11px",
+              color: "#888",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "4px 8px",
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: "4px",
+              marginTop: lastPrice !== null ? "40px" : "0px", // Offset if live price is showing
+            }}
+          >
+            <span style={{ 
+              width: "6px", 
+              height: "6px", 
+              borderRadius: "50%", 
+              background: isWebSocketConnected ? "#46A758" : "#E5484D",
+              animation: isWebSocketConnected ? "pulse 2s infinite" : "none"
+            }} />
+            <span>
+              {isWebSocketConnected 
+                ? `Streaming ${detectedAssetType.toUpperCase()}` 
+                : wsReconnectAttempts > 0 
+                  ? `Reconnecting... (${wsReconnectAttempts}/${maxReconnectAttempts})`
+                  : 'Connecting...'
+              }
+            </span>
+            {lastPrice !== null && (
+              <span style={{ fontSize: "9px", color: "#666" }}>
+                {symbol.toUpperCase()}
+              </span>
+            )}
           </div>
         )}
 
@@ -4073,42 +4251,6 @@ function LightweightChart({
           )}
         </div>
       </div>
-
-      {/* Connection Status Display */}
-      {enableStreaming && !lastPrice && (
-        <div
-          style={{
-            position: "absolute",
-            top: "10px",
-            right: "10px",
-            zIndex: 1000,
-            fontSize: "11px",
-            color: "#888",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "4px 8px",
-            background: "#1a1a1a",
-            border: "1px solid #333",
-            borderRadius: "4px",
-          }}
-        >
-          <span style={{ 
-            width: "6px", 
-            height: "6px", 
-            borderRadius: "50%", 
-            background: isWebSocketConnected ? "#46A758" : "#E5484D",
-            animation: isWebSocketConnected ? "pulse 2s infinite" : "none"
-          }} />
-          <span>{isWebSocketConnected ? 'Streaming' : 'Connecting...'}</span>
-          <span style={{ 
-            fontSize: "8px",
-            color: "#666"
-          }}>
-            {detectedAssetType.toUpperCase()}
-          </span>
-        </div>
-      )}
 
       {isLoading && <ChartSkeleton height={height} width={width} symbol={symbol} timeframe={timeframe} />}
       <div
