@@ -2313,11 +2313,11 @@ function LightweightChart({
             // Add a small buffer to the end time for smoother appearance
             const bufferMs = 24 * 60 * 60 * 1000 * 0.1 // 10% of a day
             const bufferedEndDate = new Date(endDate.getTime() + bufferMs)
-            endTime = bufferedEndDate.toISOString().split("T")[0] as Time
+            const bufferedEndTime = bufferedEndDate.toISOString().split("T")[0] as Time
 
             chartRef.current.timeScale().setVisibleRange({
               from: startTime,
-              to: endTime,
+              to: bufferedEndTime,
             })
           } else {
             chartRef.current.timeScale().fitContent()
@@ -2328,7 +2328,7 @@ function LightweightChart({
             // Add a small buffer to the end time for smoother appearance
             const timeframeMs = getTimeframeMs(timeframe)
             const buffer = Math.floor(timeframeMs / 1000) * 2 // 2 candles worth of buffer
-            const bufferedEndTime = endTime + buffer
+            const bufferedEndTime = (endTime + buffer) as Time
 
             chartRef.current.timeScale().setVisibleRange({
               from: startTime,
