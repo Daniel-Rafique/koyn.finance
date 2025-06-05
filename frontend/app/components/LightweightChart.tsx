@@ -255,6 +255,7 @@ interface LightweightChartProps {
   chartData?: any // The chart data from the sentiment payload (initial daily data)
   height?: number | string
   width?: number | string
+  isPublicSharedView?: boolean // Add new prop
 }
 
 interface CandlestickData {
@@ -439,6 +440,7 @@ function LightweightChart({
   chartData,
   height = "100%",
   width = "100%",
+  isPublicSharedView = false, // Provide default value
 }: LightweightChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -947,6 +949,13 @@ function LightweightChart({
       console.log("🔄 Attempting to get secure access token...")
       const accessToken = await getSecureAccessToken()
       console.log("🎫 getSecureAccessToken result:", accessToken ? `${accessToken.substring(0, 20)}...` : "null")
+
+      // If it's a public shared view and no tokens are found, prevent fetching
+      const legacySubId = getSubscriptionId()
+      if (isPublicSharedView && !accessToken && !legacySubId) {
+        console.warn("Public shared view: Halting fetchChartData due to no authentication.")
+        throw new Error("Chart data fetching disabled for unauthenticated public views.")
+      }
 
       const headers: any = {}
 
@@ -1989,6 +1998,13 @@ function LightweightChart({
     try {
       // Get authentication using secure method
       const accessToken = await getSecureAccessToken()
+      
+      const legacySubId = getSubscriptionId()
+      if (isPublicSharedView && !accessToken && !legacySubId) {
+        console.warn("Public shared view: Skipping fetchTechnicalIndicators due to no authentication.")
+        return null; // Do not fetch if public and no auth
+      }
+
       const headers: any = {}
 
       if (accessToken) {
@@ -2069,6 +2085,13 @@ function LightweightChart({
     try {
       // Get authentication using secure method
       const accessToken = await getSecureAccessToken()
+      
+      const legacySubId = getSubscriptionId()
+      if (isPublicSharedView && !accessToken && !legacySubId) {
+        console.warn(`Public shared view: Skipping fetchSpecificIndicator (${indicatorType}) due to no authentication.`)
+        return null; // Do not fetch if public and no auth
+      }
+
       const headers: any = {}
 
       if (accessToken) {

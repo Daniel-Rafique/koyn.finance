@@ -153,7 +153,6 @@ export default function SharedAnalysis() {
           {/* Description */}
           <p className="text-gray-300 text-lg md:text-xl leading-relaxed mb-4">
             Financial intelligence and market insights shared by the koyn.finance community. 
-            Explore comprehensive analysis with real-time sentiment tracking and price predictions.
           </p>
           
           {/* Share Info */}
@@ -198,6 +197,7 @@ export default function SharedAnalysis() {
               // Redirect to home page with subscription focus
               window.location.href = "/?subscribe=true"
             }}
+            isPublicSharedView={true}
           />
         </div>
 

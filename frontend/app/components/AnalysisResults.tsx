@@ -52,9 +52,10 @@ interface AnalysisResultsProps {
   result: AnalysisResult;
   onSubscribeClick: () => void;
   news?: NewsItem[];
+  isPublicSharedView?: boolean;
 }
 
-const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeClick, news }) => {
+const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeClick, news, isPublicSharedView }) => {
   // Handle subscription context safely - it might not be available on shared pages
   let subscriptionStatus = 'inactive';
   let userEmail = null;
@@ -722,6 +723,7 @@ const AnalysisResults: React.FC<AnalysisResultsProps> = ({ result, onSubscribeCl
               symbol={result.asset.symbol}
               assetType={result.asset.type}
               chartData={result.chart}
+              isPublicSharedView={isPublicSharedView}
             />
           </div>
         ) : (
