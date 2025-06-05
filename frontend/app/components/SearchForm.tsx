@@ -310,6 +310,7 @@ export default function SearchForm({
                   spellCheck="false"
                   data-form-type="other"
                   disabled={isRateLimited}
+                  maxLength={140}
                 />
 
                 {/* Tooltip for rate limited state - shows on input hover */}
