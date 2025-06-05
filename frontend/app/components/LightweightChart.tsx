@@ -4022,7 +4022,6 @@ function LightweightChart({
                   marginLeft: "4px",
                 }}
               >
-                O:{currentCandle.open.toFixed(2)} H:{currentCandle.high.toFixed(2)} L:{currentCandle.low.toFixed(2)}
               </span>
             )}
           </div>
