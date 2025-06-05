@@ -406,34 +406,6 @@ const getFMPApiKey = async (): Promise<string | null> => {
   }
 }
 
-// Enhanced validation function for volume data points
-const isValidVolumePoint = (item: any, timeframe: Timeframe): boolean => {
-  if (!item || typeof item !== "object") return false
-
-  // Validate time field
-  const hasValidTime =
-    item.time &&
-    // For daily data: string timestamps (YYYY-MM-DD)
-    ((timeframe === "1D" && typeof item.time === "string" && item.time.length > 0 && item.time !== "Invalid Date") ||
-      // For intraday data: numeric timestamps (Unix timestamps)
-      (timeframe !== "1D" && typeof item.time === "number" && isFinite(item.time) && item.time > 0))
-
-  // Validate volume value
-  const hasValidValue =
-    typeof item.value === "number" &&
-    !isNaN(item.value) &&
-    isFinite(item.value) &&
-    item.value > 0 &&
-    item.value !== null &&
-    item.value !== undefined
-
-  // Validate color
-  const hasValidColor =
-    typeof item.color === "string" && item.color.length > 0 && item.color !== null && item.color !== undefined
-
-  return hasValidTime && hasValidValue && hasValidColor
-}
-
 function LightweightChart({
   symbol = "BTCUSD",
   assetType,
@@ -486,10 +458,10 @@ function LightweightChart({
   const [isDataReady, setIsDataReady] = useState(false) // New state to track data readiness
 
   // Indicator state variables
-  const [showVolume, setShowVolume] = useState(true)
+  const [showVolume, setShowVolume] = useState(false)
   const [showSMA20, setShowSMA20] = useState(true)
   const [showSMA50, setShowSMA50] = useState(true)
-  const [showRSI, setShowRSI] = useState(false)
+  const [showRSI, setShowRSI] = useState(true)
   const [showMACD, setShowMACD] = useState(false)
   const [showEMA20, setShowEMA20] = useState(false)
   const [showEMA50, setShowEMA50] = useState(false)
