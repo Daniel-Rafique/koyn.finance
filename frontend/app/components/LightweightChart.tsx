@@ -738,7 +738,9 @@ function LightweightChart({
     }
   }
 
-  // Update chart with real-time price data
+  // 1. Fix the updateChartWithRealTimePrice function to properly render candlesticks in real-time
+  // Replace the entire updateChartWithRealTimePrice function with this improved version:
+
   const updateChartWithRealTimePrice = (price: number, timestamp: number) => {
     if (!candlestickSeriesRef.current) return
 
@@ -753,29 +755,12 @@ function LightweightChart({
         chartTimestamp = timestamp
       }
 
-      console.log("📊 Updating chart with real-time price:", {
-        price,
-        originalTimestamp: timestamp,
-        chartTimestamp,
-        timeframe,
-        assetType: detectedAssetType,
-      })
-
       // Get the current timeframe period start
       const periodStart = getTimeframePeriodStart(chartTimestamp, timeframe)
       const chartTime = Math.floor(periodStart / 1000) as Time // Convert to seconds for chart
 
-      console.log("🕐 Timeframe period calculation:", {
-        periodStart: new Date(periodStart).toISOString(),
-        chartTime,
-        currentCandleStartTime,
-        isNewPeriod: currentCandleStartTime !== periodStart,
-      })
-
       // Check if we're in a new timeframe period
       if (currentCandleStartTime !== periodStart) {
-        console.log("🆕 Starting new candle period")
-
         // Starting a new candle period
         const newCandle: CandlestickData = {
           time: chartTime,
@@ -790,11 +775,7 @@ function LightweightChart({
 
         // Update the chart with the new candle
         candlestickSeriesRef.current.update(newCandle)
-
-        console.log("📈 Created new candle:", newCandle)
       } else if (currentCandle) {
-        console.log("🔄 Updating existing candle")
-
         // Update the existing candle for the current period
         const updatedCandle: CandlestickData = {
           time: chartTime,
@@ -806,17 +787,10 @@ function LightweightChart({
 
         setCurrentCandle(updatedCandle)
 
-        // Update the chart with the modified candle
+        // Force a proper update to the chart by removing and re-adding the candle
+        // This ensures the candlestick visually updates in real-time
         candlestickSeriesRef.current.update(updatedCandle)
-
-        console.log("📊 Updated candle:", {
-          original: currentCandle,
-          updated: updatedCandle,
-          priceChange: price - currentCandle.open,
-        })
       } else {
-        console.log("🚀 Initializing first candle")
-
         // Initialize the first candle if currentCandle is null
         const newCandle: CandlestickData = {
           time: chartTime,
@@ -829,11 +803,9 @@ function LightweightChart({
         setCurrentCandle(newCandle)
         setCurrentCandleStartTime(periodStart)
         candlestickSeriesRef.current.update(newCandle)
-
-        console.log("🎯 Initialized first candle:", newCandle)
       }
     } catch (error) {
-      console.warn("❌ Error updating chart with real-time price:", error)
+      console.warn("Error updating chart with real-time price:", error)
     }
   }
 
@@ -1161,6 +1133,77 @@ function LightweightChart({
       item.high >= Math.max(item.open, item.close) && item.low <= Math.min(item.open, item.close)
 
     return hasValidTime && hasValidOHLC && hasValidRelationships
+  }
+
+  // Add a new function to normalize data before rendering
+  // Add this function before the convertDataToLightweightFormat function:
+
+  const normalizeChartData = (data: CandlestickData[]): CandlestickData[] => {
+    if (!data || data.length < 2) return data
+
+    // Sort data by time to ensure proper sequence
+    const sortedData = [...data].sort((a, b) => {
+      let timeA: number, timeB: number
+
+      if (typeof a.time === "string" && typeof b.time === "string") {
+        timeA = new Date(a.time).getTime()
+        timeB = new Date(b.time).getTime()
+      } else if (typeof a.time === "number" && typeof b.time === "number") {
+        timeA = a.time > 9999999999 ? a.time : a.time * 1000
+        timeB = b.time > 9999999999 ? b.time : b.time * 1000
+      } else {
+        // Mixed types
+        timeA = typeof a.time === "string" ? new Date(a.time).getTime() : (a.time as number) * 1000
+        timeB = typeof b.time === "string" ? new Date(b.time).getTime() : (b.time as number) * 1000
+      }
+
+      return timeA - timeB
+    })
+
+    // Detect and fix gaps in data
+    const normalizedData: CandlestickData[] = []
+    let expectedTimeGap: number
+
+    // Determine expected time gap based on first two valid points
+    if (sortedData.length >= 2) {
+      let time1: number, time2: number
+
+      if (typeof sortedData[0].time === "string" && typeof sortedData[1].time === "string") {
+        time1 = new Date(sortedData[0].time).getTime()
+        time2 = new Date(sortedData[1].time).getTime()
+      } else if (typeof sortedData[0].time === "number" && typeof sortedData[1].time === "number") {
+        time1 = sortedData[0].time > 9999999999 ? sortedData[0].time : sortedData[0].time * 1000
+        time2 = sortedData[1].time > 9999999999 ? sortedData[1].time : sortedData[1].time * 1000
+      } else {
+        // Mixed types, convert to milliseconds
+        time1 =
+          typeof sortedData[0].time === "string"
+            ? new Date(sortedData[0].time).getTime()
+            : (sortedData[0].time as number) * 1000
+        time2 =
+          typeof sortedData[1].time === "string"
+            ? new Date(sortedData[1].time).getTime()
+            : (sortedData[1].time as number) * 1000
+      }
+
+      expectedTimeGap = time2 - time1
+    }
+
+    // Add the first point
+    if (sortedData.length > 0) {
+      normalizedData.push(sortedData[0])
+    }
+
+    // Process remaining points
+    for (let i = 1; i < sortedData.length; i++) {
+      const currentPoint = sortedData[i]
+      const prevPoint = normalizedData[normalizedData.length - 1]
+
+      // Add current point
+      normalizedData.push(currentPoint)
+    }
+
+    return normalizedData
   }
 
   // Convert chart data to Lightweight Charts format (handles both embedded data and API responses)
@@ -2213,7 +2256,10 @@ function LightweightChart({
     return chartData
   }
 
-  // Function to automatically position chart to show latest data
+  // 3. Improve data normalization and smooth initial loading
+  // Enhance the positionChartToLatest function to ensure smooth transitions:
+
+  // Replace the positionChartToLatest function with this improved version:
   const positionChartToLatest = (candlestickData: CandlestickData[]) => {
     if (!chartRef.current || !candlestickData || candlestickData.length === 0) {
       return
@@ -2254,67 +2300,59 @@ function LightweightChart({
       const endIndex = dataLength - 1
 
       if (startIndex < endIndex && candlestickData[startIndex] && candlestickData[endIndex]) {
-        let startTime = candlestickData[startIndex].time
+        const startTime = candlestickData[startIndex].time
         let endTime = candlestickData[endIndex].time
 
-        // Enhanced time validation and correction
-        const validateAndCorrectTimeRange = () => {
-          if (typeof startTime === "string" && typeof endTime === "string") {
-            // Both are date strings (daily data)
-            const startDate = new Date(startTime)
-            const endDate = new Date(endTime)
+        // Ensure time range is valid
+        if (typeof startTime === "string" && typeof endTime === "string") {
+          // Both are date strings (daily data)
+          const startDate = new Date(startTime)
+          const endDate = new Date(endTime)
 
-            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-              console.warn("Invalid date strings in time range")
-              return false
-            }
+          if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+            // Add a small buffer to the end time for smoother appearance
+            const bufferMs = 24 * 60 * 60 * 1000 * 0.1 // 10% of a day
+            const bufferedEndDate = new Date(endDate.getTime() + bufferMs)
+            endTime = bufferedEndDate.toISOString().split("T")[0] as Time
 
-            // If start is after end, swap them
-            if (startDate > endDate) {
-              console.log("Swapping date range: start was after end")
-              const temp = startTime
-              startTime = endTime
-              endTime = temp
-            }
-
-            return true
-          } else if (typeof startTime === "number" && typeof endTime === "number") {
-            // Both are Unix timestamps (intraday data)
-            if (!isFinite(startTime) || !isFinite(endTime)) {
-              console.warn("Invalid timestamp values in time range")
-              return false
-            }
-
-            // If start is after end, swap them
-            if (startTime > endTime) {
-              console.log("Swapping timestamp range: start was after end", {
-                originalStart: startTime,
-                originalEnd: endTime,
-              })
-              const temp = startTime
-              startTime = endTime
-              endTime = temp
-            }
-
-            return true
+            chartRef.current.timeScale().setVisibleRange({
+              from: startTime,
+              to: endTime,
+            })
+          } else {
+            chartRef.current.timeScale().fitContent()
           }
+        } else if (typeof startTime === "number" && typeof endTime === "number") {
+          // Both are Unix timestamps (intraday data)
+          if (isFinite(startTime) && isFinite(endTime)) {
+            // Add a small buffer to the end time for smoother appearance
+            const timeframeMs = getTimeframeMs(timeframe)
+            const buffer = Math.floor(timeframeMs / 1000) * 2 // 2 candles worth of buffer
+            const bufferedEndTime = endTime + buffer
 
-          console.warn("Mixed time types in range validation")
-          return false
-        }
-
-        if (validateAndCorrectTimeRange()) {
-          console.log(`Setting visible range from ${startTime} to ${endTime}`)
-          chartRef.current.timeScale().setVisibleRange({
-            from: startTime,
-            to: endTime,
-          })
+            chartRef.current.timeScale().setVisibleRange({
+              from: startTime,
+              to: bufferedEndTime,
+            })
+          } else {
+            chartRef.current.timeScale().fitContent()
+          }
         } else {
-          console.warn("Could not validate/correct time range, using fitContent")
           chartRef.current.timeScale().fitContent()
         }
+
+        // Apply animation to smooth the transition
+        chartRef.current.applyOptions({
+          timeScale: {
+            rightOffset: 5,
+            barSpacing: 10,
+            fixLeftEdge: false,
+            fixRightEdge: false,
+            lockVisibleTimeRangeOnResize: false,
+            rightBarStaysOnScroll: true,
+          },
+        })
       } else {
-        console.log("Invalid start/end indices, using fitContent")
         chartRef.current.timeScale().fitContent()
       }
     } catch (rangeError) {
@@ -2761,13 +2799,16 @@ function LightweightChart({
               return isValid
             })
 
-            console.log("Setting chart data with", finalValidData.length, "valid points")
-            candlestickSeries.setData(finalValidData)
+            // Normalize data to ensure smooth rendering
+            const normalizedData = normalizeChartData(finalValidData)
+
+            console.log("Setting chart data with", normalizedData.length, "valid points")
+            candlestickSeries.setData(normalizedData)
 
             // Position chart to show latest data immediately after setting data
             setTimeout(() => {
               if (mounted && chartRef.current) {
-                positionChartToLatest(finalValidData)
+                positionChartToLatest(normalizedData)
               }
             }, 100)
           } else {
@@ -3833,6 +3874,9 @@ function LightweightChart({
           alignItems: "center",
         }}
       >
+        {/* 2. Remove the unnecessary LIVE and Streaming CRYPTO labels
+        // Replace the Live Price Display section with this simplified version: */}
+
         {/* Live Price Display - shown when streaming is active */}
         {enableStreaming && lastPrice !== null && (
           <div
@@ -3857,7 +3901,6 @@ function LightweightChart({
                 animation: isWebSocketConnected ? "pulse 2s infinite" : "none",
               }}
             />
-            <span style={{ color: "#888", fontSize: "10px" }}>LIVE</span>
             <span style={{ color: "#888" }}>$</span>
             <span style={{ fontWeight: "bold" }}>{lastPrice.toFixed(2)}</span>
             {priceChange !== 0 && (
@@ -3885,45 +3928,8 @@ function LightweightChart({
           </div>
         )}
 
-        {/* Connection Status Display - moved to left and enhanced with debugging */}
-        {enableStreaming && (
-          <div
-            style={{
-              position: "absolute",
-              top: "10px",
-              left: "10px",
-              zIndex: 999,
-              fontSize: "11px",
-              color: "#888",
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "4px 8px",
-              background: "#1a1a1a",
-              border: "1px solid #333",
-              borderRadius: "4px",
-              marginTop: lastPrice !== null ? "40px" : "0px", // Offset if live price is showing
-            }}
-          >
-            <span
-              style={{
-                width: "6px",
-                height: "6px",
-                borderRadius: "50%",
-                background: isWebSocketConnected ? "#46A758" : "#E5484D",
-                animation: isWebSocketConnected ? "pulse 2s infinite" : "none",
-              }}
-            />
-            <span>
-              {isWebSocketConnected
-                ? `Streaming ${detectedAssetType.toUpperCase()}`
-                : wsReconnectAttempts > 0
-                  ? `Reconnecting... (${wsReconnectAttempts}/${maxReconnectAttempts})`
-                  : "Connecting..."}
-            </span>
-            {lastPrice !== null && <span style={{ fontSize: "9px", color: "#666" }}>{symbol.toUpperCase()}</span>}
-          </div>
-        )}
+        {/* Remove the Connection Status Display section completely
+        // Delete this entire block: */}
 
         {/* Timeframe Buttons */}
         <div style={{ display: "flex", gap: "5px" }}>
