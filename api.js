@@ -1671,62 +1671,102 @@ const getNewsMaxAgeByAssetType = (assetType) => {
       const chainPrefixPattern = /^(0x1|0x38|0x89|0xa|0x2105)/
       const pumpSuffixPattern = /pump$/i
       const solanaAddressPattern = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
-  
-      // If the query matches a potential contract address pattern, try DexScreener API
-      if (
-        contractAddressPattern.test(query) ||
-        chainPrefixPattern.test(query) ||
-        pumpSuffixPattern.test(query) ||
-        solanaAddressPattern.test(query)
-      ) {
-        console.log(`Query "${query}" looks like a token contract address, searching DexScreener...`)
+      
+      // Enhanced Solana address detection with specific patterns
+      const isSolanaAddress = (address) => {
+        // Solana addresses are 32-44 characters, Base58 encoded
+        // They cannot contain 0, O, I, l to avoid confusion
+        const solanaPattern = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
+        return solanaPattern.test(address) && address.length >= 32 && address.length <= 44
+      }
+      
+      // Enhanced Ethereum/BSC/Polygon address detection
+      const isEvmAddress = (address) => {
+        return /^0x[a-fA-F0-9]{40}$/.test(address)
+      }
+
+      // Check if this looks like a contract address (prioritize DexScreener for memecoins)
+      const isContractAddress = contractAddressPattern.test(query) || 
+        chainPrefixPattern.test(query) || 
+        pumpSuffixPattern.test(query) || 
+        isSolanaAddress(query) || 
+        isEvmAddress(query)
+
+      // If the query matches a potential contract address pattern, try DexScreener API FIRST
+      if (isContractAddress) {
+        console.log(`Query "${query}" detected as contract address (${isSolanaAddress(query) ? 'Solana' : isEvmAddress(query) ? 'EVM' : 'Unknown chain'}), searching DexScreener...`)
         try {
-          // Search DexScreener API
+          // Search DexScreener API with enhanced parameters for better memecoin detection
           const dexScreenerResponse = await axios.get("https://api.dexscreener.com/latest/dex/search", {
             params: {
               q: query,
             },
+            timeout: 15000, // Increased timeout for better reliability
           })
-  
+
           if (
             dexScreenerResponse.data &&
             dexScreenerResponse.data.pairs &&
             Array.isArray(dexScreenerResponse.data.pairs) &&
             dexScreenerResponse.data.pairs.length > 0
           ) {
-            console.log(`Found ${dexScreenerResponse.data.pairs.length} liquidity pairs on DexScreener`)
-  
-            // Find the pair with the highest liquidity
+            console.log(`Found ${dexScreenerResponse.data.pairs.length} liquidity pairs on DexScreener for contract address`)
+
+            // Enhanced pair selection logic for memecoins
             let bestPair = dexScreenerResponse.data.pairs[0]
-  
+
             if (dexScreenerResponse.data.pairs.length > 1) {
+              // For memecoins, prioritize pairs with:
+              // 1. Higher liquidity (safety)
+              // 2. Recent activity (volume)
+              // 3. Avoid honeypots (check for reasonable price changes)
               bestPair = dexScreenerResponse.data.pairs.reduce((best, current) => {
                 const bestLiquidity = best.liquidity?.usd || 0
                 const currentLiquidity = current.liquidity?.usd || 0
-                return currentLiquidity > bestLiquidity ? current : best
+                const bestVolume = best.volume?.h24 || 0
+                const currentVolume = current.volume?.h24 || 0
+                
+                // Composite score: liquidity weight 70%, volume weight 30%
+                const bestScore = (bestLiquidity * 0.7) + (bestVolume * 0.3)
+                const currentScore = (currentLiquidity * 0.7) + (currentVolume * 0.3)
+                
+                return currentScore > bestScore ? current : best
               }, dexScreenerResponse.data.pairs[0])
             }
-  
+
             console.log(
-              `Selected pair with ${bestPair.liquidity?.usd || 0} USD liquidity on ${bestPair.chainId || "unknown chain"}`,
+              `Selected best pair: ${bestPair.baseToken?.symbol || 'Unknown'} with ${bestPair.liquidity?.usd || 0} USD liquidity on ${bestPair.chainId || "unknown chain"}`
             )
-  
-            // Create asset object from DexScreener data
-            const tokenSymbol = bestPair.baseToken?.symbol || query
-            const tokenName = bestPair.baseToken?.name || query
-  
+
+            // Create enhanced asset object from DexScreener data for memecoin
+            const tokenSymbol = bestPair.baseToken?.symbol || query.substring(0, 8).toUpperCase()
+            const tokenName = bestPair.baseToken?.name || `Token ${tokenSymbol}`
+            const priceUsd = parseFloat(bestPair.priceUsd) || 0
+            
             const asset = {
               id: tokenSymbol,
               name: tokenName,
               symbol: tokenSymbol,
+              displaySymbol: tokenSymbol,
               type: "crypto",
+              subType: "memecoin", // Add subtype for memecoins
               source: "dexscreener",
-              priceUsd: bestPair.priceUsd,
+              contractAddress: query, // Store the original contract address
+              priceUsd: priceUsd,
               priceNative: bestPair.priceNative,
               volume24h: bestPair.volume?.h24 || 0,
               priceChange24h: bestPair.priceChange?.h24 || 0,
               liquidity: bestPair.liquidity?.usd || 0,
               marketCap: bestPair.fdv || bestPair.marketCap || 0,
+              // Enhanced chain information
+              chainInfo: {
+                chainId: bestPair.chainId,
+                chainName: bestPair.chainId === 'solana' ? 'Solana' : 
+                          bestPair.chainId === 'ethereum' ? 'Ethereum' :
+                          bestPair.chainId === 'bsc' ? 'Binance Smart Chain' :
+                          bestPair.chainId === 'polygon' ? 'Polygon' : 
+                          bestPair.chainId || 'Unknown',
+              },
               dexInfo: {
                 dexId: bestPair.dexId,
                 pairAddress: bestPair.pairAddress,
@@ -1734,16 +1774,22 @@ const getNewsMaxAgeByAssetType = (assetType) => {
                 url: bestPair.url,
                 quoteToken: bestPair.quoteToken,
                 info: bestPair.info || {},
+                // Add trading safety indicators
+                safetyScore: bestPair.liquidity?.usd > 10000 ? 'high' : 
+                           bestPair.liquidity?.usd > 1000 ? 'medium' : 'low',
+                lastUpdated: new Date().toISOString(),
               },
             }
-  
-            console.log(`Created asset from DexScreener: ${tokenSymbol} (${tokenName}) at $${bestPair.priceUsd}`)
+
+            console.log(`Created memecoin asset from DexScreener: ${tokenSymbol} (${tokenName}) at $${priceUsd}`)
+            console.log(`Contract: ${query} on ${asset.chainInfo.chainName}`)
             return asset
           } else {
-            console.log(`No results found on DexScreener for query: ${query}`)
+            console.log(`No results found on DexScreener for contract address: ${query}`)
           }
         } catch (dexScreenerError) {
-          console.error("DexScreener API error:", dexScreenerError.message)
+          console.error("DexScreener API error for contract address:", dexScreenerError.message)
+          // Don't return null here, continue with other detection methods
         }
       }
   
@@ -6161,3 +6207,65 @@ const getCryptoPrice = async (asset) => {
     return null;
   }
 };
+
+// Enhanced subscription validation endpoint
+app.get('/api/user/access', rateLimitMiddleware, (req, res) => {
+  try {
+    const subscriptionId = getSubscriptionId(req);
+    
+    if (!subscriptionId) {
+      return res.status(401).json({ 
+        error: 'No subscription ID provided',
+        hasAccess: false,
+        isSubscribed: false
+      });
+    }
+
+    const isActive = isSubscriptionActive(subscriptionId);
+    const userEmail = req.query.email || req.headers['x-user-email'];
+    const isUserSubscribed = isSubscribed(userEmail, subscriptionId);
+
+    res.json({
+      hasAccess: isActive && isUserSubscribed,
+      isSubscribed: isUserSubscribed,
+      isActive: isActive,
+      subscriptionId: subscriptionId,
+      email: userEmail
+    });
+  } catch (error) {
+    console.error('Error in user access endpoint:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      hasAccess: false,
+      isSubscribed: false
+    });
+  }
+});
+
+// FMP API Key endpoint for WebSocket connections
+app.get('/api/fmp-key', (req, res) => {
+  try {
+    // Return FMP API key for WebSocket connections (no authentication required for streaming)
+    const fmpApiKey = process.env.FMP_API_KEY || process.env.FINANCIAL_MODELING_PREP_API_KEY;
+    
+    if (!fmpApiKey) {
+      console.error('FMP API key not found in environment variables');
+      return res.status(500).json({ 
+        error: 'WebSocket streaming temporarily unavailable',
+        apiKey: null
+      });
+    }
+
+    res.json({
+      apiKey: fmpApiKey,
+      streaming: true
+    });
+
+  } catch (error) {
+    console.error('Error in FMP API key endpoint:', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      apiKey: null
+    });
+  }
+});

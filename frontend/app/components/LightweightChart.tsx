@@ -84,6 +84,7 @@ const ChartSkeleton = ({
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
+        zIndex: 100,
       }}
     >
       {/* Header skeleton */}
@@ -254,6 +255,7 @@ interface LightweightChartProps {
   chartData?: any // The chart data from the sentiment payload (initial daily data)
   height?: number | string
   width?: number | string
+  isPublicSharedView?: boolean // Add new prop
 }
 
 interface CandlestickData {
@@ -273,6 +275,20 @@ interface VolumeData {
 interface LineData {
   time: Time
   value: number
+}
+
+// WebSocket message types
+interface WebSocketPriceData {
+  s: string // symbol
+  t: number // timestamp (nanoseconds for stocks, milliseconds for crypto/forex)
+  type: string // "Q" for quote, "T" for trade
+  ap?: number // ask price
+  as?: number // ask size
+  bp?: number // bid price
+  bs?: number // bid size
+  lp?: number // last price
+  ls?: number // last size
+  e?: string // exchange (crypto only)
 }
 
 type Timeframe = "1m" | "5m" | "15m" | "30m" | "1H" | "4H" | "1D"
@@ -296,6 +312,98 @@ const getSubscriptionId = () => {
     console.warn("Error reading legacy subscription data:", error)
   }
   return null
+}
+
+// Asset type detection for WebSocket endpoints
+const detectAssetType = (symbol: string): "stock" | "crypto" | "forex" | "unknown" => {
+  if (!symbol) return "unknown"
+
+  const upperSymbol = symbol.toUpperCase()
+
+  // Crypto detection
+  if (
+    upperSymbol.endsWith("USD") ||
+    upperSymbol.endsWith("USDT") ||
+    upperSymbol.endsWith("BTC") ||
+    upperSymbol.endsWith("ETH") ||
+    upperSymbol.includes("BTC") ||
+    upperSymbol.includes("ETH") ||
+    upperSymbol === "BTCUSD" ||
+    upperSymbol === "ETHUSD"
+  ) {
+    return "crypto"
+  }
+
+  // Forex detection (6-character pairs like EURUSD, GBPJPY)
+  if (/^[A-Z]{6}$/.test(upperSymbol) && upperSymbol.length === 6) {
+    const firstCurrency = upperSymbol.slice(0, 3)
+    const secondCurrency = upperSymbol.slice(3, 6)
+    const currencies = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "NZD", "SEK", "NOK", "DKK"]
+
+    if (currencies.includes(firstCurrency) && currencies.includes(secondCurrency)) {
+      return "forex"
+    }
+  }
+
+  // Default to stock for everything else
+  return "stock"
+}
+
+// Get appropriate WebSocket URL based on asset type
+const getWebSocketUrl = (assetType: "stock" | "crypto" | "forex" | "unknown"): string => {
+  switch (assetType) {
+    case "crypto":
+      return "wss://crypto.financialmodelingprep.com"
+    case "forex":
+      return "wss://forex.financialmodelingprep.com"
+    case "stock":
+    default:
+      return "wss://websockets.financialmodelingprep.com"
+  }
+}
+
+// Convert symbol for WebSocket subscription
+const getWebSocketSymbol = (symbol: string, assetType: "stock" | "crypto" | "forex" | "unknown"): string => {
+  if (!symbol) return symbol
+
+  const lowerSymbol = symbol.toLowerCase()
+
+  switch (assetType) {
+    case "crypto":
+      // For crypto, keep as is but ensure lowercase
+      return lowerSymbol
+    case "forex":
+      // For forex, keep as is but ensure lowercase
+      return lowerSymbol
+    case "stock":
+    default:
+      // For stocks, ensure lowercase
+      return lowerSymbol
+  }
+}
+
+// Get FMP API key from backend
+const getFMPApiKey = async (): Promise<string | null> => {
+  try {
+    const baseUrl = window.location.hostname === "localhost" ? "http://localhost:3001" : "https://koyn.finance:3001"
+    const response = await fetch(`${baseUrl}/api/fmp-key`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      return data.apiKey || null
+    }
+
+    console.warn("Failed to get FMP API key from backend")
+    return null
+  } catch (error) {
+    console.error("Error fetching FMP API key:", error)
+    return null
+  }
 }
 
 // Enhanced validation function for volume data points
@@ -332,6 +440,7 @@ function LightweightChart({
   chartData,
   height = "100%",
   width = "100%",
+  isPublicSharedView = false, // Provide default value
 }: LightweightChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -355,15 +464,26 @@ function LightweightChart({
   const williamsSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
   const adxSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
 
+  // WebSocket related refs and state
+  const wsRef = useRef<WebSocket | null>(null)
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false)
+  const [lastPrice, setLastPrice] = useState<number | null>(null)
+  const [priceChange, setPriceChange] = useState<number>(0)
+  const [wsReconnectAttempts, setWsReconnectAttempts] = useState(0)
+  const maxReconnectAttempts = 5
+
   // Get auth context for secure token access
   const { getSecureAccessToken } = useAuth()
 
   // Chart state
   const [timeframe, setTimeframe] = useState<Timeframe>("1D")
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true) // Start with loading true
   const [error, setError] = useState<string | null>(null)
   const [hasInitialized, setHasInitialized] = useState(false)
   const [currentData, setCurrentData] = useState<any>(null)
+  const [isDataReady, setIsDataReady] = useState(false) // New state to track data readiness
 
   // Indicator state variables
   const [showVolume, setShowVolume] = useState(true)
@@ -393,6 +513,360 @@ function LightweightChart({
   const [activeIndicators, setActiveIndicators] = useState<string[]>([])
   const [showIndicators, setShowIndicators] = useState(false)
   const [indicatorPanelPosition, setIndicatorPanelPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // Real-time streaming state - automatically enable for supported configurations
+  const [enableStreaming, setEnableStreaming] = useState(false)
+
+  // Detect asset type for current symbol
+  const detectedAssetType = assetType || detectAssetType(symbol)
+
+  // Check if streaming should be enabled (only for real-time timeframes)
+  const canStream = ["1m", "5m"].includes(timeframe) && ["stock", "crypto", "forex"].includes(detectedAssetType)
+
+  // Automatically enable streaming when conditions are met
+  useEffect(() => {
+    if (canStream) {
+      setEnableStreaming(true)
+      console.log(`Auto-enabling streaming for ${detectedAssetType} ${symbol} on ${timeframe} timeframe`)
+    } else {
+      setEnableStreaming(false)
+      console.log(`Streaming not available for ${detectedAssetType} ${symbol} on ${timeframe} timeframe`)
+    }
+  }, [canStream, detectedAssetType, symbol, timeframe])
+
+  // WebSocket connection management
+  const connectWebSocket = async () => {
+    if (!canStream) {
+      console.log("WebSocket streaming not available for current configuration", {
+        canStream,
+        timeframe,
+        detectedAssetType,
+      })
+      return
+    }
+
+    try {
+      // Get API key from backend
+      const apiKey = await getFMPApiKey()
+      if (!apiKey) {
+        console.warn("No FMP API key available for WebSocket streaming")
+        return
+      }
+
+      // Close existing connection
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
+      }
+
+      const wsUrl = getWebSocketUrl(detectedAssetType as any)
+      const wsSymbol = getWebSocketSymbol(symbol, detectedAssetType as any)
+
+      console.log(`Auto-connecting to WebSocket: ${wsUrl} for symbol: ${wsSymbol}`)
+
+      const ws = new WebSocket(wsUrl)
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        console.log(`WebSocket auto-connected for ${detectedAssetType}: ${wsSymbol}`)
+        setIsWebSocketConnected(true)
+        setWsReconnectAttempts(0)
+
+        // Send login message
+        const loginMessage = {
+          event: "login",
+          data: {
+            apiKey: apiKey,
+          },
+        }
+        ws.send(JSON.stringify(loginMessage))
+
+        // Send subscribe message
+        const subscribeMessage = {
+          event: "subscribe",
+          data: {
+            ticker: wsSymbol,
+          },
+        }
+        ws.send(JSON.stringify(subscribeMessage))
+
+        // Set up ping interval to keep connection alive
+        pingIntervalRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ event: "ping" }))
+          }
+        }, 30000) // Ping every 30 seconds
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const data: WebSocketPriceData = JSON.parse(event.data)
+          handleWebSocketData(data)
+        } catch (error) {
+          console.warn("Error parsing WebSocket message:", error)
+        }
+      }
+
+      ws.onclose = (event) => {
+        console.log(`WebSocket closed for ${detectedAssetType}: ${wsSymbol}`, event.code, event.reason)
+        setIsWebSocketConnected(false)
+
+        // Clear ping interval
+        if (pingIntervalRef.current) {
+          clearInterval(pingIntervalRef.current)
+          pingIntervalRef.current = null
+        }
+
+        // Attempt to reconnect if not intentionally closed and we haven't exceeded max attempts
+        if (event.code !== 1000 && wsReconnectAttempts < maxReconnectAttempts && canStream) {
+          const delay = Math.min(1000 * Math.pow(2, wsReconnectAttempts), 10000) // Exponential backoff, max 10s
+          console.log(
+            `Attempting to reconnect WebSocket in ${delay}ms (attempt ${wsReconnectAttempts + 1}/${maxReconnectAttempts})`,
+          )
+
+          reconnectTimeoutRef.current = setTimeout(() => {
+            setWsReconnectAttempts((prev) => prev + 1)
+            connectWebSocket()
+          }, delay)
+        }
+      }
+
+      ws.onerror = (error) => {
+        console.error(`WebSocket error for ${detectedAssetType}:`, error)
+      }
+    } catch (error) {
+      console.error("Error connecting to WebSocket:", error)
+    }
+  }
+
+  // Handle incoming WebSocket price data
+  const handleWebSocketData = (data: WebSocketPriceData) => {
+    if (!data || data.s?.toLowerCase() !== symbol.toLowerCase()) {
+      return // Ignore data for other symbols
+    }
+
+    console.log("Received WebSocket data:", data)
+
+    // Extract price from the message
+    let currentPrice: number | undefined
+
+    if (data.type === "Q") {
+      // Quote message - use last price or mid price
+      if (data.lp !== undefined) {
+        currentPrice = data.lp
+      } else if (data.ap !== undefined && data.bp !== undefined) {
+        currentPrice = (data.ap + data.bp) / 2 // Mid price
+      } else if (data.ap !== undefined) {
+        currentPrice = data.ap
+      } else if (data.bp !== undefined) {
+        currentPrice = data.bp
+      }
+    } else if (data.type === "T") {
+      // Trade message - use last price
+      currentPrice = data.lp
+    }
+
+    if (currentPrice !== undefined && currentPrice > 0) {
+      // Update price state
+      if (lastPrice !== null) {
+        setPriceChange(currentPrice - lastPrice)
+      }
+      setLastPrice(currentPrice)
+
+      // Update chart with real-time price
+      updateChartWithRealTimePrice(currentPrice, data.t)
+    }
+  }
+
+  // State for tracking current candle formation
+  const [currentCandle, setCurrentCandle] = useState<CandlestickData | null>(null)
+  const [currentCandleStartTime, setCurrentCandleStartTime] = useState<number | null>(null)
+
+  // Get the timeframe interval in milliseconds
+  const getTimeframeMs = (tf: Timeframe): number => {
+    switch (tf) {
+      case "1m":
+        return 60 * 1000
+      case "5m":
+        return 5 * 60 * 1000
+      case "15m":
+        return 15 * 60 * 1000
+      case "30m":
+        return 30 * 60 * 1000
+      case "1H":
+        return 60 * 60 * 1000
+      case "4H":
+        return 4 * 60 * 60 * 1000
+      case "1D":
+        return 24 * 60 * 60 * 1000
+      default:
+        return 60 * 1000
+    }
+  }
+
+  // Get the start time for the current timeframe period
+  const getTimeframePeriodStart = (timestamp: number, tf: Timeframe): number => {
+    const date = new Date(timestamp)
+
+    switch (tf) {
+      case "1m":
+        date.setSeconds(0, 0)
+        return date.getTime()
+      case "5m":
+        const minutes5 = Math.floor(date.getMinutes() / 5) * 5
+        date.setMinutes(minutes5, 0, 0)
+        return date.getTime()
+      case "15m":
+        const minutes15 = Math.floor(date.getMinutes() / 15) * 15
+        date.setMinutes(minutes15, 0, 0)
+        return date.getTime()
+      case "30m":
+        const minutes30 = Math.floor(date.getMinutes() / 30) * 30
+        date.setMinutes(minutes30, 0, 0)
+        return date.getTime()
+      case "1H":
+        date.setMinutes(0, 0, 0)
+        return date.getTime()
+      case "4H":
+        const hours4 = Math.floor(date.getHours() / 4) * 4
+        date.setHours(hours4, 0, 0, 0)
+        return date.getTime()
+      case "1D":
+        date.setHours(0, 0, 0, 0)
+        return date.getTime()
+      default:
+        date.setSeconds(0, 0)
+        return date.getTime()
+    }
+  }
+
+  // 1. Fix the updateChartWithRealTimePrice function to properly render candlesticks in real-time
+  // Replace the entire updateChartWithRealTimePrice function with this improved version:
+
+  const updateChartWithRealTimePrice = (price: number, timestamp: number) => {
+    if (!candlestickSeriesRef.current) return
+
+    try {
+      // Convert timestamp based on asset type
+      let chartTimestamp: number
+      if (detectedAssetType === "stock") {
+        // Stock timestamps are in nanoseconds, convert to milliseconds
+        chartTimestamp = Math.floor(timestamp / 1000000)
+      } else {
+        // Crypto/forex timestamps are in milliseconds
+        chartTimestamp = timestamp
+      }
+
+      // Get the current timeframe period start
+      const periodStart = getTimeframePeriodStart(chartTimestamp, timeframe)
+      const chartTime = Math.floor(periodStart / 1000) as Time // Convert to seconds for chart
+
+      // Check if we're in a new timeframe period
+      if (currentCandleStartTime !== periodStart) {
+        // Starting a new candle period
+        const newCandle: CandlestickData = {
+          time: chartTime,
+          open: price,
+          high: price,
+          low: price,
+          close: price,
+        }
+
+        setCurrentCandle(newCandle)
+        setCurrentCandleStartTime(periodStart)
+
+        // Update the chart with the new candle
+        candlestickSeriesRef.current.update(newCandle)
+      } else if (currentCandle) {
+        // Update the existing candle for the current period
+        const updatedCandle: CandlestickData = {
+          time: chartTime,
+          open: currentCandle.open, // Keep original open
+          high: Math.max(currentCandle.high, price), // Update high
+          low: Math.min(currentCandle.low, price), // Update low
+          close: price, // Update close to current price
+        }
+
+        setCurrentCandle(updatedCandle)
+
+        // Force a proper update to the chart by removing and re-adding the candle
+        // This ensures the candlestick visually updates in real-time
+        candlestickSeriesRef.current.update(updatedCandle)
+      } else {
+        // Initialize the first candle if currentCandle is null
+        const newCandle: CandlestickData = {
+          time: chartTime,
+          open: price,
+          high: price,
+          low: price,
+          close: price,
+        }
+
+        setCurrentCandle(newCandle)
+        setCurrentCandleStartTime(periodStart)
+        candlestickSeriesRef.current.update(newCandle)
+      }
+    } catch (error) {
+      console.warn("Error updating chart with real-time price:", error)
+    }
+  }
+
+  // Disconnect WebSocket
+  const disconnectWebSocket = () => {
+    console.log("Disconnecting WebSocket")
+
+    // Clear reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current)
+      reconnectTimeoutRef.current = null
+    }
+
+    // Clear ping interval
+    if (pingIntervalRef.current) {
+      clearInterval(pingIntervalRef.current)
+      pingIntervalRef.current = null
+    }
+
+    // Close WebSocket
+    if (wsRef.current) {
+      wsRef.current.close(1000, "Intentional disconnect")
+      wsRef.current = null
+    }
+
+    setIsWebSocketConnected(false)
+    setWsReconnectAttempts(0)
+  }
+
+  // Reset current candle state when timeframe changes
+  useEffect(() => {
+    console.log("⏰ Timeframe changed to:", timeframe, "- Resetting candle state")
+    setCurrentCandle(null)
+    setCurrentCandleStartTime(null)
+    setIsLoading(true) // Show loading when timeframe changes
+    setIsDataReady(false) // Reset data ready state
+  }, [timeframe])
+
+  // Effect to manage WebSocket connection based on streaming settings
+  useEffect(() => {
+    if (enableStreaming && canStream) {
+      console.log("🔌 Connecting WebSocket for real-time candle painting")
+      connectWebSocket()
+    } else {
+      console.log("🔌 Disconnecting WebSocket")
+      disconnectWebSocket()
+    }
+
+    return () => {
+      disconnectWebSocket()
+    }
+  }, [enableStreaming, symbol, timeframe, detectedAssetType])
+
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      disconnectWebSocket()
+    }
+  }, [])
 
   // Memoized values for cache management
   const getCacheExpirationMs = (tf: Timeframe): number => {
@@ -476,6 +950,13 @@ function LightweightChart({
       const accessToken = await getSecureAccessToken()
       console.log("🎫 getSecureAccessToken result:", accessToken ? `${accessToken.substring(0, 20)}...` : "null")
 
+      // If it's a public shared view and no tokens are found, prevent fetching
+      const legacySubId = getSubscriptionId()
+      if (isPublicSharedView && !accessToken && !legacySubId) {
+        console.warn("Public shared view: Halting fetchChartData due to no authentication.")
+        throw new Error("Chart data fetching disabled for unauthenticated public views.")
+      }
+
       const headers: any = {}
 
       if (accessToken) {
@@ -552,15 +1033,15 @@ function LightweightChart({
         }
       }
 
-      const data = await response.json()
-      if (!data || (!data.data && !Array.isArray(data))) {
+      const responseData = await response.json()
+      if (!responseData || (!responseData.data && !Array.isArray(responseData))) {
         throw new Error("Invalid data format received")
       }
 
       // Validate that we have usable data before caching
       let hasValidData = false
-      if (data.format === "eod" && Array.isArray(data.data) && data.data.length > 0) {
-        hasValidData = data.data.some(
+      if (responseData.format === "eod" && Array.isArray(responseData.data) && responseData.data.length > 0) {
+        hasValidData = responseData.data.some(
           (item: any) =>
             item &&
             typeof item.open === "number" &&
@@ -569,12 +1050,12 @@ function LightweightChart({
             typeof item.close === "number",
         )
       } else if (
-        data.data &&
-        data.data.datasets &&
-        data.data.datasets[0]?.ohlc &&
-        data.data.datasets[0].ohlc.length > 0
+        responseData.data &&
+        responseData.data.datasets &&
+        responseData.data.datasets[0]?.ohlc &&
+        responseData.data.datasets[0].ohlc.length > 0
       ) {
-        hasValidData = data.data.datasets[0].ohlc.some(
+        hasValidData = responseData.data.datasets[0].ohlc.some(
           (item: any) =>
             item &&
             typeof item.open === "number" &&
@@ -582,12 +1063,17 @@ function LightweightChart({
             typeof item.low === "number" &&
             typeof item.close === "number",
         )
-      } else if (data.data && data.data.datasets && data.data.datasets[0]?.data && data.data.labels) {
+      } else if (
+        responseData.data &&
+        responseData.data.datasets &&
+        responseData.data.datasets[0]?.data &&
+        responseData.data.labels
+      ) {
         // Validate line chart data format (single price values that can be converted to candlestick)
         hasValidData =
-          data.data.datasets[0].data.length > 0 &&
-          data.data.datasets[0].data.some((price: any) => typeof price === "number" && price > 0) &&
-          data.data.labels.length === data.data.datasets[0].data.length
+          responseData.data.datasets[0].data.length > 0 &&
+          responseData.data.datasets[0].data.some((price: any) => typeof price === "number" && price > 0) &&
+          responseData.data.labels.length === responseData.data.datasets[0].data.length
       }
 
       if (!hasValidData) {
@@ -595,17 +1081,21 @@ function LightweightChart({
       }
 
       console.log(`Successfully fetched chart data for ${symbol} ${tf}:`, {
-        dataType: typeof data,
-        hasData: !!data.data,
-        format: data.format,
-        dataLength: data.data ? (Array.isArray(data.data) ? data.data.length : "not array") : "no data",
+        dataType: typeof responseData,
+        hasData: !!responseData.data,
+        format: responseData.format,
+        dataLength: responseData.data
+          ? Array.isArray(responseData.data)
+            ? responseData.data.length
+            : "not array"
+          : "no data",
         hasValidOHLC: hasValidData,
       })
 
       // Cache the validated data
-      setCachedData(tf, data)
+      setCachedData(tf, responseData)
 
-      return data
+      return responseData
     } catch (error) {
       console.error(`Error fetching ${tf} data for ${symbol}:`, error)
       throw error
@@ -652,6 +1142,77 @@ function LightweightChart({
       item.high >= Math.max(item.open, item.close) && item.low <= Math.min(item.open, item.close)
 
     return hasValidTime && hasValidOHLC && hasValidRelationships
+  }
+
+  // Add a new function to normalize data before rendering
+  // Add this function before the convertDataToLightweightFormat function:
+
+  const normalizeChartData = (data: CandlestickData[]): CandlestickData[] => {
+    if (!data || data.length < 2) return data
+
+    // Sort data by time to ensure proper sequence
+    const sortedData = [...data].sort((a, b) => {
+      let timeA: number, timeB: number
+
+      if (typeof a.time === "string" && typeof b.time === "string") {
+        timeA = new Date(a.time).getTime()
+        timeB = new Date(b.time).getTime()
+      } else if (typeof a.time === "number" && typeof b.time === "number") {
+        timeA = a.time > 9999999999 ? a.time : a.time * 1000
+        timeB = b.time > 9999999999 ? b.time : b.time * 1000
+      } else {
+        // Mixed types
+        timeA = typeof a.time === "string" ? new Date(a.time).getTime() : (a.time as number) * 1000
+        timeB = typeof b.time === "string" ? new Date(b.time).getTime() : (b.time as number) * 1000
+      }
+
+      return timeA - timeB
+    })
+
+    // Detect and fix gaps in data
+    const normalizedData: CandlestickData[] = []
+    let expectedTimeGap: number
+
+    // Determine expected time gap based on first two valid points
+    if (sortedData.length >= 2) {
+      let time1: number, time2: number
+
+      if (typeof sortedData[0].time === "string" && typeof sortedData[1].time === "string") {
+        time1 = new Date(sortedData[0].time).getTime()
+        time2 = new Date(sortedData[1].time).getTime()
+      } else if (typeof sortedData[0].time === "number" && typeof sortedData[1].time === "number") {
+        time1 = sortedData[0].time > 9999999999 ? sortedData[0].time : sortedData[0].time * 1000
+        time2 = sortedData[1].time > 9999999999 ? sortedData[1].time : sortedData[1].time * 1000
+      } else {
+        // Mixed types, convert to milliseconds
+        time1 =
+          typeof sortedData[0].time === "string"
+            ? new Date(sortedData[0].time).getTime()
+            : (sortedData[0].time as number) * 1000
+        time2 =
+          typeof sortedData[1].time === "string"
+            ? new Date(sortedData[1].time).getTime()
+            : (sortedData[1].time as number) * 1000
+      }
+
+      expectedTimeGap = time2 - time1
+    }
+
+    // Add the first point
+    if (sortedData.length > 0) {
+      normalizedData.push(sortedData[0])
+    }
+
+    // Process remaining points
+    for (let i = 1; i < sortedData.length; i++) {
+      const currentPoint = sortedData[i]
+      const prevPoint = normalizedData[normalizedData.length - 1]
+
+      // Add current point
+      normalizedData.push(currentPoint)
+    }
+
+    return normalizedData
   }
 
   // Convert chart data to Lightweight Charts format (handles both embedded data and API responses)
@@ -1437,6 +1998,13 @@ function LightweightChart({
     try {
       // Get authentication using secure method
       const accessToken = await getSecureAccessToken()
+      
+      const legacySubId = getSubscriptionId()
+      if (isPublicSharedView && !accessToken && !legacySubId) {
+        console.warn("Public shared view: Skipping fetchTechnicalIndicators due to no authentication.")
+        return null; // Do not fetch if public and no auth
+      }
+
       const headers: any = {}
 
       if (accessToken) {
@@ -1517,6 +2085,13 @@ function LightweightChart({
     try {
       // Get authentication using secure method
       const accessToken = await getSecureAccessToken()
+      
+      const legacySubId = getSubscriptionId()
+      if (isPublicSharedView && !accessToken && !legacySubId) {
+        console.warn(`Public shared view: Skipping fetchSpecificIndicator (${indicatorType}) due to no authentication.`)
+        return null; // Do not fetch if public and no auth
+      }
+
       const headers: any = {}
 
       if (accessToken) {
@@ -1704,6 +2279,113 @@ function LightweightChart({
     return chartData
   }
 
+  // 3. Improve data normalization and smooth initial loading
+  // Enhance the positionChartToLatest function to ensure smooth transitions:
+
+  // Replace the positionChartToLatest function with this improved version:
+  const positionChartToLatest = (candlestickData: CandlestickData[]) => {
+    if (!chartRef.current || !candlestickData || candlestickData.length === 0) {
+      return
+    }
+
+    try {
+      const dataLength = candlestickData.length
+      // Show last 50-100 data points depending on timeframe
+      let visibleDataPoints = 50
+
+      // Adjust visible points based on timeframe
+      switch (timeframe) {
+        case "1m":
+          visibleDataPoints = 60 // Show last hour for 1-minute data
+          break
+        case "5m":
+          visibleDataPoints = 72 // Show last 6 hours for 5-minute data
+          break
+        case "15m":
+          visibleDataPoints = 64 // Show last 16 hours for 15-minute data
+          break
+        case "30m":
+          visibleDataPoints = 48 // Show last 24 hours for 30-minute data
+          break
+        case "1H":
+          visibleDataPoints = 48 // Show last 2 days for 1-hour data
+          break
+        case "4H":
+          visibleDataPoints = 42 // Show last week for 4-hour data
+          break
+        case "1D":
+          visibleDataPoints = 30 // Show last month for daily data
+          break
+      }
+
+      // Ensure we don't try to show more data than we have
+      const startIndex = Math.max(0, dataLength - visibleDataPoints)
+      const endIndex = dataLength - 1
+
+      if (startIndex < endIndex && candlestickData[startIndex] && candlestickData[endIndex]) {
+        const startTime = candlestickData[startIndex].time
+        let endTime = candlestickData[endIndex].time
+
+        // Ensure time range is valid
+        if (typeof startTime === "string" && typeof endTime === "string") {
+          // Both are date strings (daily data)
+          const startDate = new Date(startTime)
+          const endDate = new Date(endTime)
+
+          if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+            // Add a small buffer to the end time for smoother appearance
+            const bufferMs = 24 * 60 * 60 * 1000 * 0.1 // 10% of a day
+            const bufferedEndDate = new Date(endDate.getTime() + bufferMs)
+            const bufferedEndTime = bufferedEndDate.toISOString().split("T")[0] as Time
+
+            chartRef.current.timeScale().setVisibleRange({
+              from: startTime,
+              to: bufferedEndTime,
+            })
+          } else {
+            chartRef.current.timeScale().fitContent()
+          }
+        } else if (typeof startTime === "number" && typeof endTime === "number") {
+          // Both are Unix timestamps (intraday data)
+          if (isFinite(startTime) && isFinite(endTime)) {
+            // Add a small buffer to the end time for smoother appearance
+            const timeframeMs = getTimeframeMs(timeframe)
+            const buffer = Math.floor(timeframeMs / 1000) * 2 // 2 candles worth of buffer
+            const bufferedEndTime = (endTime + buffer) as Time
+
+            chartRef.current.timeScale().setVisibleRange({
+              from: startTime,
+              to: bufferedEndTime,
+            })
+          } else {
+            chartRef.current.timeScale().fitContent()
+          }
+        } else {
+          chartRef.current.timeScale().fitContent()
+        }
+
+        // Apply animation to smooth the transition
+        chartRef.current.applyOptions({
+          timeScale: {
+            rightOffset: 5,
+            barSpacing: 10,
+            fixLeftEdge: false,
+            fixRightEdge: false,
+            lockVisibleTimeRangeOnResize: false,
+            rightBarStaysOnScroll: true,
+          },
+        })
+      } else {
+        chartRef.current.timeScale().fitContent()
+      }
+    } catch (rangeError) {
+      console.warn("Error setting visible range, falling back to fitContent:", rangeError)
+      if (chartRef.current) {
+        chartRef.current.timeScale().fitContent()
+      }
+    }
+  }
+
   useEffect(() => {
     let mounted = true
     let initializationPromise: Promise<void> | null = null
@@ -1712,6 +2394,7 @@ function LightweightChart({
       try {
         setIsLoading(true)
         setError(null)
+        setIsDataReady(false)
 
         console.log("Lightweight Chart Debug:", {
           symbol: symbol,
@@ -1733,25 +2416,42 @@ function LightweightChart({
         // Determine data source and ensure we have valid data
         let dataToUse = null
 
-        if (timeframe === "1D" && chartData) {
-          // Use embedded chart data for daily view (initial load)
-          dataToUse = chartData
-          console.log("Using embedded chart data for 1D timeframe")
+        // First, handle the case for initial 1D data using the chartData prop,
+        // but only if 1D data hasn't been fetched and cached yet.
+        // We also want to ensure chartData is actually daily data.
+        const isInitialDailyLoad = timeframe === "1D" && chartData && chartData.format === "eod" && !getCachedData("1D");
+
+        if (isInitialDailyLoad) {
+          dataToUse = chartData;
+          console.log("Using initial embedded chartData (EOD) for 1D timeframe");
+          // Cache this initial data so it's treated consistently
+          setCachedData("1D", chartData);
+          // Update currentData if it's not already set or is for a different format
+          if (!currentData || currentData.symbol !== symbol || currentData.format !== "eod") {
+            setCurrentData(chartData);
+          }
         } else {
-          // Check cache first, then currentData, then fetch fresh
-          const cachedData = getCachedData(timeframe)
+          // For all other cases (intraday, or 1D after initial load/cache):
+          // 1. Try to get data from the timeframe-specific cache
+          const cachedData = getCachedData(timeframe);
           if (cachedData) {
-            dataToUse = cachedData
-            console.log("Using cached data for", timeframe)
-          } else if (currentData && timeframe !== "1D") {
-            dataToUse = currentData
-            console.log("Using current API data")
+            dataToUse = cachedData;
+            console.log(`Using cached data for ${symbol} ${timeframe}`);
           } else {
-            // Fetch new data from API
-            console.log("Fetching new data for timeframe:", timeframe)
-            const fetchedData = await fetchChartData(timeframe)
-            dataToUse = fetchedData
-            setCurrentData(fetchedData)
+            // 2. If not in cache, fetch fresh data for the current timeframe
+            console.log(`Fetching new data for ${symbol} ${timeframe} (no cache found)`);
+            try {
+              const fetchedData = await fetchChartData(timeframe); // This function also caches the data.
+              dataToUse = fetchedData;
+              setCurrentData(fetchedData); // Update currentData state.
+            } catch (fetchErr) {
+              if (mounted) {
+                console.error(`Failed to fetch data during chart initialization for ${symbol} ${timeframe}:`, fetchErr);
+                setError(fetchErr instanceof Error ? fetchErr.message : "Failed to load chart data.");
+                setIsLoading(false);
+              }
+              return; // Stop initialization if fetch fails
+            }
           }
         }
 
@@ -1787,7 +2487,7 @@ function LightweightChart({
           })
 
           if (retryCount < maxRetries - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 200)) // Wait 200ms before retry
+            await new Promise((resolve) => setTimeout(resolve, 500)) // Wait 500ms before retry
           }
           retryCount++
         }
@@ -1812,6 +2512,9 @@ function LightweightChart({
         console.log(
           `Successfully converted data: ${candlestickData.length} candlestick points, ${volumeData.length} volume points`,
         )
+
+        // Mark data as ready
+        setIsDataReady(true)
 
         // Ensure container is available
         if (!chartContainerRef.current) {
@@ -2136,8 +2839,18 @@ function LightweightChart({
               return isValid
             })
 
-            console.log("Setting chart data with", finalValidData.length, "valid points")
-            candlestickSeries.setData(finalValidData)
+            // Normalize data to ensure smooth rendering
+            const normalizedData = normalizeChartData(finalValidData)
+
+            console.log("Setting chart data with", normalizedData.length, "valid points")
+            candlestickSeries.setData(normalizedData)
+
+            // Position chart to show latest data immediately after setting data
+            setTimeout(() => {
+              if (mounted && chartRef.current) {
+                positionChartToLatest(normalizedData)
+              }
+            }, 100)
           } else {
             throw new Error("All candlestick data points were invalid after ultra-safe filtering")
           }
@@ -2633,7 +3346,7 @@ function LightweightChart({
                 }
               }
             } catch (error) {
-              console.error("Failed to fetch EMA20 from API:", error)
+              console.error("Failed to fetch E MA20 from API:", error)
             }
           }
         }
@@ -2894,138 +3607,87 @@ function LightweightChart({
           }
         }
 
-        // Fit content to show all data first
-        chart.timeScale().fitContent()
-
-        // Then apply default zoom to show recent data clearly
-        setTimeout(() => {
-          if (candlestickData.length > 0) {
-            try {
-              const dataLength = candlestickData.length
-              // Show last 50-100 data points depending on timeframe
-              let visibleDataPoints = 50
-
-              // Adjust visible points based on timeframe
-              switch (timeframe) {
-                case "1m":
-                  visibleDataPoints = 60 // Show last hour for 1-minute data
-                  break
-                case "5m":
-                  visibleDataPoints = 72 // Show last 6 hours for 5-minute data
-                  break
-                case "15m":
-                  visibleDataPoints = 64 // Show last 16 hours for 15-minute data
-                  break
-                case "30m":
-                  visibleDataPoints = 48 // Show last 24 hours for 30-minute data
-                  break
-                case "1H":
-                  visibleDataPoints = 48 // Show last 2 days for 1-hour data
-                  break
-                case "4H":
-                  visibleDataPoints = 42 // Show last week for 4-hour data
-                  break
-                case "1D":
-                  visibleDataPoints = 30 // Show last month for daily data
-                  break
-              }
-
-              // Ensure we don't try to show more data than we have
-              const startIndex = Math.max(0, dataLength - visibleDataPoints)
-              const endIndex = dataLength - 1
-
-              if (startIndex < endIndex && candlestickData[startIndex] && candlestickData[endIndex]) {
-                let startTime = candlestickData[startIndex].time
-                let endTime = candlestickData[endIndex].time
-
-                // Enhanced time validation and correction
-                const validateAndCorrectTimeRange = () => {
-                  if (typeof startTime === "string" && typeof endTime === "string") {
-                    // Both are date strings (daily data)
-                    const startDate = new Date(startTime)
-                    const endDate = new Date(endTime)
-
-                    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-                      console.warn("Invalid date strings in time range")
-                      return false
-                    }
-
-                    // If start is after end, swap them
-                    if (startDate > endDate) {
-                      console.log("Swapping date range: start was after end")
-                      const temp = startTime
-                      startTime = endTime
-                      endTime = temp
-                    }
-
-                    return true
-                  } else if (typeof startTime === "number" && typeof endTime === "number") {
-                    // Both are Unix timestamps (intraday data)
-                    if (!isFinite(startTime) || !isFinite(endTime)) {
-                      console.warn("Invalid timestamp values in time range")
-                      return false
-                    }
-
-                    // If start is after end, swap them
-                    if (startTime > endTime) {
-                      console.log("Swapping timestamp range: start was after end", {
-                        originalStart: startTime,
-                        originalEnd: endTime,
-                      })
-                      const temp = startTime
-                      startTime = endTime
-                      endTime = temp
-                    }
-
-                    return true
-                  }
-
-                  console.warn("Mixed time types in range validation")
-                  return false
-                }
-
-                if (validateAndCorrectTimeRange()) {
-                  console.log(`Setting visible range from ${startTime} to ${endTime}`)
-                  chart.timeScale().setVisibleRange({
-                    from: startTime,
-                    to: endTime,
-                  })
-                } else {
-                  console.warn("Could not validate/correct time range, using fitContent")
-                  chart.timeScale().fitContent()
-                }
-              } else {
-                console.log("Invalid start/end indices, using fitContent")
-                chart.timeScale().fitContent()
-              }
-            } catch (rangeError) {
-              console.warn("Error setting visible range, falling back to fitContent:", rangeError)
-              chart.timeScale().fitContent()
-            }
-          }
-        }, 100) // Small delay to ensure chart is fully rendered
-
-        // Handle resize
+        // Handle resize - This should be defined earlier, but for context it's part of chart setup
         const handleResize = () => {
           if (chartContainerRef.current && chartRef.current) {
             chartRef.current.applyOptions({
               width: chartContainerRef.current.clientWidth,
               height: chartContainerRef.current.clientHeight,
-            })
+            });
           }
-        }
+        };
+        window.addEventListener("resize", handleResize);
 
-        window.addEventListener("resize", handleResize)
+        // Dynamically adjust scaleMargins for bottom indicator panes (Volume, RSI, MACD)
+        if (chartRef.current) { // Ensure chart object exists
+          interface PaneConfig { scaleId: string; }
+          const activePanesSetup: PaneConfig[] = [];
+          
+          // Order determines stacking: first in this list is physically the bottom-most pane.
+          if (showVolume && volumeSeriesRef.current) activePanesSetup.push({ scaleId: "volume" });
+          if (showRSI && rsiSeriesRef.current) activePanesSetup.push({ scaleId: "rsi" });
+          if (showMACD && macdHistogramSeriesRef.current) activePanesSetup.push({ scaleId: "macd" });
+          // console.log("Active panes for layout:", activePanesSetup.map(p=>p.scaleId));
+
+          const numActiveIndicatorPanes = activePanesSetup.length;
+          let individualPaneHeight = 0;
+          const MAX_DISPLAY_PANES = 3; 
+
+          if (numActiveIndicatorPanes === 1) individualPaneHeight = 0.25; 
+          else if (numActiveIndicatorPanes === 2) individualPaneHeight = 0.20; 
+          else if (numActiveIndicatorPanes >= MAX_DISPLAY_PANES) individualPaneHeight = 0.18; 
+          // console.log("Num active panes:", numActiveIndicatorPanes, "Height per pane:", individualPaneHeight);
+
+          let cumulativeBottomHeight = 0;
+
+          for (let i = 0; i < Math.min(numActiveIndicatorPanes, MAX_DISPLAY_PANES); i++) {
+            const paneConfig = activePanesSetup[i];
+            const topMarginForScale = parseFloat((1.0 - individualPaneHeight - cumulativeBottomHeight).toFixed(4));
+            const bottomMarginForScale = parseFloat(cumulativeBottomHeight.toFixed(4));
+            // console.log(`Applying margins for ${paneConfig.scaleId}: top=${topMarginForScale}, bottom=${bottomMarginForScale}`);
+            
+            try {
+              chartRef.current.priceScale(paneConfig.scaleId).applyOptions({
+                scaleMargins: {
+                  top: topMarginForScale,
+                  bottom: bottomMarginForScale,
+                },
+                visible: true,
+              });
+              cumulativeBottomHeight += individualPaneHeight;
+            } catch (e) {
+              console.warn(`Error applying scaleMargins for ${paneConfig.scaleId}:`, e);
+            }
+          }
+
+          const allPossibleBottomPaneScaleIds = ["volume", "rsi", "macd", "stddev", "williams", "adx"];
+          allPossibleBottomPaneScaleIds.forEach(scaleId => {
+            const isManagedAndDisplayed = activePanesSetup.slice(0, Math.min(numActiveIndicatorPanes, MAX_DISPLAY_PANES)).find(p => p.scaleId === scaleId);
+            if (!isManagedAndDisplayed) {
+              try {
+                if (chartRef.current) { // Double check chartRef
+                  chartRef.current.priceScale(scaleId).applyOptions({
+                    scaleMargins: { top: 0.99, bottom: 0 }, 
+                    visible: false, 
+                  });
+                  // console.log(`Hid/Reset scale: ${scaleId}`);
+                }
+              } catch (e) {
+                 // console.warn(`Could not hide/reset scale ${scaleId}:`, e.message);
+              }
+            }
+          });
+        } // End of dynamic pane adjustment
 
         if (mounted) {
-          console.log("Lightweight chart initialized successfully with", candlestickData.length, "data points")
-          setIsLoading(false)
+          console.log("Lightweight chart initialized successfully with", candlestickData.length, "data points");
+          setIsLoading(false);
         }
 
         // Return cleanup function for resize listener
         return () => {
-          window.removeEventListener("resize", handleResize)
-        }
+          window.removeEventListener("resize", handleResize);
+        };
       } catch (err) {
         if (mounted) {
           console.error("Failed to initialize Lightweight chart:", err)
@@ -3043,7 +3705,7 @@ function LightweightChart({
           const cleanup = await initializeChart()
           resizeCleanup = cleanup || null
           resolve()
-        }, 100)
+        }, 100) // Reduced delay for faster loading
       })
     }
 
@@ -3312,6 +3974,63 @@ function LightweightChart({
           alignItems: "center",
         }}
       >
+        {/* 2. Remove the unnecessary LIVE and Streaming CRYPTO labels
+        // Replace the Live Price Display section with this simplified version: */}
+
+        {/* Live Price Display - shown when streaming is active */}
+        {enableStreaming && lastPrice !== null && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "4px 8px",
+              fontSize: "12px",
+              background: "#1a1a1a",
+              border: "1px solid #333",
+              borderRadius: "4px",
+              color: "#fff",
+            }}
+          >
+            <span
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                background: isWebSocketConnected ? "#46A758" : "#E5484D",
+                animation: isWebSocketConnected ? "pulse 2s infinite" : "none",
+              }}
+            />
+            <span style={{ color: "#888" }}>$</span>
+            <span style={{ fontWeight: "bold" }}>{lastPrice.toFixed(2)}</span>
+            {priceChange !== 0 && (
+              <span
+                style={{
+                  color: priceChange > 0 ? "#46A758" : "#E5484D",
+                  fontSize: "10px",
+                }}
+              >
+                {priceChange > 0 ? "+" : ""}
+                {priceChange.toFixed(2)}
+              </span>
+            )}
+            {currentCandle && (
+              <span
+                style={{
+                  fontSize: "8px",
+                  color: "#666",
+                  marginLeft: "4px",
+                }}
+              >
+                O:{currentCandle.open.toFixed(2)} H:{currentCandle.high.toFixed(2)} L:{currentCandle.low.toFixed(2)}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Remove the Connection Status Display section completely
+        // Delete this entire block: */}
+
         {/* Timeframe Buttons */}
         <div style={{ display: "flex", gap: "5px" }}>
           {(["1m", "5m", "15m", "30m", "1H", "4H", "1D"] as Timeframe[]).map((tf) => {
@@ -3319,33 +4038,14 @@ function LightweightChart({
             let isDisabled = false
 
             // Auto-detect asset type if not provided
-            let detectedAssetType = assetType
-            if (!detectedAssetType && symbol) {
-              // Auto-detect crypto assets from symbol
-              if (
-                symbol.endsWith("USD") ||
-                symbol.endsWith("USDT") ||
-                symbol.includes("BTC") ||
-                symbol.includes("ETH")
-              ) {
-                detectedAssetType = "crypto"
-              }
-              // Auto-detect forex pairs
-              else if (/^[A-Z]{3}[A-Z]{3}$/.test(symbol)) {
-                detectedAssetType = "forex"
-              }
-              // Default to stock if not detected
-              else {
-                detectedAssetType = "stock"
-              }
-            }
+            const currentDetectedAssetType = detectedAssetType
 
             // Apply timeframe restrictions based on asset type
             if (
-              detectedAssetType === "crypto" ||
-              detectedAssetType === "forex" ||
-              detectedAssetType === "commodity" ||
-              detectedAssetType === "index"
+              currentDetectedAssetType === "crypto" ||
+              currentDetectedAssetType === "forex" ||
+              currentDetectedAssetType === "commodity" ||
+              currentDetectedAssetType === "index"
             ) {
               // These asset types only support: 1min, 5min, 1hour, 1D
               isDisabled = !["1m", "5m", "1H", "1D"].includes(tf)
@@ -3353,6 +4053,8 @@ function LightweightChart({
               // Stock asset type supports all timeframes: 1min, 5min, 15min, 30min, 1hour, 4hour, 1D
               isDisabled = false
             }
+
+            const isStreamingTimeframe = ["1m", "5m"].includes(tf)
 
             return (
               <button
@@ -3369,14 +4071,31 @@ function LightweightChart({
                   cursor: isDisabled ? "not-allowed" : "pointer",
                   transition: "all 0.2s",
                   opacity: isDisabled ? 0.5 : 1,
+                  position: "relative",
                 }}
                 title={
                   isDisabled
-                    ? `${tf} timeframe is not supported for ${detectedAssetType || "this"} assets`
-                    : `Switch to ${tf} timeframe`
+                    ? `${tf} timeframe is not supported for ${currentDetectedAssetType || "this"} assets`
+                    : isStreamingTimeframe
+                      ? `${tf} timeframe with live streaming`
+                      : `Switch to ${tf} timeframe`
                 }
               >
                 {tf}
+                {isStreamingTimeframe && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: "-2px",
+                      right: "-2px",
+                      width: "4px",
+                      height: "4px",
+                      borderRadius: "50%",
+                      background: "#46A758",
+                      fontSize: "6px",
+                    }}
+                  />
+                )}
               </button>
             )
           })}
@@ -3680,15 +4399,35 @@ function LightweightChart({
         </div>
       </div>
 
-      {isLoading && <ChartSkeleton height={height} width={width} symbol={symbol} timeframe={timeframe} />}
+      {/* Show skeleton only when loading and data is not ready */}
+      {isLoading && !isDataReady && (
+        <ChartSkeleton height={height} width={width} symbol={symbol} timeframe={timeframe} />
+      )}
+
       <div
         ref={chartContainerRef}
         style={{
           height: "100%",
           width: "100%",
           background: "#000000",
+          opacity: isLoading && !isDataReady ? 0 : 1,
+          transition: "opacity 0.3s ease-in-out",
         }}
       />
+
+      {/* CSS Animation for streaming indicator */}
+      <style>
+        {`
+          @keyframes pulse {
+            0%, 100% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.5;
+            }
+          }
+        `}
+      </style>
     </div>
   )
 }

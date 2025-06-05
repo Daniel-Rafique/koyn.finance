@@ -31,7 +31,7 @@ const RotatingCategories: React.FC = () => {
     // Market hours (9:30 AM - 4 PM ET)
     if (hour >= 9 && hour < 16) {
       return [
-        "Time to hit the screens",
+        "Time to hit the charts",
         "Let's see how the markets are moving",
         "What's moving in the markets?",
         "Ready to analyze the action?"
