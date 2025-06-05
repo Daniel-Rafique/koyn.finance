@@ -3584,27 +3584,87 @@ function LightweightChart({
           }
         }
 
-        // Handle resize
+        // Handle resize - This should be defined earlier, but for context it's part of chart setup
         const handleResize = () => {
           if (chartContainerRef.current && chartRef.current) {
             chartRef.current.applyOptions({
               width: chartContainerRef.current.clientWidth,
               height: chartContainerRef.current.clientHeight,
-            })
+            });
           }
-        }
+        };
+        window.addEventListener("resize", handleResize);
 
-        window.addEventListener("resize", handleResize)
+        // Dynamically adjust scaleMargins for bottom indicator panes (Volume, RSI, MACD)
+        if (chartRef.current) { // Ensure chart object exists
+          interface PaneConfig { scaleId: string; }
+          const activePanesSetup: PaneConfig[] = [];
+          
+          // Order determines stacking: first in this list is physically the bottom-most pane.
+          if (showVolume && volumeSeriesRef.current) activePanesSetup.push({ scaleId: "volume" });
+          if (showRSI && rsiSeriesRef.current) activePanesSetup.push({ scaleId: "rsi" });
+          if (showMACD && macdHistogramSeriesRef.current) activePanesSetup.push({ scaleId: "macd" });
+          // console.log("Active panes for layout:", activePanesSetup.map(p=>p.scaleId));
+
+          const numActiveIndicatorPanes = activePanesSetup.length;
+          let individualPaneHeight = 0;
+          const MAX_DISPLAY_PANES = 3; 
+
+          if (numActiveIndicatorPanes === 1) individualPaneHeight = 0.25; 
+          else if (numActiveIndicatorPanes === 2) individualPaneHeight = 0.20; 
+          else if (numActiveIndicatorPanes >= MAX_DISPLAY_PANES) individualPaneHeight = 0.18; 
+          // console.log("Num active panes:", numActiveIndicatorPanes, "Height per pane:", individualPaneHeight);
+
+          let cumulativeBottomHeight = 0;
+
+          for (let i = 0; i < Math.min(numActiveIndicatorPanes, MAX_DISPLAY_PANES); i++) {
+            const paneConfig = activePanesSetup[i];
+            const topMarginForScale = parseFloat((1.0 - individualPaneHeight - cumulativeBottomHeight).toFixed(4));
+            const bottomMarginForScale = parseFloat(cumulativeBottomHeight.toFixed(4));
+            // console.log(`Applying margins for ${paneConfig.scaleId}: top=${topMarginForScale}, bottom=${bottomMarginForScale}`);
+            
+            try {
+              chartRef.current.priceScale(paneConfig.scaleId).applyOptions({
+                scaleMargins: {
+                  top: topMarginForScale,
+                  bottom: bottomMarginForScale,
+                },
+                visible: true,
+              });
+              cumulativeBottomHeight += individualPaneHeight;
+            } catch (e) {
+              console.warn(`Error applying scaleMargins for ${paneConfig.scaleId}:`, e);
+            }
+          }
+
+          const allPossibleBottomPaneScaleIds = ["volume", "rsi", "macd", "stddev", "williams", "adx"];
+          allPossibleBottomPaneScaleIds.forEach(scaleId => {
+            const isManagedAndDisplayed = activePanesSetup.slice(0, Math.min(numActiveIndicatorPanes, MAX_DISPLAY_PANES)).find(p => p.scaleId === scaleId);
+            if (!isManagedAndDisplayed) {
+              try {
+                if (chartRef.current) { // Double check chartRef
+                  chartRef.current.priceScale(scaleId).applyOptions({
+                    scaleMargins: { top: 0.99, bottom: 0 }, 
+                    visible: false, 
+                  });
+                  // console.log(`Hid/Reset scale: ${scaleId}`);
+                }
+              } catch (e) {
+                 // console.warn(`Could not hide/reset scale ${scaleId}:`, e.message);
+              }
+            }
+          });
+        } // End of dynamic pane adjustment
 
         if (mounted) {
-          console.log("Lightweight chart initialized successfully with", candlestickData.length, "data points")
-          setIsLoading(false)
+          console.log("Lightweight chart initialized successfully with", candlestickData.length, "data points");
+          setIsLoading(false);
         }
 
         // Return cleanup function for resize listener
         return () => {
-          window.removeEventListener("resize", handleResize)
-        }
+          window.removeEventListener("resize", handleResize);
+        };
       } catch (err) {
         if (mounted) {
           console.error("Failed to initialize Lightweight chart:", err)
