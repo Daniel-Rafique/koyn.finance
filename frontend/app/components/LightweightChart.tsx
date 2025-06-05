@@ -2393,25 +2393,42 @@ function LightweightChart({
         // Determine data source and ensure we have valid data
         let dataToUse = null
 
-        if (timeframe === "1D" && chartData) {
-          // Use embedded chart data for daily view (initial load)
-          dataToUse = chartData
-          console.log("Using embedded chart data for 1D timeframe")
+        // First, handle the case for initial 1D data using the chartData prop,
+        // but only if 1D data hasn't been fetched and cached yet.
+        // We also want to ensure chartData is actually daily data.
+        const isInitialDailyLoad = timeframe === "1D" && chartData && chartData.format === "eod" && !getCachedData("1D");
+
+        if (isInitialDailyLoad) {
+          dataToUse = chartData;
+          console.log("Using initial embedded chartData (EOD) for 1D timeframe");
+          // Cache this initial data so it's treated consistently
+          setCachedData("1D", chartData);
+          // Update currentData if it's not already set or is for a different format
+          if (!currentData || currentData.symbol !== symbol || currentData.format !== "eod") {
+            setCurrentData(chartData);
+          }
         } else {
-          // Check cache first, then currentData, then fetch fresh
-          const cachedData = getCachedData(timeframe)
+          // For all other cases (intraday, or 1D after initial load/cache):
+          // 1. Try to get data from the timeframe-specific cache
+          const cachedData = getCachedData(timeframe);
           if (cachedData) {
-            dataToUse = cachedData
-            console.log("Using cached data for", timeframe)
-          } else if (currentData && timeframe !== "1D") {
-            dataToUse = currentData
-            console.log("Using current API data")
+            dataToUse = cachedData;
+            console.log(`Using cached data for ${symbol} ${timeframe}`);
           } else {
-            // Fetch new data from API
-            console.log("Fetching new data for timeframe:", timeframe)
-            const fetchedData = await fetchChartData(timeframe)
-            dataToUse = fetchedData
-            setCurrentData(fetchedData)
+            // 2. If not in cache, fetch fresh data for the current timeframe
+            console.log(`Fetching new data for ${symbol} ${timeframe} (no cache found)`);
+            try {
+              const fetchedData = await fetchChartData(timeframe); // This function also caches the data.
+              dataToUse = fetchedData;
+              setCurrentData(fetchedData); // Update currentData state.
+            } catch (fetchErr) {
+              if (mounted) {
+                console.error(`Failed to fetch data during chart initialization for ${symbol} ${timeframe}:`, fetchErr);
+                setError(fetchErr instanceof Error ? fetchErr.message : "Failed to load chart data.");
+                setIsLoading(false);
+              }
+              return; // Stop initialization if fetch fails
+            }
           }
         }
 
