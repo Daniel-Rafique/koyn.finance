@@ -1420,7 +1420,9 @@ function LightweightChart({
               validVolume === null ||
               validVolume === undefined
             ) {
-              validVolume = Math.round(1000000 * (1 + (Math.random() - 0.5) * 0.3))
+              // Adjust synthetic volume based on timeframe
+              const baseSyntheticVolume = timeframe === "1m" ? 100000 : 1000000; // Smaller base for 1m
+              validVolume = Math.round(baseSyntheticVolume * (1 + (Math.random() - 0.5) * 0.3));
             }
 
             // Additional safety check before adding to volume data
@@ -1543,9 +1545,10 @@ function LightweightChart({
 
           // Enhanced synthetic volume generation for line chart format
           if (timeValue !== null && timeValue !== undefined && timeValue !== "" && timeValue !== "Invalid Date") {
-            const baseVolume = 1000000
-            const volumeVariation = baseVolume * (0.5 + Math.random() * 0.5) // Random volume between 50% and 100% of base
-            const syntheticVolume = Math.round(volumeVariation)
+            // Adjust synthetic volume based on timeframe
+            const baseVolume = timeframe === "1m" ? 100000 : 1000000; // Smaller base for 1m
+            const volumeVariation = baseVolume * (0.5 + Math.random() * 0.5); // Random volume between 50% and 100% of base
+            const syntheticVolume = Math.round(volumeVariation);
 
             // Additional safety check for synthetic volume
             if (syntheticVolume > 0 && isFinite(syntheticVolume)) {
