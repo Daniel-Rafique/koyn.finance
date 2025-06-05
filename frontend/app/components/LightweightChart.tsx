@@ -4396,6 +4396,11 @@ function LightweightChart({
             </div>
           )}
         </div>
+        {currentCandle && (
+          <div className="text-white text-sm">
+            O:{currentCandle.open.toFixed(2)} H:{currentCandle.high.toFixed(2)} L:{currentCandle.low.toFixed(2)}
+          </div>
+        )}
       </div>
 
       {/* Show skeleton only when loading and data is not ready */}
