@@ -11,7 +11,8 @@ import {
 
 import type { Route } from "./+types/root";
 import { AuthProvider } from "./context/AuthProvider";
-// import Tracking from "./components/Tracking";
+
+import Tracking from "./components/Tracking";
 import "~/app.css";
 import "./styles/glowing-input.css";
 import "~/styles/analysis-results.css";
@@ -121,7 +122,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <SafeContextProvider>
           <AuthProvider>
             <RouteChangeHandler />
-            {/* <Tracking /> */}
+             <Tracking /> 
             {children}
           </AuthProvider>
         </SafeContextProvider>
