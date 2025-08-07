@@ -52,7 +52,7 @@ export function TwitterTrackingPixel() {
         })(window as TwitterWindow, document, 'script');
         
         // Configure Twitter pixel with ID
-        (window as TwitterWindow).twq?.('config', 'psiyb');
+        (window as TwitterWindow).twq?.('config', 'q2npq');
       };
 
       // Execute initialization
@@ -70,7 +70,7 @@ export function trackTwitterConversion(params: TwitterConversionParams = {}) {
   if (typeof window === 'undefined' || !(window as TwitterWindow).twq) return;
 
   try {
-    (window as TwitterWindow).twq?.('event', 'tw-psiyb-psiyc', {
+    (window as TwitterWindow).twq?.('event', 'tw-q2npq-q2npr', {
       value: params.value || null,
       currency: params.currency || null, 
       conversion_id: params.conversion_id || null,
@@ -79,6 +79,18 @@ export function trackTwitterConversion(params: TwitterConversionParams = {}) {
     console.log('Twitter conversion event tracked:', params);
   } catch (error) {
     console.error('Error tracking Twitter conversion:', error);
+  }
+}
+
+// Function to track the specific event
+export function trackTwitterEvent() {
+  if (typeof window === 'undefined' || !(window as TwitterWindow).twq) return;
+
+  try {
+    (window as TwitterWindow).twq?.('event', 'tw-q2npq-q2nps', {});
+    console.log('Twitter event tracked: tw-q2npq-q2nps');
+  } catch (error) {
+    console.error('Error tracking Twitter event:', error);
   }
 }
 
