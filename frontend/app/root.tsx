@@ -126,7 +126,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
           `
         }}>
         </script>
-        
+        <script async src="https://www.googletagmanager.com/gtag/js?id=AW-17448039404"></script>
+        <script dangerouslySetInnerHTML={{
+          __html: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'AW-17448039404');
+          `
+        }}>
+        </script>
       </head>
       <body>
         <SafeContextProvider>
