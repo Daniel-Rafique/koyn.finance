@@ -2319,6 +2319,8 @@ app.use(cors({
     const allowedOrigins = [
       'https://koyn.finance',
       'https://www.koyn.finance',
+      'https://dipped.me',
+      'https://www.dipped.me',
       'http://localhost:3000',
       'http://localhost:5173',
       'http://167.71.16.134'
